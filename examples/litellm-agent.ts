@@ -15,6 +15,7 @@ import { AgentLoop } from '../src/core/agent-loop';
 import { createLogger } from '../src/core/logger';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
 import { LiteLLM } from '../src/providers/litellm-provider';
+import { InMemoryArtifactStore } from '../src/stores/artifacts';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { localTools } from '../src/tools/local-tools';
 import { calculateTool, randomNumberTool } from './tools';
@@ -40,34 +41,6 @@ const logger = createLogger({
 
 // Create tool provider with reusable tools
 const toolProvider = localTools([calculateTool, randomNumberTool]);
-
-// Mock Artifact Store
-class MockArtifactStore {
-  async createArtifact(): Promise<string> {
-    return `artifact-${Date.now()}`;
-  }
-  async appendPart(): Promise<void> {}
-  async replacePart(): Promise<void> {}
-  async getArtifact(): Promise<null> {
-    return null;
-  }
-  async getArtifactParts(): Promise<never[]> {
-    return [];
-  }
-  async getTaskArtifacts(): Promise<never[]> {
-    return [];
-  }
-  async deleteArtifact(): Promise<void> {}
-  async getArtifactContent(): Promise<string> {
-    return '';
-  }
-  async queryArtifacts(): Promise<never[]> {
-    return [];
-  }
-  async getArtifactByContext(): Promise<null> {
-    return null;
-  }
-}
 
 async function main() {
   console.log('🚀 LiteLLM Agent Example\n');
@@ -99,7 +72,7 @@ async function main() {
     llmProvider,
     toolProviders: [toolProvider],
     stateStore: new InMemoryStateStore(),
-    artifactStore: new MockArtifactStore(),
+    artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     systemPrompt:
       'You are a helpful math assistant. Use the available tools to help users with calculations.',
@@ -125,6 +98,7 @@ async function main() {
   let eventCount = 0;
 
   events$.subscribe({
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: for the sake of the example
     next: (event) => {
       eventCount++;
       console.log(`\n[${eventCount}] 📡 Event: ${event.kind}`);

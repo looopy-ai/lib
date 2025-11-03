@@ -374,6 +374,7 @@ export interface PersistedLoopState {
  */
 export interface ArtifactStore {
   createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
@@ -390,6 +391,12 @@ export interface ArtifactStore {
     artifactId: string,
     partIndex: number,
     part: Omit<ArtifactPart, 'index'>
+  ): Promise<void>;
+
+  replaceParts(
+    artifactId: string,
+    parts: Omit<ArtifactPart, 'index'>[],
+    isLastChunk?: boolean
   ): Promise<void>;
 
   getArtifact(artifactId: string): Promise<StoredArtifact | null>;

@@ -9,6 +9,7 @@
 import { type Observable, of } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { LLMProvider, LLMResponse, Message, ToolDefinition } from '../src/core/types';
+import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-store';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { localTools } from '../src/tools/local-tools';
 import { weatherTool } from './tools';
@@ -77,34 +78,6 @@ class SimpleLLMProvider implements LLMProvider {
   }
 }
 
-// Mock Artifact Store for the example
-class MockArtifactStore {
-  async createArtifact(): Promise<string> {
-    return `artifact-${Date.now()}`;
-  }
-  async appendPart(): Promise<void> {}
-  async replacePart(): Promise<void> {}
-  async getArtifact(): Promise<null> {
-    return null;
-  }
-  async getArtifactParts(): Promise<never[]> {
-    return [];
-  }
-  async getTaskArtifacts(): Promise<never[]> {
-    return [];
-  }
-  async deleteArtifact(): Promise<void> {}
-  async getArtifactContent(): Promise<string> {
-    return '';
-  }
-  async queryArtifacts(): Promise<never[]> {
-    return [];
-  }
-  async getArtifactByContext(): Promise<null> {
-    return null;
-  }
-}
-
 // Main example function
 async function main() {
   console.log('🚀 Agent Loop Example - Weather Assistant\n');
@@ -116,7 +89,7 @@ async function main() {
     llmProvider: new SimpleLLMProvider(),
     toolProviders: [localTools([weatherTool])],
     stateStore: new InMemoryStateStore(),
-    artifactStore: new MockArtifactStore(),
+    artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     enableCheckpoints: true,
     checkpointInterval: 2,

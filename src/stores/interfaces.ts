@@ -67,8 +67,11 @@ export interface ArtifactOperation {
 export interface ArtifactStore {
   /**
    * Create a new artifact
+   *
+   * @param params.artifactId - Unique identifier for the artifact (provided by the LLM/client)
    */
   createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
@@ -92,6 +95,17 @@ export interface ArtifactStore {
     artifactId: string,
     partIndex: number,
     part: Omit<ArtifactPart, 'index'>
+  ): Promise<void>;
+
+  /**
+   * Replace all parts in an artifact
+   *
+   * Used when parts are grouped and concatenated by kind.
+   */
+  replaceParts(
+    artifactId: string,
+    parts: Omit<ArtifactPart, 'index'>[],
+    isLastChunk?: boolean
   ): Promise<void>;
 
   /**

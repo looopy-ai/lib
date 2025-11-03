@@ -38,7 +38,7 @@ pnpm tsx examples/client-tools-agent.ts
 
 **Status**: ✅ Complete
 
-**Purpose**: Demonstrates artifact creation and streaming with A2A event emission.
+**Purpose**: Demonstrates artifact creation and streaming with A2A event emission using a simple mock LLM.
 
 **Features**:
 - Artifact creation and multi-part updates
@@ -46,6 +46,7 @@ pnpm tsx examples/client-tools-agent.ts
 - Event-driven architecture with decorator pattern
 - In-memory artifact storage
 - Artifact tools (artifact_update, list_artifacts, get_artifact)
+- Mock LLM for demonstration purposes
 
 **What it does**:
 - Creates an artifact with multiple parts
@@ -63,7 +64,43 @@ pnpm tsx examples/artifacts-agent.ts
 - **createArtifactTools()**: Provides artifact manipulation tools for agents
 - **artifact-update events**: A2A protocol events for streaming changes
 
-### 2. `basic-agent.ts` (Not yet implemented)
+### 2. `litellm-artifacts-agent.ts`
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates artifact creation and streaming with A2A events using a real LLM.
+
+**Features**:
+- **Real LLM Integration**: Uses LiteLLM with AWS Bedrock Nova Micro (or any LiteLLM model)
+- **Artifact Creation**: Agent intelligently creates artifacts based on user requests
+- **A2A Event Streaming**: Real-time artifact-update events
+- **Hybrid Tools**: Combines math tools with artifact tools
+- **OpenTelemetry**: Optional tracing support
+- **Smart System Prompt**: Teaches agent when and how to use artifacts
+
+**Example Prompts**:
+- "Create a markdown report about the benefits of reactive programming"
+- "Generate a random number and create an artifact with 5 facts about it"
+- "Create a JSON artifact with the results of calculating 123 * 456 + 789"
+
+**To run**:
+```nu
+pnpm tsx examples/litellm-artifacts-agent.ts
+```
+
+**Prerequisites**:
+- LiteLLM proxy running (`litellm --model gpt-3.5-turbo` or similar)
+
+**Key Learning Points**:
+- How to prompt LLMs to use artifact tools effectively
+- **Important**: LLMs must provide a consistent `artifactId` across multiple updates to the same artifact
+- Combining multiple tool providers (math + artifacts)
+- Real-time artifact event monitoring
+- Structured artifact creation with multiple parts
+- A2A protocol compliance with real LLM responses
+- Using `append=true` to add content, `append=false` to replace content
+
+### 3. `basic-agent.ts` (Not yet implemented)
 
 **Status**: Placeholder
 
@@ -74,7 +111,7 @@ pnpm tsx examples/artifacts-agent.ts
 - In-memory state storage
 - Basic agent loop execution
 
-### 3. `litellm-agent.ts`
+### 4. `litellm-agent.ts`
 
 **Status**: ✅ Complete
 
@@ -103,7 +140,7 @@ pnpm tsx examples/artifacts-agent.ts
 tsx examples/litellm-agent.ts
 ```
 
-### 3. `client-tools-agent.ts`
+### 5. `client-tools-agent.ts`
 
 **Status**: ✅ Complete
 

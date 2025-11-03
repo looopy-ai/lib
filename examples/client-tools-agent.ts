@@ -16,9 +16,10 @@
 import dotenv from 'dotenv';
 import { AgentLoop } from '../src/core/agent-loop';
 import { createLogger } from '../src/core/logger';
-import type { ToolCall, ToolResult } from '../src/core/types';
+import type { AgentEvent, ToolCall, ToolResult } from '../src/core/types';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
 import { LiteLLM } from '../src/providers/litellm-provider';
+import { InMemoryArtifactStore } from '../src/stores/artifacts';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { ClientToolProvider } from '../src/tools/client-tool-provider';
 import type { ExecutionContext } from '../src/tools/interfaces';
@@ -235,31 +236,6 @@ async function simulateClientToolExecution(
 }
 
 // ============================================================================
-// MOCK ARTIFACT STORE
-// ============================================================================
-
-class MockArtifactStore {
-  async createArtifact(): Promise<string> {
-    return `artifact-${Date.now()}`;
-  }
-  async appendPart(): Promise<void> {}
-  async replacePart(): Promise<void> {}
-  async getArtifact(): Promise<null> {
-    return null;
-  }
-  async getArtifactParts(): Promise<never[]> {
-    return [];
-  }
-  async getTaskArtifacts(): Promise<never[]> {
-    return [];
-  }
-  async deleteArtifact(): Promise<void> {}
-  async getArtifactContent(): Promise<string> {
-    return '';
-  }
-}
-
-// ============================================================================
 // MAIN
 // ============================================================================
 
@@ -270,7 +246,7 @@ async function main() {
   console.log('   • Local tools (server-side): calculate, get_weather');
   console.log('   • Client tools (client-side): search_users, get_user_orders, get_user_profile');
   console.log('   • Combined tool execution in a single agent');
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
 
   // Configuration
   const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
@@ -300,7 +276,7 @@ async function main() {
       clientTools, // Client-side tools
     ],
     stateStore: new InMemoryStateStore(),
-    artifactStore: new MockArtifactStore() as any,
+    artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     logger,
   });
@@ -330,7 +306,7 @@ async function main() {
 
   // Run each scenario
   for (const scenario of scenarios) {
-    console.log('\n' + '='.repeat(80));
+    console.log(`\n${'='.repeat(80)}`);
     console.log(`\n📝 SCENARIO: ${scenario.name}`);
     console.log(`💬 Prompt: "${scenario.prompt}"\n`);
     console.log('-'.repeat(80));
@@ -339,7 +315,7 @@ async function main() {
       const events$ = agentLoop.execute(scenario.prompt);
 
       // Collect all events
-      const events: any[] = [];
+      const events: AgentEvent[] = [];
 
       await new Promise<void>((resolve, reject) => {
         events$.subscribe({
@@ -385,7 +361,7 @@ async function main() {
     }
   }
 
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
   console.log('\n✨ All scenarios completed!\n');
 
   // Cleanup

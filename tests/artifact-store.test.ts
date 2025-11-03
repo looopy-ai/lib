@@ -21,19 +21,21 @@ describe('InMemoryArtifactStore', () => {
   });
 
   describe('createArtifact', () => {
-    it('should create an artifact with generated ID', async () => {
+    it('should create an artifact with provided ID', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'my-artifact-1',
         taskId: 'task-1',
         contextId: 'ctx-1',
         name: 'Test Artifact',
         description: 'A test artifact',
       });
 
-      expect(artifactId).toBeTruthy();
+      expect(artifactId).toBe('my-artifact-1');
       expect(typeof artifactId).toBe('string');
 
       const artifact = await store.getArtifact(artifactId);
       expect(artifact).toBeTruthy();
+      expect(artifact?.artifactId).toBe('my-artifact-1');
       expect(artifact?.name).toBe('Test Artifact');
       expect(artifact?.description).toBe('A test artifact');
       expect(artifact?.taskId).toBe('task-1');
@@ -44,6 +46,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should track artifact by task ID', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-2',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -54,6 +57,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should track artifact by context ID', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-3',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -66,6 +70,7 @@ describe('InMemoryArtifactStore', () => {
   describe('appendPart', () => {
     it('should append text part to artifact', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-4',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -87,6 +92,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should mark artifact as complete on last chunk', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-5',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -108,6 +114,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should handle multiple parts', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-6',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -147,6 +154,7 @@ describe('InMemoryArtifactStore', () => {
   describe('replacePart', () => {
     it('should replace an existing part', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-7',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -167,6 +175,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should throw error for invalid part index', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-8',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -183,14 +192,17 @@ describe('InMemoryArtifactStore', () => {
   describe('queryArtifacts', () => {
     it('should query artifacts by context', async () => {
       const id1 = await store.createArtifact({
+        artifactId: 'artifact-9',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
       const id2 = await store.createArtifact({
+        artifactId: 'artifact-10',
         taskId: 'task-2',
         contextId: 'ctx-1',
       });
       await store.createArtifact({
+        artifactId: 'artifact-11',
         taskId: 'task-3',
         contextId: 'ctx-2',
       });
@@ -203,10 +215,12 @@ describe('InMemoryArtifactStore', () => {
 
     it('should filter by context and task', async () => {
       const id1 = await store.createArtifact({
+        artifactId: 'artifact-12',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
       await store.createArtifact({
+        artifactId: 'artifact-13',
         taskId: 'task-2',
         contextId: 'ctx-1',
       });
@@ -223,6 +237,7 @@ describe('InMemoryArtifactStore', () => {
   describe('getArtifactByContext', () => {
     it('should return artifact if context matches', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-14',
         taskId: 'task-1',
         contextId: 'ctx-1',
         name: 'Test',
@@ -235,6 +250,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should return null if context does not match', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-15',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -247,6 +263,7 @@ describe('InMemoryArtifactStore', () => {
   describe('getArtifactContent', () => {
     it('should return combined text content', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-16',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -266,6 +283,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should return data for single data part', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-17',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -281,6 +299,7 @@ describe('InMemoryArtifactStore', () => {
 
     it('should return structured representation for mixed parts', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-18',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -303,6 +322,7 @@ describe('InMemoryArtifactStore', () => {
   describe('deleteArtifact', () => {
     it('should delete artifact and clean up indexes', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-19',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -339,6 +359,7 @@ describe('ArtifactStoreWithEvents', () => {
   describe('createArtifact', () => {
     it('should emit artifact-update event on creation', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-20',
         taskId: 'task-1',
         contextId: 'ctx-1',
         name: 'Test Artifact',
@@ -361,6 +382,7 @@ describe('ArtifactStoreWithEvents', () => {
   describe('appendPart', () => {
     it('should emit artifact-update event with appended part', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-21',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -389,6 +411,7 @@ describe('ArtifactStoreWithEvents', () => {
 
     it('should emit lastChunk=true on final part', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-23',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -409,6 +432,7 @@ describe('ArtifactStoreWithEvents', () => {
 
     it('should emit only latest part for append operations', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-24',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -437,6 +461,7 @@ describe('ArtifactStoreWithEvents', () => {
   describe('replacePart', () => {
     it('should emit artifact-update event with all parts', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-25',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -471,6 +496,7 @@ describe('ArtifactStoreWithEvents', () => {
   describe('A2A part conversion', () => {
     it('should convert text parts correctly', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-26',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -492,6 +518,7 @@ describe('ArtifactStoreWithEvents', () => {
 
     it('should convert data parts correctly', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-27',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -513,6 +540,7 @@ describe('ArtifactStoreWithEvents', () => {
 
     it('should convert file parts with metadata', async () => {
       const artifactId = await store.createArtifact({
+        artifactId: 'artifact-28',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });

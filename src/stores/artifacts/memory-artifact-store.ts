@@ -16,13 +16,19 @@ export class InMemoryArtifactStore implements ArtifactStore {
   private contextArtifacts = new Map<string, Set<string>>();
 
   async createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
     description?: string;
   }): Promise<string> {
-    const artifactId = randomUUID();
+    const artifactId = params.artifactId;
     const now = new Date().toISOString();
+
+    // Check if artifact with this ID already exists
+    if (this.artifacts.has(artifactId)) {
+      throw new Error(`Artifact already exists: ${artifactId}`);
+    }
 
     const artifact: StoredArtifact = {
       artifactId,
@@ -124,6 +130,43 @@ export class InMemoryArtifactStore implements ArtifactStore {
       timestamp: artifact.updatedAt,
       partIndex,
       replacedPartIndexes: [partIndex],
+    });
+  }
+
+  async replaceParts(
+    artifactId: string,
+    parts: Omit<ArtifactPart, 'index'>[],
+    isLastChunk: boolean = false
+  ): Promise<void> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
+
+    const now = new Date().toISOString();
+
+    // Replace all parts with new set, re-indexing
+    artifact.parts = parts.map((part, index) => ({
+      ...part,
+      index,
+    }));
+
+    artifact.totalParts = artifact.parts.length;
+    artifact.version++;
+    artifact.updatedAt = now;
+    artifact.lastChunkIndex = artifact.parts.length - 1;
+    artifact.isLastChunk = isLastChunk;
+
+    if (isLastChunk) {
+      artifact.status = 'complete';
+      artifact.completedAt = now;
+    }
+
+    artifact.operations.push({
+      operationId: randomUUID(),
+      type: isLastChunk ? 'complete' : 'replace',
+      timestamp: now,
+      replacedPartIndexes: artifact.parts.map((_, i) => i),
     });
   }
 

@@ -256,7 +256,7 @@ export class LiteLLMProvider implements LLMProvider {
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorDetail;
+        let errorDetail: string;
         try {
           errorDetail = JSON.parse(errorText);
         } catch {
@@ -318,7 +318,7 @@ export class LiteLLMProvider implements LLMProvider {
               model: this.config.model,
               baseUrl: this.config.baseUrl,
               error: error.message,
-              cause: (error as any).cause?.message,
+              cause: (error as { cause?: { message: string } }).cause?.message,
             },
             'LiteLLM connection failed - is the server running?'
           );
@@ -326,7 +326,7 @@ export class LiteLLMProvider implements LLMProvider {
           throw new Error(
             `Failed to connect to LiteLLM at ${this.config.baseUrl}. ` +
               `Is the server running? Error: ${error.message}. ` +
-              `Cause: ${(error as any).cause?.message || 'unknown'}`
+              `Cause: ${(error as { cause?: { message: string } }).cause?.message || 'unknown'}`
           );
         }
 
@@ -438,7 +438,20 @@ export const LiteLLM = {
       model: 'amazon.nova-micro-v1:0',
       apiKey,
       temperature: 0.7,
-      maxTokens: 4096,
+      maxTokens: 8192,
+    });
+  },
+
+  /**
+   * Create provider for Nova Lite
+   */
+  novaLite(baseUrl: string, apiKey?: string): LiteLLMProvider {
+    return new LiteLLMProvider({
+      baseUrl,
+      model: 'amazon.nova-lite-v1:0',
+      apiKey,
+      temperature: 0.7,
+      maxTokens: 8192,
     });
   },
 

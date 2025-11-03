@@ -45,6 +45,7 @@ export class ArtifactStoreWithEvents implements ArtifactStore {
   ) {}
 
   async createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
@@ -109,6 +110,29 @@ export class ArtifactStoreWithEvents implements ArtifactStore {
       'replace',
       false, // Not append, full replacement
       false // Replace is never final
+    );
+  }
+
+  async replaceParts(
+    artifactId: string,
+    parts: Omit<ArtifactPart, 'index'>[],
+    isLastChunk: boolean = false
+  ): Promise<void> {
+    // 1. Replace in store
+    await this.delegate.replaceParts(artifactId, parts, isLastChunk);
+
+    // 2. Get artifact metadata
+    const artifact = await this.delegate.getArtifact(artifactId);
+    if (!artifact) throw new Error('Artifact not found');
+
+    // 3. Emit A2A event
+    await this.emitArtifactUpdate(
+      artifact.taskId,
+      artifact.contextId,
+      artifactId,
+      'replace',
+      false, // Not append, full replacement
+      isLastChunk
     );
   }
 

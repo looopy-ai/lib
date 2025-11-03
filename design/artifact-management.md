@@ -201,9 +201,12 @@ When a task is resumed, artifacts are:
 interface ArtifactStore {
   /**
    * Create a new artifact
-   * Returns: artifactId
+   *
+   * @param params.artifactId - Unique identifier for the artifact (provided by LLM/client)
+   * @returns The same artifactId that was provided
    */
   createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
@@ -356,6 +359,7 @@ class ArtifactStoreWithEvents implements ArtifactStore {
   ) {}
 
   async createArtifact(params: {
+    artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
@@ -782,10 +786,10 @@ function createArtifactTools(
   return localTools([
     tool(
       'artifact_update',
-      'Create or update an artifact with one or more parts. Use append=false for new artifacts or full replacements, append=true to add parts to existing artifacts.',
+      'Create or update an artifact with one or more parts. Use append=false to replace all parts of an artifact, append=true to append parts to existing artifacts.',
       z.object({
         artifact: A2AArtifactSchema.describe('Artifact with parts to create or update'),
-        append: z.boolean().optional().default(false).describe('If true, append parts to existing artifact. If false, create new or replace all parts.'),
+        append: z.boolean().optional().default(false).describe('If true, append parts to existing artifact. If false, replace all parts of the artifact.'),
         lastChunk: z.boolean().optional().default(false).describe('If true, marks the artifact as complete (no more updates expected)')
       }),
       async ({ artifact, append, lastChunk }, context) => {
