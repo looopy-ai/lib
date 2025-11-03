@@ -53,16 +53,22 @@ class SimpleLLMProvider implements LLMProvider {
     if (hasToolResults) {
       const toolMessage = request.messages.filter((m) => m.role === 'tool').pop();
 
-      if (toolMessage) {
-        const result = JSON.parse(toolMessage.content);
-        return of({
-          message: {
-            role: 'assistant',
-            content: `The weather in ${result.location} is ${result.temperature}°F and ${result.condition}. ${result.condition === 'sunny' ? '☀️' : result.condition === 'rainy' ? '🌧️' : '☁️'}`,
-          },
-          finished: true,
-          finishReason: 'stop',
-        });
+      if (toolMessage && toolMessage.content) {
+        try {
+          const result = JSON.parse(toolMessage.content);
+          if (result && result.location) {
+            return of({
+              message: {
+                role: 'assistant',
+                content: `The weather in ${result.location} is ${result.temperature}°F and ${result.condition}. ${result.condition === 'sunny' ? '☀️' : result.condition === 'rainy' ? '🌧️' : '☁️'}`,
+              },
+              finished: true,
+              finishReason: 'stop',
+            });
+          }
+        } catch (error) {
+          console.error('Failed to parse tool result:', error);
+        }
       }
     }
 
