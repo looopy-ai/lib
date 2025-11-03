@@ -4,6 +4,7 @@
  * Tests for the core agent loop execution engine.
  */
 
+import { evaluate } from 'mathjs';
 import { firstValueFrom, lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -90,7 +91,7 @@ class MockToolProvider implements ToolProvider {
         toolCallId: toolCall.id,
         toolName: toolCall.function.name,
         success: true,
-        result: { result: eval(args.expression as string) },
+        result: { result: evaluate(args.expression as string) },
       };
     }
 
@@ -144,6 +145,10 @@ class MockArtifactStore implements ArtifactStore {
   }
 
   async replacePart(): Promise<void> {
+    // No-op for mock
+  }
+
+  async replaceParts(): Promise<void> {
     // No-op for mock
   }
 

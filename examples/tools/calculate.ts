@@ -4,6 +4,7 @@
  * Evaluates mathematical expressions
  */
 
+import { evaluate } from 'mathjs';
 import { z } from 'zod';
 import { tool } from '../../src/tools/local-tools';
 
@@ -18,8 +19,7 @@ export const calculateTool = tool(
     console.log(`   Arguments:`, { expression });
 
     try {
-      // eslint-disable-next-line no-eval
-      const result = eval(expression);
+      const result = evaluate(expression);
       console.log(`   ✓ Result: ${result}`);
 
       return { expression, result };
