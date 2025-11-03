@@ -46,7 +46,9 @@ type WithTraceContext = {
  */
 function generateTaskId(): string {
   return `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-} /**
+}
+
+/**
  * Agent Loop
  *
  * Main execution engine for the agent framework.
@@ -620,10 +622,10 @@ export class AgentLoop {
           ];
 
           // Store tool results
-          const updatedResults = new Map(state.toolResults);
-          toolResults.forEach((r: ToolResult) => {
-            updatedResults.set(r.toolCallId, r);
-          });
+          const updatedResults = toolResults.reduce(
+            (acc, r: ToolResult) => acc.set(r.toolCallId, r),
+            new Map(state.toolResults)
+          );
 
           // Don't mark as completed - we need to call LLM again with tool results
           this.config.logger.trace(
