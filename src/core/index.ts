@@ -8,12 +8,21 @@ export { AgentLoop } from './agent-loop';
 export { StateCleanupService } from './cleanup';
 export type { AgentLoopConfig } from './config';
 export {
+  createCheckpointEvent,
+  createCompletedEvent,
+  createFailedEvent,
+  createTaskEvent,
+  createWorkingEvent,
+  stateToEvents,
+} from './events';
+export {
   createLogger,
   getLogger,
   setDefaultLogger,
   type LogLevel,
   type LoggerConfig,
 } from './logger';
+export { sanitizeLLMResponse, validateLLMResponse } from './sanitize';
 export type {
   A2AArtifact,
   A2ADataPart,
