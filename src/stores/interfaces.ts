@@ -1,4 +1,14 @@
 /**
+ * Storage Interfaces and Types
+ *
+ * Exports all store interfaces and types:
+ * - State stores
+ * - Artifact stores
+ *
+ * Note: Message store interfaces are in ./messages/interfaces.ts
+ */
+
+/**
  * Stored artifact with multi-part composition
  */
 export interface StoredArtifact {
