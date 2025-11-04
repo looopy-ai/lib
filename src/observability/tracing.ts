@@ -442,9 +442,10 @@ export function startSpan(
  * Set span attributes for common agent operations
  */
 export const SpanAttributes = {
+  SESSION_ID: 'session.id', // Group traces by conversation/thread
+  USER_ID: 'user.id', // Track user for analytics
   AGENT_ID: 'agent.id',
   TASK_ID: 'agent.task.id',
-  CONTEXT_ID: 'agent.context.id',
   ITERATION: 'agent.iteration',
   TOOL_NAME: 'agent.tool.name',
   TOOL_CALL_ID: 'agent.tool.call_id',
@@ -461,8 +462,6 @@ export const SpanAttributes = {
   // Langfuse-specific attributes for categorization and filtering
   // See: https://langfuse.com/docs/observability/features/tags
   // See: https://langfuse.com/docs/observability/features/metadata
-  LANGFUSE_SESSION_ID: 'langfuse.session.id', // Group traces by conversation/thread
-  LANGFUSE_USER_ID: 'langfuse.user.id', // Track user for analytics
   LANGFUSE_TAGS: 'langfuse.tags', // Array of tags (JSON string)
   LANGFUSE_METADATA: 'langfuse.metadata', // Additional metadata (JSON string)
   LANGFUSE_VERSION: 'langfuse.version', // Version/release tracking
@@ -483,8 +482,8 @@ export const SpanAttributes = {
  * Semantic span names for consistency
  */
 export const SpanNames = {
-  AGENT_EXECUTE: 'loop.start',
-  AGENT_ITERATION: 'loop.iteration',
+  LOOP_START: 'loop.start',
+  LOOP_ITERATION: 'loop.iteration',
   LLM_CALL: 'llm.call',
   TOOL_EXECUTE: 'tool.execute',
   TOOL_PROVIDE: 'tool.provide',

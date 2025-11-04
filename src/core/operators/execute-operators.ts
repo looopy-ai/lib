@@ -6,7 +6,7 @@
 
 import { context as otelContext, type Span, trace } from '@opentelemetry/api';
 import type { Logger } from 'pino';
-import { completeAgentExecuteSpan, startAgentExecuteSpan } from '../../observability/spans';
+import { completeAgentExecuteSpan, startAgentLoopSpan } from '../../observability/spans';
 import { extractTraceContext } from '../../observability/tracing';
 import { createFailedEvent } from '../events';
 import type { AgentEvent, Context, LoopState } from '../types';
@@ -28,7 +28,7 @@ export const tapBeforeExecute = (
 ) => {
   return (state: LoopState) => {
     // Start agent execution span
-    const { span, traceContext } = startAgentExecuteSpan({
+    const { span, traceContext } = startAgentLoopSpan({
       agentId: state.agentId,
       taskId: state.taskId,
       contextId: state.contextId,

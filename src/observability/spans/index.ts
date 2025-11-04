@@ -5,9 +5,9 @@
  * in the agent loop execution.
  */
 
-export * from './agent-execute';
-export * from './agent-iteration';
+export * from './agent-loop';
 export * from './agent-turn';
 export * from './llm-call';
+export * from './loop-iteration';
 export * from './tool-execution';
 

@@ -1,14 +1,14 @@
 /**
- * Agent Execute Span Helpers
+ * Agent Loop Span Helpers
  *
- * Tracing utilities for the main agent execution span
+ * Tracing utilities for the main agent loop span
  */
 
 import { context as otelContext, type Span, trace } from '@opentelemetry/api';
 import type { TraceContext } from '../../core/types';
 import { extractTraceContext, injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
 
-export interface AgentExecuteSpanParams {
+export interface AgentLoopSpanParams {
   agentId: string;
   taskId: string;
   contextId: string;
@@ -17,9 +17,9 @@ export interface AgentExecuteSpanParams {
 }
 
 /**
- * Start agent execution span
+ * Start agent loop span
  */
-export function startAgentExecuteSpan(params: AgentExecuteSpanParams): {
+export function startAgentLoopSpan(params: AgentLoopSpanParams): {
   span: Span;
   traceContext: TraceContext;
 } {
@@ -29,14 +29,14 @@ export function startAgentExecuteSpan(params: AgentExecuteSpanParams): {
   const activeContext = parentContext || otelContext.active();
 
   const span = tracer.startSpan(
-    SpanNames.AGENT_EXECUTE,
+    SpanNames.LOOP_START,
     {
       attributes: {
-        'session.id': params.contextId,
+        [SpanAttributes.SESSION_ID]: params.contextId,
         [SpanAttributes.AGENT_ID]: params.agentId,
         [SpanAttributes.TASK_ID]: params.taskId,
-        [SpanAttributes.CONTEXT_ID]: params.contextId,
         input: params.prompt,
+        [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'event',
       },
     },
     activeContext

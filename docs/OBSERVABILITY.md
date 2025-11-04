@@ -214,9 +214,10 @@ The framework automatically adds semantic attributes to spans:
 
 | Attribute                         | Description                          | Example                  |
 | --------------------------------- | ------------------------------------ | ------------------------ |
+| `session.id`                      | Session or context ID                | `"session-1234abcde"`    |
+| `user.id`                         | User ID                              | `"user-4321"`            |
 | `agent.id`                        | Agent identifier                     | `"weather-assistant"`    |
 | `agent.task.id`                   | Unique task ID                       | `"task_123..."`          |
-| `agent.context.id`                | Context/session ID                   | `"ctx_456..."`           |
 | `agent.iteration`                 | Iteration number                     | `2`                      |
 | `agent.tool.name`                 | Tool being executed                  | `"calculate"`            |
 | `agent.tool.call_id`              | Tool call identifier                 | `"call_abc..."`          |
@@ -285,14 +286,6 @@ See: [Langfuse Observation Types](https://langfuse.com/docs/observability/data-m
 ### Langfuse Additional Attributes
 
 Beyond observation types, you can enrich traces with:
-
-- **`langfuse.session.id`** - Group traces by conversation/thread
-  - Useful for multi-turn chat sessions
-  - Enables session-level analytics
-
-- **`langfuse.user.id`** - Track which user triggered the trace
-  - For user-level analytics and filtering
-  - Privacy: can be pseudonymized
 
 - **`langfuse.tags`** - Array of tags (JSON string)
   - For categorization and filtering

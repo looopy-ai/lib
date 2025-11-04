@@ -1,20 +1,20 @@
 /**
- * Agent Iteration Span Helpers
+ * Agent Loop Iteration Span Helpers
  *
  * Tracing utilities for agent loop iterations
  */
 
 import {
-    context as otelContext,
-    type Span,
-    type Context as SpanContext,
-    SpanStatusCode,
-    trace,
+  context as otelContext,
+  type Span,
+  type Context as SpanContext,
+  SpanStatusCode,
+  trace,
 } from '@opentelemetry/api';
 import type { TraceContext } from '../../core/types';
 import { injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
 
-export interface AgentIterationSpanParams {
+export interface LoopIterationSpanParams {
   agentId: string;
   taskId: string;
   contextId: string;
@@ -24,9 +24,9 @@ export interface AgentIterationSpanParams {
 }
 
 /**
- * Start agent iteration span
+ * Start loop iteration span
  */
-export function startAgentIterationSpan(params: AgentIterationSpanParams): {
+export function startLoopIterationSpan(params: LoopIterationSpanParams): {
   span: Span;
   traceContext: TraceContext;
 } {
@@ -36,10 +36,10 @@ export function startAgentIterationSpan(params: AgentIterationSpanParams): {
   const parentContext = params.rootContext || otelContext.active();
 
   const span = tracer.startSpan(
-    SpanNames.AGENT_ITERATION,
+    SpanNames.LOOP_ITERATION,
     {
       attributes: {
-        'session.id': params.contextId,
+        [SpanAttributes.SESSION_ID]: params.contextId,
         [SpanAttributes.AGENT_ID]: params.agentId,
         [SpanAttributes.TASK_ID]: params.taskId,
         [SpanAttributes.ITERATION]: params.iteration,

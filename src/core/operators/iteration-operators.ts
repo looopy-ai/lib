@@ -7,9 +7,9 @@
 import type { Span } from '@opentelemetry/api';
 import type { Logger } from 'pino';
 import {
-    completeIterationSpan,
-    failIterationSpan,
-    startAgentIterationSpan,
+  completeIterationSpan,
+  failIterationSpan,
+  startLoopIterationSpan,
 } from '../../observability/spans';
 import type { LoopState } from '../types';
 
@@ -37,7 +37,7 @@ export const startIterationSpan = (
     );
 
     // Start iteration span
-    const { span, traceContext } = startAgentIterationSpan({
+    const { span, traceContext } = startLoopIterationSpan({
       agentId: state.agentId,
       taskId: state.taskId,
       contextId: state.contextId,

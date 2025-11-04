@@ -201,12 +201,10 @@ class Agent {
 ```typescript
 // Agent turn span
 {
-  'agent.contextId': string;
-  'agent.agentId': string;
-  'agent.taskId': string;
-  'agent.turnNumber': number;
-  'agent.hasUserMessage': boolean;
   'session.id': string;  // For trace grouping
+  'agent.agent.id': string;
+  'agent.task.id': string;
+  'agent.turn.number': number;
   'input': string;       // User message (if provided)
   'output': string;      // Assistant response (set on completion)
   'langfuse.observationType': 'agent';

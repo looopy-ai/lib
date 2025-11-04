@@ -15,20 +15,20 @@ export interface AgentTurnSpanParams {
   userMessage: string | null;
 }
 
+const safeName = (name: string) => name.replace(/[^a-zA-Z0-9_-]+/g, '-');
+
 /**
  * Start agent turn span
  */
 export function startAgentTurnSpan(params: AgentTurnSpanParams): Span {
   const tracer = trace.getTracer('looopy-agent');
 
-  const span = tracer.startSpan(`agent.turn[${params.agentId}]`, {
+  const span = tracer.startSpan(`agent[${safeName(params.agentId)}]`, {
     attributes: {
-      'session.id': params.contextId,
-      'agent.contextId': params.contextId,
-      'agent.agentId': params.agentId,
-      'agent.taskId': params.taskId,
-      'agent.turnNumber': params.turnNumber,
-      'agent.hasUserMessage': params.userMessage !== null,
+      [SpanAttributes.SESSION_ID]: params.contextId,
+      [SpanAttributes.AGENT_ID]: params.agentId,
+      [SpanAttributes.TASK_ID]: params.taskId,
+      'agent.turn.number': params.turnNumber,
       [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'agent',
       // Add input as span attribute for Langfuse
       ...(params.userMessage ? { input: params.userMessage } : {}),
@@ -70,7 +70,7 @@ export function setTurnOutputAttribute(span: Span, output: string): void {
  * Set turn count attribute on span
  */
 export function setTurnCountAttribute(span: Span, turnCount: number): void {
-  span.setAttribute('agent.turnCount', turnCount);
+  span.setAttribute('agent.turn.count', turnCount);
 }
 
 /**
@@ -105,10 +105,8 @@ export function startAgentInitializeSpan(params: {
 
   const spanOptions: import('@opentelemetry/api').SpanOptions = {
     attributes: {
-      'session.id': params.contextId,
-      'agent.contextId': params.contextId,
-      'agent.agentId': params.agentId,
-      [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'event',
+      [SpanAttributes.SESSION_ID]: params.contextId,
+      [SpanAttributes.AGENT_ID]: params.agentId,
     },
   };
 
