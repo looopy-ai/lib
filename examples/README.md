@@ -31,15 +31,51 @@ pnpm tsx examples/basic-agent.ts
 pnpm tsx examples/agent-lifecycle.ts
 pnpm tsx examples/litellm-agent.ts
 pnpm tsx examples/client-tools-agent.ts
+pnpm tsx examples/artifacts-agent.ts
+pnpm tsx examples/litellm-artifacts-agent.ts
+pnpm tsx examples/message-stores.ts
 ```
 
 ## Available Examples
 
-### 1. `agent-lifecycle.ts` ⭐ NEW
+### 1. `basic-agent.ts`
 
 **Status**: ✅ Complete
 
-**Purpose**: Demonstrates the new stateful Agent API for multi-turn conversations with automatic persistence.
+**Purpose**: Minimal AgentLoop example with simulated LLM demonstrating core single-turn execution.
+
+**Features**:
+- **Simple LLM Provider**: Mock provider that simulates tool calls
+- **Local Tools**: Weather tool integration
+- **AgentLoop API**: Single-turn execution pattern
+- **In-Memory Storage**: State and artifact stores
+- **Basic Event Handling**: Subscribe to agent events
+
+**What it demonstrates**:
+- Creating an AgentLoop with minimal configuration
+- Simulated LLM responses and tool calls
+- Tool execution flow
+- Event subscription pattern
+- Single-turn completion
+
+**To run**:
+```nu
+pnpm tsx examples/basic-agent.ts
+```
+
+**Key Concepts**:
+- **AgentLoop**: Single-turn execution engine (stateless)
+- **LLMProvider**: Interface for LLM integration
+- **ToolProvider**: Interface for tool execution
+- **Observable Events**: RxJS-based event streaming
+
+**Design Reference**: See [design/agent-loop.md](../design/agent-loop.md)
+
+### 2. `agent-lifecycle.ts` ⭐ RECOMMENDED
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates the stateful Agent API for multi-turn conversations with automatic persistence.
 
 **Features**:
 - **Stateful Agent**: Manages conversation history across multiple turns
@@ -69,7 +105,37 @@ pnpm tsx examples/agent-lifecycle.ts
 
 **Design Reference**: See [design/agent-lifecycle.md](../design/agent-lifecycle.md)
 
-### 2. `artifacts-agent.ts`
+### 3. `litellm-agent.ts`
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates AgentLoop with local tools using real LiteLLM provider.
+
+**Features**:
+- **LiteLLM Provider**: Real LLM integration (AWS Bedrock, OpenAI, etc.)
+- **Local Tools**: Calculator and random number generator
+- **Server-side Execution**: Tools execute directly on the server
+- **OpenTelemetry**: Optional tracing support
+- **State Persistence**: In-memory state store
+- **Error Handling**: Comprehensive try/catch patterns
+
+**Tools Provided**:
+- `calculate` - Evaluate mathematical expressions
+- `get_random_number` - Generate random numbers in a range
+
+**Key Learning Points**:
+- How to use the LiteLLM provider with real models
+- Implementing local tool providers
+- Tool parameter validation with JSON Schema
+- Server-side tool execution pattern
+- Real LLM interaction with tool calling
+
+**Run**:
+```nu
+pnpm tsx examples/litellm-agent.ts
+```
+
+### 4. `client-tools-agent.ts`
 
 **Status**: ✅ Complete
 
@@ -99,7 +165,7 @@ pnpm tsx examples/artifacts-agent.ts
 - **createArtifactTools()**: Provides artifact manipulation tools for agents
 - **artifact-update events**: A2A protocol events for streaming changes
 
-### 2. `litellm-artifacts-agent.ts`
+### 6. `litellm-artifacts-agent.ts`
 
 **Status**: ✅ Complete
 
@@ -135,47 +201,47 @@ pnpm tsx examples/litellm-artifacts-agent.ts
 - A2A protocol compliance with real LLM responses
 - Using `append=true` to add content, `append=false` to replace content
 
-### 3. `basic-agent.ts` (Not yet implemented)
-
-**Status**: Placeholder
-
-**Purpose**: Minimal agent setup demonstrating core functionality.
-
-**Features**:
-- Simple LLM provider setup
-- In-memory state storage
-- Basic agent loop execution
-
-### 4. `litellm-agent.ts`
+### 7. `message-stores.ts`
 
 **Status**: ✅ Complete
 
-**Purpose**: Demonstrates agent with local tools using LiteLLM provider.
+**Purpose**: Demonstrates different message store implementations for conversation persistence.
 
 **Features**:
-- **LiteLLM Provider**: AWS Bedrock Nova Micro model
-- **Local Tools**: Calculator and random number generator
-- **Server-side Execution**: Tools execute directly on the server
-- **OpenTelemetry**: Optional tracing support
-- **State Persistence**: In-memory state store
-- **Error Handling**: Comprehensive try/catch patterns
+- **In-Memory Store**: Simple development/testing storage
+- **AWS Bedrock Memory Store**: Managed memory with auto-summarization
+- **Mem0 Store**: Multi-level intelligent memory (short/long-term, entity, user)
+- **Hybrid Store**: Combines raw messages with intelligent memory
+- **Real Examples**: Working code for each store type
+- **Configuration**: Shows setup for each provider
 
-**Tools Provided**:
-- `calculate` - Evaluate mathematical expressions
-- `get_random_number` - Generate random numbers in a range
+**What it demonstrates**:
+- Creating and using different MessageStore implementations
+- Appending and retrieving messages
+- Memory summarization strategies
+- Multi-level memory organization
+- Hybrid approaches for best of both worlds
 
-**Key Learning Points**:
-- How to create a custom `ToolProvider`
-- Implementing `getTools()`, `canHandle()`, and `execute()` methods
-- Tool parameter validation with JSON Schema
-- Server-side tool execution pattern
-
-**Run**:
+**To run**:
 ```nu
-tsx examples/litellm-agent.ts
+pnpm tsx examples/message-stores.ts
 ```
 
-### 5. `client-tools-agent.ts`
+**Key Learning Points**:
+- When to use each message store type
+- Configuring AWS Bedrock Agents Memory
+- Setting up Mem0 with different memory levels
+- Hybrid strategy for combining raw + intelligent memory
+- How message stores integrate with Agent class
+
+**Design Reference**: See [design/message-management.md](../design/message-management.md)
+
+## Tool Execution Patterns
+```nu
+pnpm tsx examples/litellm-agent.ts
+```
+
+### 4. `client-tools-agent.ts`
 
 **Status**: ✅ Complete
 
@@ -204,7 +270,7 @@ tsx examples/litellm-agent.ts
 
 **Run**:
 ```nu
-tsx examples/client-tools-agent.ts
+pnpm tsx examples/client-tools-agent.ts
 ```
 
 **Example Output**:
@@ -223,7 +289,37 @@ The calculation result is 120, and I found Alice Johnson (alice@example.com)
 with total orders of $80.00.
 ```
 
-## Tool Execution Patterns
+### 5. `artifacts-agent.ts`
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates artifact creation and streaming with A2A event emission using a simple mock LLM.
+
+**Features**:
+- Artifact creation and multi-part updates
+- A2A protocol event emission
+- Event-driven architecture with decorator pattern
+- In-memory artifact storage
+- Artifact tools (artifact_update, list_artifacts, get_artifact)
+- Mock LLM for demonstration purposes
+
+**What it does**:
+- Creates an artifact with multiple parts
+- Streams artifact updates as A2A events
+- Shows how to subscribe to artifact changes
+- Demonstrates the Store-First Architecture
+
+**To run**:
+```nu
+pnpm tsx examples/artifacts-agent.ts
+```
+
+**Key concepts**:
+- **ArtifactStoreWithEvents**: Decorator that automatically emits A2A events
+- **createArtifactTools()**: Provides artifact manipulation tools for agents
+- **artifact-update events**: A2A protocol events for streaming changes
+
+### 6. `litellm-artifacts-agent.ts`
 
 ### Local Tools (Server-side)
 
@@ -245,6 +341,8 @@ class LocalToolProvider implements ToolProvider {
 - Internal database queries
 - File system operations
 
+**Examples**: See `basic-agent.ts`, `litellm-agent.ts`
+
 ### Client Tools (Client-side Delegation)
 
 Tools delegate execution to the client via A2A protocol:
@@ -265,6 +363,52 @@ const clientTools = new ClientToolProvider({
 - Browser-based operations
 - User-specific permissions
 - Local file access on client machine
+
+**Design References**:
+- [design/agent-lifecycle.md](../design/agent-lifecycle.md) - Agent (multi-turn)
+- [design/agent-loop.md](../design/agent-loop.md) - AgentLoop (single-turn)
+
+## Example Progression
+
+We recommend reviewing examples in this order:
+
+1. **`basic-agent.ts`** - Start here for AgentLoop basics with mock LLM
+2. **`agent-lifecycle.ts`** - Learn Agent API for multi-turn conversations ⭐
+3. **`litellm-agent.ts`** - Real LLM integration with local tools
+4. **`client-tools-agent.ts`** - Hybrid local + client tools
+5. **`artifacts-agent.ts`** - Artifact system with mock LLM
+6. **`litellm-artifacts-agent.ts`** - Artifacts with real LLM
+7. **`message-stores.ts`** - Advanced message persistence strategies
+
+## Agent vs AgentLoop
+
+The framework provides two APIs for different use cases:
+
+### Agent (Multi-turn, Stateful)
+
+Use **Agent** when you need:
+- ✅ Multi-turn conversations
+- ✅ Automatic message persistence
+- ✅ Session management
+- ✅ Lazy initialization
+- ✅ Lifecycle management (start/pause/shutdown)
+
+**Examples**: `agent-lifecycle.ts`, `message-stores.ts`
+
+### AgentLoop (Single-turn, Stateless)
+
+Use **AgentLoop** when you need:
+- ✅ One-off task execution
+- ✅ Full control over state
+- ✅ Custom message management
+- ✅ Embedding in other systems
+- ✅ Lower-level API access
+
+**Examples**: `basic-agent.ts`, `litellm-agent.ts`, `client-tools-agent.ts`, `artifacts-agent.ts`, `litellm-artifacts-agent.ts`
+
+**Design References**:
+- [design/agent-lifecycle.md](../design/agent-lifecycle.md) - Agent (multi-turn)
+- [design/agent-loop.md](../design/agent-loop.md) - AgentLoop (single-turn)
 
 ## A2A Protocol Integration
 

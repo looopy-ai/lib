@@ -6,57 +6,83 @@ This directory contains the actual implementation code for the Looopy framework.
 
 ```
 src/
-├── core/              # Core agent loop implementation
-│   ├── interfaces.ts  # Core interfaces and types
-│   ├── agent-loop.ts  # Main agent execution loop
-│   └── checkpoint.ts  # State checkpointing logic
+├── core/                      # Core agent implementation
+│   ├── agent.ts               # Multi-turn conversation manager (stateful)
+│   ├── agent-loop.ts          # Single-turn execution engine (stateless)
+│   ├── operators/             # RxJS operator factories
+│   │   ├── execute-operators.ts    # Root span management
+│   │   ├── iteration-operators.ts  # Iteration loop
+│   │   └── llm-operators.ts        # LLM calls and responses
+│   ├── types.ts               # Core type definitions
+│   ├── config.ts              # Configuration interfaces
+│   ├── logger.ts              # Pino logger setup
+│   ├── cleanup.ts             # State cleanup service
+│   ├── events.ts              # Event helper utilities
+│   ├── sanitize.ts            # Input sanitization
+│   └── index.ts               # Exports
 │
-├── stores/            # State and artifact persistence
-│   ├── interfaces.ts  # StateStore, ArtifactStore interfaces
-│   ├── redis/         # Redis implementations
-│   ├── memory/        # In-memory implementations
-│   └── factory.ts     # Store factory
+├── stores/                    # State and artifact persistence
+│   ├── interfaces.ts          # StateStore, ArtifactStore interfaces
+│   ├── factory.ts             # Store creation factory
+│   ├── redis/                 # Redis implementations
+│   │   └── redis-state-store.ts
+│   ├── memory/                # In-memory implementations
+│   │   └── memory-state-store.ts
+│   └── artifacts/             # Artifact store implementations
+│       ├── memory-artifact-store.ts
+│       ├── artifact-store-with-events.ts
+│       └── index.ts
 │
-├── tools/             # Tool integration
-│   ├── interfaces.ts  # ToolProvider interface
-│   ├── local/         # Local function tools
-│   ├── mcp/           # MCP client integration
-│   └── client/        # Client tool delegation
+├── tools/                     # Tool integration
+│   ├── interfaces.ts          # ToolProvider interface
+│   ├── local-tools.ts         # Local function tools
+│   ├── client-tool-provider.ts # Client-delegated tools
+│   ├── artifact-tools.ts      # Artifact management tools
+│   └── index.ts               # Exports
 │
-├── a2a/               # A2A protocol implementation
-│   ├── server.ts      # SSE server
-│   ├── client.ts      # SSE client
-│   └── types.ts       # A2A message types
+├── providers/                 # LLM providers
+│   ├── litellm-provider.ts    # LiteLLM proxy integration
+│   └── index.ts               # Exports
 │
-├── observability/     # OpenTelemetry integration
-│   ├── tracer.ts      # Trace setup
-│   └── metrics.ts     # Metrics setup
+└── observability/             # Tracing and logging
+    ├── tracing.ts             # OpenTelemetry setup
+    ├── spans/                 # Span helper functions
+    │   └── agent-turn.ts
+    └── index.ts               # Exports
+```
+
+## Not Yet Implemented
+
+The following directories from the design docs are planned but not yet implemented:
+
+```
+├── a2a/                       # A2A protocol (planned)
+│   ├── server.ts              # SSE server
+│   └── client.ts              # SSE client
 │
-├── auth/              # Authentication
-│   ├── interfaces.ts  # Auth strategy interfaces
-│   └── strategies/    # Auth implementations
-│
-├── extensions/        # Extension points
-│   └── hooks.ts       # Extension hook system
-│
-└── discovery/         # Dynamic discovery
-    └── registry.ts    # Tool/agent registry
+├── auth/                      # Authentication (planned)
+├── extensions/                # Extension points (planned)
+└── discovery/                 # Dynamic discovery (planned)
 ```
 
 ## Design Reference
 
 All code in this directory implements the designs in `/design`:
 
-| Implementation       | Design Document                                               |
-| -------------------- | ------------------------------------------------------------- |
-| `core/agent-loop.ts` | [design/agent-loop.md](../design/agent-loop.md)               |
-| `stores/*`           | [design/agent-loop.md#persistence](../design/agent-loop.md)   |
-| `a2a/*`              | [design/a2a-protocol.md](../design/a2a-protocol.md)           |
-| `tools/*`            | [design/tool-integration.md](../design/tool-integration.md)   |
-| `auth/*`             | [design/authentication.md](../design/authentication.md)       |
-| `observability/*`    | [design/observability.md](../design/observability.md)         |
-| `extensions/*`       | [design/extension-points.md](../design/extension-points.md)   |
-| `discovery/*`        | [design/dynamic-discovery.md](../design/dynamic-discovery.md) |
+| Implementation               | Design Document                                                     |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `core/agent.ts`              | [design/agent-lifecycle.md](../design/agent-lifecycle.md)          |
+| `core/agent-loop.ts`         | [design/agent-loop.md](../design/agent-loop.md)                    |
+| `core/operators/*`           | [design/agent-loop.md](../design/agent-loop.md)                    |
+| `stores/*`                   | [design/agent-loop.md](../design/agent-loop.md)                    |
+| `stores/artifacts/*`         | [design/artifact-management.md](../design/artifact-management.md)  |
+| `tools/*`                    | [design/tool-integration.md](../design/tool-integration.md)        |
+| `providers/litellm-provider` | [design/agent-loop.md](../design/agent-loop.md)                    |
+| `observability/*`            | [design/observability.md](../design/observability.md)              |
+| `a2a/*` (planned)            | [design/a2a-protocol.md](../design/a2a-protocol.md)                |
+| `auth/*` (planned)           | [design/authentication.md](../design/authentication.md)            |
+| `extensions/*` (planned)     | [design/extension-points.md](../design/extension-points.md)        |
+| `discovery/*` (planned)      | [design/dynamic-discovery.md](../design/dynamic-discovery.md)      |
 
 ## Code Style
 
