@@ -28,13 +28,48 @@ Use `tsx` to run TypeScript examples directly:
 
 ```nu
 pnpm tsx examples/basic-agent.ts
+pnpm tsx examples/agent-lifecycle.ts
 pnpm tsx examples/litellm-agent.ts
 pnpm tsx examples/client-tools-agent.ts
 ```
 
 ## Available Examples
 
-### 1. `artifacts-agent.ts`
+### 1. `agent-lifecycle.ts` ⭐ NEW
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates the new stateful Agent API for multi-turn conversations with automatic persistence.
+
+**Features**:
+- **Stateful Agent**: Manages conversation history across multiple turns
+- **Auto-save**: Automatically persists messages after each turn
+- **Pause/Resume**: Save agent state and resume later
+- **Multi-turn Context**: Each turn has access to full conversation history
+- **Message Stores**: In-memory storage (easily swappable with Redis, Bedrock, etc.)
+- **Lifecycle Management**: start(), pause(), shutdown()
+
+**What it demonstrates**:
+- Creating an agent with persistent state
+- Executing multiple conversational turns
+- Pausing and resuming conversations
+- Viewing conversation history
+- Context continuity across turns
+
+**To run**:
+```nu
+pnpm tsx examples/agent-lifecycle.ts
+```
+
+**Key Concepts**:
+- **Agent** vs **AgentLoop**: Agent manages lifecycle and state, AgentLoop executes single turns
+- **contextId**: Unique identifier for a conversation session
+- **MessageStore**: Persists conversation history
+- **Turn-based execution**: Each `executeTurn()` is one complete LLM interaction
+
+**Design Reference**: See [design/agent-lifecycle.md](../design/agent-lifecycle.md)
+
+### 2. `artifacts-agent.ts`
 
 **Status**: ✅ Complete
 

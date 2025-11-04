@@ -12,7 +12,7 @@ export interface AgentExecuteSpanParams {
   agentId: string;
   taskId: string;
   contextId: string;
-  prompt: string;
+  prompt?: string;
   traceContext?: TraceContext;
 }
 
@@ -32,11 +32,11 @@ export function startAgentExecuteSpan(params: AgentExecuteSpanParams): {
     SpanNames.AGENT_EXECUTE,
     {
       attributes: {
+        'session.id': params.contextId,
         [SpanAttributes.AGENT_ID]: params.agentId,
         [SpanAttributes.TASK_ID]: params.taskId,
         [SpanAttributes.CONTEXT_ID]: params.contextId,
         input: params.prompt,
-        [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'agent',
       },
     },
     activeContext

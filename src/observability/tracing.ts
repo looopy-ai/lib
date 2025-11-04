@@ -483,8 +483,8 @@ export const SpanAttributes = {
  * Semantic span names for consistency
  */
 export const SpanNames = {
-  AGENT_EXECUTE: 'agent.execute',
-  AGENT_ITERATION: 'agent.iteration',
+  AGENT_EXECUTE: 'loop.start',
+  AGENT_ITERATION: 'loop.iteration',
   LLM_CALL: 'llm.call',
   TOOL_EXECUTE: 'tool.execute',
   TOOL_PROVIDE: 'tool.provide',

@@ -5,11 +5,11 @@
  */
 
 import {
-  context as otelContext,
-  type Span,
-  type Context as SpanContext,
-  SpanStatusCode,
-  trace,
+    context as otelContext,
+    type Span,
+    type Context as SpanContext,
+    SpanStatusCode,
+    trace,
 } from '@opentelemetry/api';
 import type { TraceContext } from '../../core/types';
 import { injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
@@ -17,6 +17,7 @@ import { injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
 export interface AgentIterationSpanParams {
   agentId: string;
   taskId: string;
+  contextId: string;
   iteration: number;
   traceContext?: TraceContext;
   rootContext?: SpanContext; // Parent context for sibling spans
@@ -38,6 +39,7 @@ export function startAgentIterationSpan(params: AgentIterationSpanParams): {
     SpanNames.AGENT_ITERATION,
     {
       attributes: {
+        'session.id': params.contextId,
         [SpanAttributes.AGENT_ID]: params.agentId,
         [SpanAttributes.TASK_ID]: params.taskId,
         [SpanAttributes.ITERATION]: params.iteration,

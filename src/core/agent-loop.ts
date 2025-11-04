@@ -76,9 +76,45 @@ export class AgentLoop {
   }
 
   /**
-   * Execute agent loop with a prompt
+   * Execute a single turn with message history
+   *
+   * New API for Agent integration - executes one turn with provided messages
+   *
+   * @param messages - Full conversation history including new user message
+   * @param context - Turn execution context
+   * @returns Observable stream of events for this turn
    */
-  execute(prompt: string, context: Partial<Context> = {}): Observable<AgentEvent> {
+  executeTurn(
+    messages: Message[],
+    context: {
+      contextId: string;
+      taskId?: string;
+      turnNumber: number;
+      artifacts?: Array<{ id: string; content: unknown }>;
+      authContext?: import('./types').AuthContext;
+      traceContext?: import('./types').TraceContext;
+      metadata?: Record<string, unknown>;
+    }
+  ): Observable<AgentEvent> {
+    // Pass full message history through context
+    // This allows the LLM to see the entire conversation
+    return this.execute('', {
+      contextId: context.contextId,
+      taskId: context.taskId || `turn-${context.turnNumber}`,
+      authContext: context.authContext,
+      traceContext: context.traceContext,
+      messages, // Pass full conversation history
+      ...context.metadata,
+    });
+  }
+
+  /**
+   * Execute agent loop
+   *
+   * @param prompt - Legacy: User prompt (optional if context.messages provided)
+   * @param context - Execution context (can include full message history)
+   */
+  execute(prompt: string = '', context: Partial<Context> = {}): Observable<AgentEvent> {
     const execId = `exec_${Math.random().toString(36).slice(2, 8)}`;
     this.config.logger.info({ prompt, context, execId }, 'Starting agent execution');
 
@@ -89,7 +125,7 @@ export class AgentLoop {
       this.config.logger.trace({ execId }, 'defer() executing - prepareExecution');
       return this.prepareExecution(prompt, context);
     }).pipe(
-      tap(tapBeforeExecute(rootSpanRef, prompt, context, this.config.logger)),
+      tap(tapBeforeExecute(rootSpanRef, context, this.config.logger)),
       switchMap((state: LoopState) => {
         this.config.logger.trace({ taskId: state.taskId }, 'switchMap to runLoop');
         return this.runLoop(state);
@@ -152,8 +188,9 @@ export class AgentLoop {
     const toolArrays = await Promise.all(toolPromises);
     const availableTools = toolArrays.flat();
 
+    // Use full message history if provided (from Agent), otherwise create initial message
     // System prompt message is injected in callLLM() to aid history compaction
-    const initialMessages: Message[] = [
+    const initialMessages: Message[] = context.messages || [
       {
         role: 'user',
         content: prompt,

@@ -18,6 +18,7 @@ export interface Context {
   maxIterations?: number;
   traceContext?: TraceContext;
   authContext?: AuthContext;
+  messages?: Message[]; // Full conversation history (optional, for Agent integration)
   metadata?: Record<string, unknown>;
 }
 

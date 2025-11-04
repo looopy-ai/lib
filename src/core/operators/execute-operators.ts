@@ -23,7 +23,6 @@ type WithTraceContext = {
  */
 export const tapBeforeExecute = (
   rootSpanRef: { current: Span | null },
-  prompt: string,
   context: Partial<Context>,
   logger: Logger
 ) => {
@@ -33,7 +32,7 @@ export const tapBeforeExecute = (
       agentId: state.agentId,
       taskId: state.taskId,
       contextId: state.contextId,
-      prompt,
+      prompt: context.messages?.at(-1)?.content,
       traceContext: context.traceContext,
     });
 
