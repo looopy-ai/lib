@@ -105,24 +105,44 @@ Implementation should be organized as:
 
 ```
 src/
-├── core/              # Core agent loop
-│   ├── agent-loop.ts
-│   ├── checkpoint.ts
-│   └── resumption.ts
+├── core/              # Agent and AgentLoop
+│   ├── agent.ts       # Multi-turn conversation manager
+│   ├── agent-loop.ts  # Single-turn execution engine (includes checkpointing)
+│   ├── operators/     # RxJS operator factories
+│   │   ├── execute-operators.ts
+│   │   ├── iteration-operators.ts
+│   │   └── llm-operators.ts
+│   ├── types.ts       # Core type definitions
+│   ├── config.ts      # Configuration interfaces
+│   ├── logger.ts      # Pino logger setup
+│   └── cleanup.ts     # State cleanup service
 ├── stores/            # State and artifact storage
-│   ├── interfaces.ts
-│   ├── redis-state-store.ts
-│   ├── memory-state-store.ts
-│   └── artifact-store.ts
+│   ├── interfaces.ts  # Store interfaces
+│   ├── factory.ts     # Store creation factory
+│   ├── redis/         # Redis implementations
+│   │   └── redis-state-store.ts
+│   ├── memory/        # In-memory implementations
+│   │   └── memory-state-store.ts
+│   └── artifacts/     # Artifact store implementations
+│       ├── memory-artifact-store.ts
+│       └── artifact-store-with-events.ts
 ├── tools/             # Tool integration
-│   ├── tool-provider.ts
-│   ├── local-tools.ts
-│   └── mcp-client.ts
-├── a2a/               # A2A protocol
-│   ├── server.ts
-│   └── client.ts
-└── observability/     # Telemetry
-    └── tracing.ts
+│   ├── interfaces.ts  # ToolProvider interface
+│   ├── local-tools.ts # Local function tools
+│   ├── client-tool-provider.ts # Client-delegated tools
+│   └── artifact-tools.ts # Artifact management tools (planned)
+├── providers/         # LLM providers
+│   └── litellm-provider.ts # LiteLLM proxy integration
+├── observability/     # Tracing and logging
+│   ├── tracing.ts     # OpenTelemetry setup
+│   └── spans/         # Span helper functions
+│       └── agent-turn.ts
+└── README.md          # Implementation guide
+
+Future directories (planned):
+├── a2a/               # A2A protocol (not yet implemented)
+│   ├── server.ts      # SSE server
+│   └── client.ts      # SSE client
 ```
 
 ### 6. Code Examples in Design
