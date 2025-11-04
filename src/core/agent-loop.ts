@@ -98,7 +98,8 @@ export class AgentLoop {
   ): Observable<AgentEvent> {
     // Pass full message history through context
     // This allows the LLM to see the entire conversation
-    return this.execute('', {
+    return this.execute({
+      agentId: this.config.agentId,
       contextId: context.contextId,
       taskId: context.taskId || `turn-${context.turnNumber}`,
       authContext: context.authContext,
@@ -111,19 +112,18 @@ export class AgentLoop {
   /**
    * Execute agent loop
    *
-   * @param prompt - Legacy: User prompt (optional if context.messages provided)
-   * @param context - Execution context (can include full message history)
+   * @param context - Execution context (must include messages)
    */
-  execute(prompt: string = '', context: Partial<Context> = {}): Observable<AgentEvent> {
+  execute(context: Context): Observable<AgentEvent> {
     const execId = `exec_${Math.random().toString(36).slice(2, 8)}`;
-    this.config.logger.info({ prompt, context, execId }, 'Starting agent execution');
+    this.config.logger.info({ context, execId }, 'Starting agent execution');
 
     // Store root span in ref so operators can access it
     const rootSpanRef = { current: null as Span | null };
 
     return defer(() => {
       this.config.logger.trace({ execId }, 'defer() executing - prepareExecution');
-      return this.prepareExecution(prompt, context);
+      return this.prepareExecution(context);
     }).pipe(
       tap(tapBeforeExecute(rootSpanRef, context, this.config.logger)),
       switchMap((state: LoopState) => {
@@ -179,27 +179,22 @@ export class AgentLoop {
   /**
    * Prepare initial execution state
    */
-  private async prepareExecution(prompt: string, context: Partial<Context>): Promise<LoopState> {
+  private async prepareExecution(context: Context): Promise<LoopState> {
     const taskId = context.taskId || generateTaskId();
-    const contextId = context.contextId || `ctx_${Date.now()}`;
+    const contextId = context.contextId;
 
     // Gather tools from all providers
     const toolPromises = this.config.toolProviders.map((p) => p.getTools());
     const toolArrays = await Promise.all(toolPromises);
     const availableTools = toolArrays.flat();
 
-    // Use full message history if provided (from Agent), otherwise create initial message
+    // Use provided message history
     // System prompt message is injected in callLLM() to aid history compaction
-    const initialMessages: Message[] = context.messages || [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ];
+    const initialMessages: Message[] = context.messages || [];
 
     return {
       taskId,
-      agentId: this.config.agentId,
+      agentId: context.agentId,
       parentTaskId: context.parentTaskId,
       contextId,
       messages: initialMessages,
@@ -211,11 +206,7 @@ export class AgentLoop {
       completed: false,
       iteration: 0,
       maxIterations: context.maxIterations || this.config.maxIterations,
-      context: {
-        agentId: this.config.agentId,
-        contextId,
-        ...context,
-      },
+      context,
       traceContext: context.traceContext,
       authContext: context.authContext,
       stateStore: this.config.stateStore,
