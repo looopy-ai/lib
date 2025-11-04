@@ -23,7 +23,7 @@ import { InMemoryMessageStore } from '../src/stores/messages/memory-message-stor
 import { localTools } from '../src/tools/local-tools';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
-dotenv.config({ path: '/custom/path/to/.env' });
+dotenv.config();
 
 // Initialize OpenTelemetry tracing (optional - only if OTEL_ENABLED=true)
 if (process.env.OTEL_ENABLED === 'true') {
