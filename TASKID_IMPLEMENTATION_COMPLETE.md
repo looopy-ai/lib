@@ -2,7 +2,7 @@
 
 ## Summary
 
-Successfully implemented per-turn unique task identifiers for the Agent API. Each `executeTurn()` call now generates or accepts a unique `taskId` that flows through the entire execution pipeline.
+Successfully implemented per-turn unique task identifiers for the Agent API. Each `startTurn()` call now generates or accepts a unique `taskId` that flows through the entire execution pipeline.
 
 ## Changes Made
 
@@ -10,9 +10,9 @@ Successfully implemented per-turn unique task identifiers for the Agent API. Eac
 
 **File**: `src/core/agent.ts`
 
-**Updated `executeTurn()` signature**:
+**Updated `startTurn()` signature**:
 ```typescript
-async executeTurn(
+async startTurn(
   userMessage: string | null,
   options?: {
     authContext?: AuthContext;
@@ -45,27 +45,27 @@ private executeInternal(
 ```
 
 **Flow**:
-1. `executeTurn()` generates or receives taskId
+1. `startTurn()` generates or receives taskId
 2. Passes to `executeInternal()`
-3. Flows through to `AgentLoop.executeTurn()` context
+3. Flows through to `AgentLoop.startTurn()` context
 4. Used in all emitted `AgentEvent` objects
 
 ### 3. Examples Updated
 
 **File**: `examples/agent-lifecycle.ts`
 
-**Updated all `executeTurn()` calls**:
+**Updated all `startTurn()` calls**:
 ```typescript
 // Before
-await agent.executeTurn('message', authContext);
+await agent.startTurn('message', authContext);
 
 // After - using options object
-await agent.executeTurn('message', {
+await agent.startTurn('message', {
   authContext: getAuthContext(),
 });
 
 // With custom taskId
-await agent.executeTurn('message', {
+await agent.startTurn('message', {
   authContext: getAuthContext(),
   taskId: 'custom-task-abc-123',
 });
@@ -92,17 +92,17 @@ await agent.executeTurn('message', {
 const agent = new Agent({ contextId: 'session-abc' });
 
 // Turn 1: session-abc-turn-1-1704067200000
-await agent.executeTurn('First message');
+await agent.startTurn('First message');
 
 // Turn 2: session-abc-turn-2-1704067205000
-await agent.executeTurn('Second message');
+await agent.startTurn('Second message');
 ```
 
 ### Custom TaskId
 
 **Usage**:
 ```typescript
-await agent.executeTurn('Process this order', {
+await agent.startTurn('Process this order', {
   authContext: auth,
   taskId: 'order-processing-xyz-789',
 });
@@ -148,7 +148,7 @@ Map A2A taskId to Agent execution:
 app.post('/api/a2a', async (req, res) => {
   const a2aTaskId = req.body.params.taskId;
 
-  const events$ = await agent.executeTurn(message, {
+  const events$ = await agent.startTurn(message, {
     authContext: auth,
     taskId: a2aTaskId, // Use A2A taskId directly
   });
@@ -171,16 +171,16 @@ if (processedTasks.has(customTaskId)) {
   return cachedResult;
 }
 
-await agent.executeTurn(message, { taskId: customTaskId });
+await agent.startTurn(message, { taskId: customTaskId });
 processedTasks.add(customTaskId);
 ```
 
 ## API Reference
 
-### Agent.executeTurn()
+### Agent.startTurn()
 
 ```typescript
-async executeTurn(
+async startTurn(
   userMessage: string | null,
   options?: {
     authContext?: AuthContext;
@@ -203,15 +203,15 @@ async executeTurn(
 **Examples**:
 ```typescript
 // Auto-generated taskId
-const events$ = await agent.executeTurn('Hello');
+const events$ = await agent.startTurn('Hello');
 
 // With auth context
-const events$ = await agent.executeTurn('Process data', {
+const events$ = await agent.startTurn('Process data', {
   authContext: { actorId: 'user-123', credentials: { token: 'abc' } },
 });
 
 // With custom taskId
-const events$ = await agent.executeTurn('Analyze', {
+const events$ = await agent.startTurn('Analyze', {
   authContext: auth,
   taskId: 'analysis-job-456',
 });
@@ -223,8 +223,8 @@ const events$ = await agent.executeTurn('Analyze', {
 ```typescript
 const agent = new Agent({ contextId: 'test-ctx' });
 
-const events1$ = await agent.executeTurn('Message 1');
-const events2$ = await agent.executeTurn('Message 2');
+const events1$ = await agent.startTurn('Message 1');
+const events2$ = await agent.startTurn('Message 2');
 
 // Verify different taskIds
 events1$.subscribe(e => {
@@ -239,7 +239,7 @@ events2$.subscribe(e => {
 ### 2. Verify Custom TaskId
 ```typescript
 const customTaskId = 'my-custom-task-123';
-const events$ = await agent.executeTurn('Message', {
+const events$ = await agent.startTurn('Message', {
   taskId: customTaskId,
 });
 
@@ -250,7 +250,7 @@ events$.subscribe(e => {
 
 ### 3. Verify Event Correlation
 ```typescript
-const events$ = await agent.executeTurn('Message');
+const events$ = await agent.startTurn('Message');
 const taskIds = new Set<string>();
 
 events$.subscribe(e => {
@@ -267,12 +267,12 @@ expect(taskIds.size).toBe(1);
 
 **Before**:
 ```typescript
-await agent.executeTurn('message', authContext);
+await agent.startTurn('message', authContext);
 ```
 
 **After**:
 ```typescript
-await agent.executeTurn('message', {
+await agent.startTurn('message', {
   authContext,
 });
 ```
@@ -299,7 +299,7 @@ await agent.executeTurn('message', {
 ## Status
 
 ✅ **COMPLETE**
-- Agent.executeTurn() signature updated
+- Agent.startTurn() signature updated
 - TaskId auto-generation implemented
 - Examples updated with new API
 - All compilation errors resolved

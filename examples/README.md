@@ -65,7 +65,7 @@ pnpm tsx examples/agent-lifecycle.ts
 - **Agent** vs **AgentLoop**: Agent manages lifecycle and state, AgentLoop executes single turns
 - **contextId**: Unique identifier for a conversation session
 - **MessageStore**: Persists conversation history
-- **Turn-based execution**: Each `executeTurn()` is one complete LLM interaction
+- **Turn-based execution**: Each `startTurn()` is one complete LLM interaction
 
 **Design Reference**: See [design/agent-lifecycle.md](../design/agent-lifecycle.md)
 

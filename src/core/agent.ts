@@ -185,7 +185,7 @@ export class Agent {
 
   /**
    * Initialize agent state by loading existing messages
-   * Called automatically on first executeTurn() if not already initialized
+   * Called automatically on first startTurn() if not already initialized
    */
   private async initialize(): Promise<void> {
     if (this._state.status !== 'created') {
@@ -203,7 +203,7 @@ export class Agent {
         this.config.logger.info({ contextId: this.config.contextId }, 'Initializing agent');
 
         // Try to load existing messages (resume scenario)
-        // Note: If messageStore requires auth, pass authContext to executeTurn instead
+        // Note: If messageStore requires auth, pass authContext to startTurn instead
         const existingMessages = await this.config.messageStore.getAll(this.config.contextId);
 
         if (existingMessages.length > 0) {
@@ -249,7 +249,7 @@ export class Agent {
   }
 
   /**
-   * Execute a single conversational turn
+   * Start a single conversational turn
    *
    * Automatically initializes the agent on first call.
    *
@@ -257,7 +257,7 @@ export class Agent {
    * @param options - Turn options including authContext and optional taskId
    * @returns Observable stream of agent events
    */
-  async executeTurn(
+  async startTurn(
     userMessage: string | null,
     options?: {
       authContext?: import('./types').AuthContext;
@@ -414,7 +414,7 @@ export class Agent {
             );
 
             // 3. Execute turn via AgentLoop with trace context
-            const turnEvents$ = this.agentLoop.executeTurn(messages, {
+            const turnEvents$ = this.agentLoop.startTurn(messages, {
               contextId: this.config.contextId,
               taskId,
               turnNumber,
@@ -631,7 +631,7 @@ export class Agent {
    * is disabled or when you want to ensure state is saved at a specific point.
    *
    * Note: This is a lightweight operation that just logs the save. Messages are
-   * already persisted by the MessageStore's append() calls during executeTurn().
+   * already persisted by the MessageStore's append() calls during startTurn().
    * This method exists primarily for explicit save points in your code.
    *
    * @example
@@ -642,7 +642,7 @@ export class Agent {
    *   // ... other config
    * });
    *
-   * await agent.executeTurn('Do something', authContext);
+   * await agent.startTurn('Do something', authContext);
    * await agent.save(); // Explicitly save
    * ```
    */
@@ -656,7 +656,7 @@ export class Agent {
       'Manual save called'
     );
 
-    // Messages are already persisted via MessageStore.append() during executeTurn()
+    // Messages are already persisted via MessageStore.append() during startTurn()
     // Artifacts are already saved via ArtifactStore when created by tools
     // This method exists for explicit save points and future extensibility
 

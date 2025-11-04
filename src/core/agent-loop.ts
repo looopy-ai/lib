@@ -76,15 +76,15 @@ export class AgentLoop {
   }
 
   /**
-   * Execute a single turn with message history
+   * Start a single conversational turn
    *
-   * New API for Agent integration - executes one turn with provided messages
+   * New API for Agent integration - starts one turn with provided messages
    *
    * @param messages - Full conversation history including new user message
    * @param context - Turn execution context
    * @returns Observable stream of events for this turn
    */
-  executeTurn(
+  startTurn(
     messages: Message[],
     context: {
       contextId: string;

@@ -17,23 +17,23 @@ Simplified the Agent lifecycle API based on user feedback to remove unnecessary 
 ```typescript
 const agent = new Agent({ ... });
 await agent.start(); // Explicit initialization required
-const result$ = agent.executeTurn('message', authContext);
+const result$ = agent.startTurn('message', authContext);
 ```
 
 **After**:
 ```typescript
 const agent = new Agent({ ... });
-const result$ = await agent.executeTurn('message', authContext); // Auto-initializes
+const result$ = await agent.startTurn('message', authContext); // Auto-initializes
 ```
 
 **Rationale**:
 - Reduces boilerplate - one less method to call
-- Auto-initialization on first `executeTurn()` is more intuitive
+- Auto-initialization on first `startTurn()` is more intuitive
 - Matches common patterns in other frameworks (lazy initialization)
 
 **Implementation**:
 - Added private `initialize()` method
-- `executeTurn()` now checks if `status === 'created'` and calls `initialize()` automatically
+- `startTurn()` now checks if `status === 'created'` and calls `initialize()` automatically
 - State transitions: `created` → `ready` → `busy` → `ready` (cycle)
 
 ### 2. Removed `pause()` Method
@@ -47,7 +47,7 @@ await agent.start(); // Resume
 
 **After**:
 ```typescript
-// Just shutdown if done, or keep using executeTurn()
+// Just shutdown if done, or keep using startTurn()
 await agent.shutdown(); // Clean shutdown when truly done
 ```
 
@@ -81,7 +81,7 @@ const agent = new Agent({
   // ...
 });
 
-await agent.executeTurn('message', authContext);
+await agent.startTurn('message', authContext);
 await agent.save(); // Explicit save point
 ```
 
@@ -122,12 +122,12 @@ const agent = new Agent({
 
 ### Lifecycle Methods
 
-#### `executeTurn(message, authContext)` → `Promise<Observable<AgentEvent>>`
+#### `startTurn(message, authContext)` → `Promise<Observable<AgentEvent>>`
 
 Execute a single turn in the conversation. Auto-initializes on first call.
 
 ```typescript
-const result$ = await agent.executeTurn(
+const result$ = await agent.startTurn(
   'What is 2+2?',
   {
     actorId: 'user-123',
@@ -219,13 +219,13 @@ type AgentStatus =
 ```
 Agent constructor
     ↓
-created (auto-initializes on first executeTurn)
+created (auto-initializes on first startTurn)
     ↓
-executeTurn() → initialize()
+startTurn() → initialize()
     ↓
 ready
     ↓
-executeTurn() → busy
+startTurn() → busy
     ↓
 [Turn execution]
     ↓
@@ -257,13 +257,13 @@ console.log(state.lastActivity);  // Last turn timestamp
 ```typescript
 const agent = new Agent({ ... });
 await agent.start();
-const result$ = agent.executeTurn('message', authContext);
+const result$ = agent.startTurn('message', authContext);
 ```
 
 **After**:
 ```typescript
 const agent = new Agent({ ... });
-const result$ = await agent.executeTurn('message', authContext); // Auto-starts
+const result$ = await agent.startTurn('message', authContext); // Auto-starts
 ```
 
 ### Replacing `pause()` with `shutdown()`
@@ -285,7 +285,7 @@ const agent2 = new Agent({
   contextId: 'same-context-id', // Loads previous messages
   // ... same config
 });
-const result$ = await agent2.executeTurn('continue...', authContext);
+const result$ = await agent2.startTurn('continue...', authContext);
 ```
 
 ### Using `save()` for Manual Snapshots
@@ -297,7 +297,7 @@ const agent = new Agent({
   // ...
 });
 
-await agent.executeTurn('message', authContext);
+await agent.startTurn('message', authContext);
 // ... do more work
 await agent.save(); // Explicit checkpoint
 ```
@@ -336,7 +336,7 @@ const getAuthContext = () => ({
 });
 
 // Turn 1 - auto-initializes
-const turn1$ = await agent.executeTurn(
+const turn1$ = await agent.startTurn(
   'Calculate 25 * 17',
   getAuthContext()
 );
@@ -349,7 +349,7 @@ turn1$.subscribe({
   },
   complete: async () => {
     // Turn 2 - has context from turn 1
-    const turn2$ = await agent.executeTurn(
+    const turn2$ = await agent.startTurn(
       'Now divide that by 5',
       getAuthContext() // Fresh auth for this turn
     );
@@ -378,7 +378,7 @@ turn1$.subscribe({
 1. **`src/core/agent.ts`**
    - ✅ Removed `start()` method
    - ✅ Added private `initialize()` method
-   - ✅ Updated `executeTurn()` to auto-initialize
+   - ✅ Updated `startTurn()` to auto-initialize
    - ✅ Removed `pause()` method
    - ✅ Added public `save()` method
    - ✅ Updated `shutdown()` to use `save()` instead of `saveState()`
@@ -389,7 +389,7 @@ turn1$.subscribe({
    - ✅ Removed `agent.pause()` / resume pattern
    - ✅ Added `agent.save()` demonstration
    - ✅ Updated comments to explain auto-initialization
-   - ✅ Made `executeTurn()` calls `await` (returns Promise now)
+   - ✅ Made `startTurn()` calls `await` (returns Promise now)
 
 ### Documentation
 
@@ -414,7 +414,7 @@ turn1$.subscribe({
 
 ### Manual Testing Checklist
 
-- [ ] Agent auto-initializes on first `executeTurn()`
+- [ ] Agent auto-initializes on first `startTurn()`
 - [ ] State transitions correctly: `created → ready → busy → ready`
 - [ ] `save()` method works (logs appropriately)
 - [ ] `shutdown()` saves state when `autoSave: false`
@@ -427,11 +427,11 @@ turn1$.subscribe({
 
 ```typescript
 describe('Agent Lifecycle Simplification', () => {
-  it('should auto-initialize on first executeTurn', async () => {
+  it('should auto-initialize on first startTurn', async () => {
     const agent = new Agent({ ... });
     expect(agent.state.status).toBe('created');
 
-    await agent.executeTurn('test', authContext);
+    await agent.startTurn('test', authContext);
     expect(agent.state.status).toBe('ready'); // After turn completes
   });
 
@@ -463,7 +463,7 @@ describe('Agent Lifecycle Simplification', () => {
 
 1. **Less Boilerplate**
    - No `start()` call needed
-   - Just create agent and call `executeTurn()`
+   - Just create agent and call `startTurn()`
 
 2. **Clearer Intent**
    - `save()` is explicit when needed
@@ -480,7 +480,7 @@ describe('Agent Lifecycle Simplification', () => {
    - Simpler state transitions
 
 2. **Better Error Handling**
-   - State validation in `executeTurn()`
+   - State validation in `startTurn()`
    - Clear error messages
 
 3. **Future-Proof**

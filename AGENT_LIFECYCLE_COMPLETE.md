@@ -23,7 +23,7 @@ Comprehensive design covering:
 
 Features:
 - **Lifecycle Management**: `start()`, `pause()`, `shutdown()`
-- **Turn Execution**: `executeTurn(userMessage)` for single conversational turns
+- **Turn Execution**: `startTurn(userMessage)` for single conversational turns
 - **State Tracking**: `AgentState` with status, turn count, timestamps
 - **Auto-save**: Automatically persists messages after each turn
 - **Auto-compact**: Optional automatic message history compaction
@@ -65,14 +65,14 @@ interface AgentState {
 **File**: `src/core/agent-loop.ts`
 
 Added:
-- **`executeTurn(messages, context)`**: New method for single-turn execution
+- **`startTurn(messages, context)`**: New method for single-turn execution
 - Accepts full message history (for future use)
 - Returns Observable stream of events
 - Currently wraps existing `execute()` method
 
 **Signature**:
 ```typescript
-executeTurn(
+startTurn(
   messages: Message[],
   context: {
     contextId: string;
@@ -133,10 +133,10 @@ const agent = new Agent({
 await agent.start();  // Load existing state if resuming
 
 // Turn 1
-agent.executeTurn('Hello').subscribe(...);
+agent.startTurn('Hello').subscribe(...);
 
 // Turn 2 (has context from turn 1)
-agent.executeTurn('Continue').subscribe(...);
+agent.startTurn('Continue').subscribe(...);
 
 // Pause for later
 await agent.pause();
@@ -144,7 +144,7 @@ await agent.pause();
 // Resume later (same contextId)
 const agent2 = new Agent({ contextId: 'session-123', ... });
 await agent2.start();  // Loads previous state
-agent2.executeTurn('Resume').subscribe(...);
+agent2.startTurn('Resume').subscribe(...);
 ```
 
 **Benefits**:
@@ -167,10 +167,10 @@ agent2.executeTurn('Resume').subscribe(...);
 │  - Lifecycle (start/pause/shutdown)     │
 │  - Turn coordination                    │
 │                                          │
-│  executeTurn(userMessage)               │
+│  startTurn(userMessage)               │
 │    ├─ Load message history              │
 │    ├─ Append user message               │
-│    ├─ Call AgentLoop.executeTurn()      │
+│    ├─ Call AgentLoop.startTurn()      │
 │    ├─ Save assistant messages           │
 │    └─ Update state                      │
 └─────────────────────────────────────────┘
@@ -180,7 +180,7 @@ agent2.executeTurn('Resume').subscribe(...);
 │           AgentLoop                      │
 │  (Stateless, Single-turn)               │
 │                                          │
-│  executeTurn(messages, context)         │
+│  startTurn(messages, context)         │
 │    ├─ LLM call with history             │
 │    ├─ Tool execution                    │
 │    ├─ Iteration until complete          │
@@ -197,7 +197,7 @@ agent2.executeTurn('Resume').subscribe(...);
 4. `AGENT_LIFECYCLE_COMPLETE.md` - This summary
 
 ### Modified:
-1. `src/core/agent-loop.ts` - Added `executeTurn()` method
+1. `src/core/agent-loop.ts` - Added `startTurn()` method
 2. `src/core/index.ts` - Exported Agent types
 3. `examples/README.md` - Added agent-lifecycle documentation
 
@@ -243,7 +243,7 @@ Expected output:
 ## Migration Guide
 
 ### For simple use cases:
-Replace `AgentLoop.execute()` with `Agent.executeTurn()`:
+Replace `AgentLoop.execute()` with `Agent.startTurn()`:
 
 ```typescript
 // Before
@@ -253,7 +253,7 @@ loop.execute(prompt, context).subscribe(...);
 // After
 const agent = new Agent({ contextId, ... });
 await agent.start();
-agent.executeTurn(prompt).subscribe(...);
+agent.startTurn(prompt).subscribe(...);
 ```
 
 ### For multi-turn conversations:
@@ -268,7 +268,7 @@ await agent.start();
 
 // Each user message is a new turn
 userMessages$.subscribe(async (msg) => {
-  agent.executeTurn(msg).subscribe({
+  agent.startTurn(msg).subscribe({
     next: (event) => sendToClient(event),
     complete: () => console.log('Turn complete')
   });
@@ -277,7 +277,7 @@ userMessages$.subscribe(async (msg) => {
 
 ## Next Steps
 
-1. **Refactor AgentLoop**: Make `executeTurn()` use full message history instead of just last message
+1. **Refactor AgentLoop**: Make `startTurn()` use full message history instead of just last message
 2. **A2A Integration**: Update A2A server to use Agent instead of AgentLoop
 3. **Add Tests**: Comprehensive unit and integration tests
 4. **Performance**: Optimize message loading and compaction

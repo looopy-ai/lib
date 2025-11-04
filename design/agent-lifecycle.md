@@ -28,7 +28,7 @@ This design separates the stateful **Agent** (lifecycle and persistence manageme
 │  - Lifecycle: start, pause, resume, shutdown                │
 │                                                              │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │            executeTurn(userMessage)                │    │
+│  │            startTurn(userMessage)                │    │
 │  │                                                     │    │
 │  │  1. Load conversation history                      │    │
 │  │  2. Append user message                            │    │
@@ -144,7 +144,7 @@ interface Agent {
    * @param authContext - Fresh authentication context (token may be refreshed)
    * @returns Observable stream of agent events
    */
-  executeTurn(
+  startTurn(
     userMessage: string | null,
     authContext?: AuthContext
   ): Observable<AgentEvent>;
@@ -241,7 +241,7 @@ interface AgentLoop {
    * @param context - Turn context
    * @returns Observable stream of events
    */
-  executeTurn(
+  startTurn(
     messages: Message[],
     context: TurnContext
   ): Observable<AgentEvent>;
@@ -259,7 +259,7 @@ interface AgentLoop {
      │ "What's the weather?"
      ▼
 ┌─────────────────────────────────────────┐
-│ Agent.executeTurn(userMessage)          │
+│ Agent.startTurn(userMessage)          │
 │                                          │
 │ 1. Load messages from MessageStore      │
 │    messages = [                          │
@@ -271,7 +271,7 @@ interface AgentLoop {
 │                                          │
 │ 3. Execute turn via AgentLoop           │
 │    ┌──────────────────────────────┐    │
-│    │ AgentLoop.executeTurn()      │    │
+│    │ AgentLoop.startTurn()      │    │
 │    │                               │    │
 │    │ - LLM call with messages     │    │
 │    │ - Tool execution (weather)   │    │
@@ -302,7 +302,7 @@ interface AgentLoop {
      │ "Thanks, now check my calendar"
      ▼
 ┌─────────────────────────────────────────┐
-│ Agent.executeTurn(userMessage)          │
+│ Agent.startTurn(userMessage)          │
 │                                          │
 │ 1. Load messages (includes previous)    │
 │    messages = [                          │
@@ -325,11 +325,11 @@ Agent Session 1:
 │ await agent.start()                  │
 │                                       │
 │ // Turn 1                             │
-│ agent.executeTurn("Hello").subscribe()│
+│ agent.startTurn("Hello").subscribe()│
 │ messageStore: [user, assistant]      │
 │                                       │
 │ // Turn 2                             │
-│ agent.executeTurn("Help me").subscribe()│
+│ agent.startTurn("Help me").subscribe()│
 │ messageStore: [user, asst, user, asst]│
 │                                       │
 │ // Pause                              │
@@ -356,7 +356,7 @@ Agent Session 2 (same contextId):
 │ state.status = 'ready'               │
 │                                       │
 │ // Continue conversation             │
-│ agent.executeTurn("Continue").subscribe()│
+│ agent.startTurn("Continue").subscribe()│
 │ → Turn 3 with full history           │
 └──────────────────────────────────────┘
 ```
@@ -466,7 +466,7 @@ const artifacts = await artifactStore.list(contextId);
 ### Phase 1: Refactor AgentLoop to Single Turn
 
 1. Remove checkpoint/resumption from AgentLoop
-2. Change `execute()` to `executeTurn(messages, context)`
+2. Change `execute()` to `startTurn(messages, context)`
 3. Return when turn completes (not when task completes)
 4. Remove state persistence from loop
 
@@ -474,14 +474,14 @@ const artifacts = await artifactStore.list(contextId);
 
 1. Create `Agent` class with lifecycle management
 2. Implement state loading/saving
-3. Implement `executeTurn()` coordination
+3. Implement `startTurn()` coordination
 4. Add pause/resume/shutdown
 
 ### Phase 3: Update A2A Server
 
 1. Create Agent instance per task
 2. Map A2A lifecycle to Agent lifecycle
-3. Handle multi-turn via repeated `executeTurn()` calls
+3. Handle multi-turn via repeated `startTurn()` calls
 
 ## API Examples
 
@@ -511,11 +511,11 @@ const getAuthContext = () => ({
 });
 
 // Turn 1 - Pass fresh auth context
-const turn1$ = agent.executeTurn('Hello, what can you help with?', getAuthContext());
+const turn1$ = agent.startTurn('Hello, what can you help with?', getAuthContext());
 await lastValueFrom(turn1$);
 
 // Turn 2 - Pass potentially refreshed auth context
-const turn2$ = agent.executeTurn('Tell me about TypeScript', getAuthContext());
+const turn2$ = agent.startTurn('Tell me about TypeScript', getAuthContext());
 await lastValueFrom(turn2$);
 
 // Shutdown
@@ -526,7 +526,7 @@ await agent.shutdown();
 
 **Why per-turn instead of construction?**
 
-Long-running agents may span hours or days. Authentication tokens expire. By passing `authContext` to each `executeTurn()` call:
+Long-running agents may span hours or days. Authentication tokens expire. By passing `authContext` to each `startTurn()` call:
 
 - ✅ Tokens can be refreshed between turns
 - ✅ User identity remains current
@@ -548,7 +548,7 @@ app.post('/chat', async (req, res) => {
   };
 
   // Pass fresh auth to this turn
-  const events$ = agent.executeTurn(req.body.message, authContext);
+  const events$ = agent.startTurn(req.body.message, authContext);
 
   events$.subscribe({
     next: (event) => res.write(JSON.stringify(event) + '\n'),
@@ -564,7 +564,7 @@ app.post('/chat', async (req, res) => {
 const agent = new Agent({ contextId: 'persistent-session' });
 await agent.start();
 
-agent.executeTurn('Start a complex task').subscribe({
+agent.startTurn('Start a complex task').subscribe({
   complete: async () => {
     await agent.pause(); // Save state
     console.log('Paused, can resume later');
@@ -579,7 +579,7 @@ await agent2.start(); // Loads previous state
 
 console.log('Resumed with', agent2.state.turnCount, 'previous turns');
 
-agent2.executeTurn('Continue the task').subscribe();
+agent2.startTurn('Continue the task').subscribe();
 ```
 
 ### Error Handling
@@ -588,7 +588,7 @@ agent2.executeTurn('Continue the task').subscribe();
 const agent = new Agent({ contextId: 'session' });
 await agent.start();
 
-agent.executeTurn('Do something').subscribe({
+agent.startTurn('Do something').subscribe({
   next: (event) => {
     if (event.kind === 'status-update' && event.status.state === 'failed') {
       console.error('Turn failed:', event.metadata?.error);
@@ -623,7 +623,7 @@ app.post('/api/a2a', async (req, res) => {
 
     // Execute turn
     const userMessage = params.message.parts[0].text;
-    const events$ = agent.executeTurn(userMessage);
+    const events$ = agent.startTurn(userMessage);
 
     res.setHeader('Content-Type', 'text/event-stream');
 
@@ -720,11 +720,11 @@ const agent = new Agent({
 });
 
 await agent.start();
-const events$ = agent.executeTurn('Do something');
+const events$ = agent.startTurn('Do something');
 ```
 
 **Breaking Changes**:
-- `AgentLoop.execute()` → `Agent.executeTurn()`
+- `AgentLoop.execute()` → `Agent.startTurn()`
 - Must call `agent.start()` before first turn
 - Context is now part of agent config, not per-execution
 - Must manage agent lifecycle (shutdown)

@@ -63,7 +63,7 @@ async function main() {
     autoSave: true, // Automatically save messages after each turn
   });
 
-  // Note: No agent.start() needed! Agent auto-initializes on first executeTurn()
+  // Note: No agent.start() needed! Agent auto-initializes on first startTurn()
   console.log(`Agent created. Initial state: ${agent.state.status}\n`);
 
   // Simulate getting auth context (e.g., from JWT token)
@@ -75,7 +75,7 @@ async function main() {
 
   // Turn 1: Initial query (auto-initializes agent)
   console.log('--- Turn 1 ---');
-  const turn1$ = await agent.executeTurn('What is 25 * 17?', {
+  const turn1$ = await agent.startTurn('What is 25 * 17?', {
     authContext: getAuthContext(),
   });
 
@@ -93,7 +93,7 @@ async function main() {
       // Turn 2: Follow-up question (has context from turn 1)
       // Note: Fresh auth context for this turn (token may have been refreshed)
       console.log('--- Turn 2 ---');
-      const turn2$ = await agent.executeTurn('Now divide that result by 5', {
+      const turn2$ = await agent.startTurn('Now divide that result by 5', {
         authContext: getAuthContext(),
       });
 
@@ -140,7 +140,7 @@ async function main() {
 
           // Continue conversation with context from previous session
           console.log('\n--- Turn 3 (after resume) ---');
-          const turn3$ = await agent2.executeTurn('What was the original number I asked about?', {
+          const turn3$ = await agent2.startTurn('What was the original number I asked about?', {
             authContext: getAuthContext(), // Fresh auth context after resume
           });
 
@@ -164,7 +164,7 @@ async function main() {
               console.log('  Format: {contextId}-turn-{turnNumber}-{timestamp}');
               console.log(`  Example: ${contextId}-turn-1-${Date.now()}`);
               console.log('\nYou can also provide a custom taskId:');
-              console.log('  await agent.executeTurn(message, {');
+              console.log('  await agent.startTurn(message, {');
               console.log('    authContext: auth,');
               console.log('    taskId: "custom-task-abc-123"');
               console.log('  });');
