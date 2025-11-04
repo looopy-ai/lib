@@ -7,9 +7,21 @@
  * Design Reference: design/agent-lifecycle.md
  */
 
-import { trace } from '@opentelemetry/api';
 import { catchError, concat, Observable, of } from 'rxjs';
-import { SpanAttributes } from '../observability/tracing';
+import {
+  addMessagesCompactedEvent,
+  addMessagesLoadedEvent,
+  addMessagesSavedEvent,
+  completeAgentInitializeSpan,
+  completeAgentTurnSpan,
+  failAgentInitializeSpan,
+  failAgentTurnSpan,
+  setResumeAttributes,
+  setTurnCountAttribute,
+  setTurnOutputAttribute,
+  startAgentInitializeSpan,
+  startAgentTurnSpan,
+} from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
 import { AgentLoop } from './agent-loop';
 import type { AgentLoopConfig } from './config';
@@ -133,7 +145,6 @@ export class Agent {
 
   private agentLoop: AgentLoop;
   private _state: AgentState;
-  private tracer = trace.getTracer('looopy-agent');
 
   constructor(config: AgentConfig) {
     this.config = {
@@ -192,60 +203,49 @@ export class Agent {
       return; // Already initialized
     }
 
-    return this.tracer.startActiveSpan(`agent.initialize[${this.config.agentId}]`, async (span) => {
-      try {
-        span.setAttributes({
-          'session.id': this.config.contextId,
-          'agent.contextId': this.config.contextId,
-          'agent.agentId': this.config.agentId,
-        });
-
-        this.config.logger.info({ contextId: this.config.contextId }, 'Initializing agent');
-
-        // Try to load existing messages (resume scenario)
-        // Note: If messageStore requires auth, pass authContext to startTurn instead
-        const existingMessages = await this.config.messageStore.getAll(this.config.contextId);
-
-        if (existingMessages.length > 0) {
-          this.config.logger.info(
-            { contextId: this.config.contextId, messageCount: existingMessages.length },
-            'Resuming agent with existing message history'
-          );
-
-          // Infer state from message count
-          this._state.turnCount = Math.floor(existingMessages.length / 2); // Rough estimate
-          span.setAttribute('agent.resumed', true);
-          span.setAttribute('agent.existingMessages', existingMessages.length);
-        }
-
-        this._state.status = 'ready';
-        this._state.lastActivity = new Date();
-
-        this.config.logger.info(
-          { contextId: this.config.contextId, status: this._state.status },
-          'Agent initialized'
-        );
-
-        span.setStatus({ code: 1 }); // OK
-      } catch (error) {
-        this._state.status = 'error';
-        this._state.error = error as Error;
-        this.config.logger.error(
-          { contextId: this.config.contextId, error },
-          'Failed to initialize agent'
-        );
-
-        span.setStatus({
-          code: 2, // ERROR
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
-        span.recordException(error as Error);
-
-        throw error;
-      } finally {
-        span.end();
-      }
+    const span = startAgentInitializeSpan({
+      agentId: this.config.agentId,
+      contextId: this.config.contextId,
     });
+
+    try {
+      this.config.logger.info({ contextId: this.config.contextId }, 'Initializing agent');
+
+      // Try to load existing messages (resume scenario)
+      // Note: If messageStore requires auth, pass authContext to startTurn instead
+      const existingMessages = await this.config.messageStore.getAll(this.config.contextId);
+
+      if (existingMessages.length > 0) {
+        this.config.logger.info(
+          { contextId: this.config.contextId, messageCount: existingMessages.length },
+          'Resuming agent with existing message history'
+        );
+
+        // Infer state from message count
+        this._state.turnCount = Math.floor(existingMessages.length / 2); // Rough estimate
+        setResumeAttributes(span, existingMessages.length);
+      }
+
+      this._state.status = 'ready';
+      this._state.lastActivity = new Date();
+
+      this.config.logger.info(
+        { contextId: this.config.contextId, status: this._state.status },
+        'Agent initialized'
+      );
+
+      completeAgentInitializeSpan(span);
+    } catch (error) {
+      this._state.status = 'error';
+      this._state.error = error as Error;
+      this.config.logger.error(
+        { contextId: this.config.contextId, error },
+        'Failed to initialize agent'
+      );
+
+      failAgentInitializeSpan(span, error as Error);
+      throw error;
+    }
   }
 
   /**
@@ -352,18 +352,12 @@ export class Agent {
     const turnNumber = this._state.turnCount + 1;
 
     // Create span for the entire turn execution
-    const span = this.tracer.startSpan(`agent.turn[${this.config.agentId}]`, {
-      attributes: {
-        'session.id': this.config.contextId,
-        'agent.contextId': this.config.contextId,
-        'agent.agentId': this.config.agentId,
-        'agent.taskId': taskId,
-        'agent.turnNumber': turnNumber,
-        'agent.hasUserMessage': userMessage !== null,
-        [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'agent',
-        // Add input as span attribute for Langfuse
-        ...(userMessage ? { input: userMessage } : {}),
-      },
+    const span = startAgentTurnSpan({
+      agentId: this.config.agentId,
+      taskId,
+      contextId: this.config.contextId,
+      turnNumber,
+      userMessage,
     });
 
     this.config.logger.trace(
@@ -386,7 +380,7 @@ export class Agent {
           try {
             // 1. Load conversation history
             const messages = await this.loadMessages();
-            span.addEvent('messages.loaded', { count: messages.length });
+            addMessagesLoadedEvent(span, messages.length);
 
             // 2. Append user message if provided
             if (userMessage) {
@@ -446,13 +440,7 @@ export class Agent {
                   'Turn execution failed'
                 );
 
-                span.setStatus({
-                  code: 2, // ERROR
-                  message: error.message,
-                });
-                span.recordException(error);
-                span.end();
-
+                failAgentTurnSpan(span, error);
                 observer.error(error);
               },
               complete: async () => {
@@ -460,7 +448,7 @@ export class Agent {
                   // 4. Save assistant messages if autoSave
                   if (this.config.autoSave && assistantMessages.length > 0) {
                     await this.config.messageStore.append(this.config.contextId, assistantMessages);
-                    span.addEvent('messages.saved', { count: assistantMessages.length });
+                    addMessagesSavedEvent(span, assistantMessages.length);
 
                     this.config.logger.debug(
                       {
@@ -481,7 +469,7 @@ export class Agent {
                         ? finalAssistantMessage.content
                         : JSON.stringify(finalAssistantMessage.content);
 
-                    span.setAttribute('output', messageContent);
+                    setTurnOutputAttribute(span, messageContent);
 
                     this.config.logger.trace(
                       { messageContent },
@@ -494,12 +482,12 @@ export class Agent {
                   this._state.lastActivity = new Date();
                   this._state.status = 'ready';
 
-                  span.setAttribute('agent.turnCount', this._state.turnCount);
+                  setTurnCountAttribute(span, this._state.turnCount);
 
                   // 6. Check if compaction needed
                   if (this.config.autoCompact) {
                     await this.checkAndCompact();
-                    span.addEvent('messages.compacted');
+                    addMessagesCompactedEvent(span);
                   }
 
                   this.config.logger.info(
@@ -507,9 +495,7 @@ export class Agent {
                     'Turn completed'
                   );
 
-                  span.setStatus({ code: 1 }); // OK
-                  span.end();
-
+                  completeAgentTurnSpan(span);
                   observer.complete();
                 } catch (error) {
                   this.config.logger.error(
@@ -517,13 +503,7 @@ export class Agent {
                     'Failed to save turn results'
                   );
 
-                  span.setStatus({
-                    code: 2, // ERROR
-                    message: error instanceof Error ? error.message : 'Unknown error',
-                  });
-                  span.recordException(error as Error);
-                  span.end();
-
+                  failAgentTurnSpan(span, error as Error);
                   observer.error(error);
                 }
               },
@@ -534,13 +514,7 @@ export class Agent {
               'Failed to prepare turn'
             );
 
-            span.setStatus({
-              code: 2, // ERROR
-              message: error instanceof Error ? error.message : 'Unknown error',
-            });
-            span.recordException(error as Error);
-            span.end();
-
+            failAgentTurnSpan(span, error as Error);
             observer.error(error);
           }
         };
