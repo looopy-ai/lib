@@ -4,7 +4,8 @@
  * Design: design/message-management.md#in-memory-message-store
  */
 
-import type { Message } from '../../core/types';
+import { firstValueFrom } from 'rxjs';
+import type { LLMProvider, Message } from '../../core/types';
 import type {
   CompactionOptions,
   CompactionResult,
@@ -13,11 +14,29 @@ import type {
 } from './interfaces';
 import { estimateTokens, trimToTokenBudget } from './interfaces';
 
+export interface InMemoryMessageStoreConfig {
+  /**
+   * Optional LLM provider for intelligent summarization
+   * If not provided, uses simple rule-based summaries
+   */
+  llmProvider?: LLMProvider;
+
+  /**
+   * Default summarization prompt
+   */
+  defaultSummaryPrompt?: string;
+}
+
 /**
  * In-memory message storage for development and testing
  */
 export class InMemoryMessageStore implements MessageStore {
   private messages: Map<string, StoredMessage[]> = new Map();
+  private config: InMemoryMessageStoreConfig;
+
+  constructor(config: InMemoryMessageStoreConfig = {}) {
+    this.config = config;
+  }
 
   async append(contextId: string, messages: Message[]): Promise<void> {
     const stored = this.messages.get(contextId) || [];
@@ -135,9 +154,10 @@ export class InMemoryMessageStore implements MessageStore {
     const recentMessages = all.slice(-keepRecent);
 
     // Create summary message
+    const summaryContent = await this.createSummary(oldMessages, summaryPrompt);
     const summary: Message = {
       role: 'system',
-      content: this.createSummary(oldMessages, summaryPrompt),
+      content: summaryContent,
     };
 
     const summaryStored: StoredMessage = {
@@ -182,9 +202,10 @@ export class InMemoryMessageStore implements MessageStore {
     // Create summaries for chunks of 10
     for (let i = 0; i < oldMessages.length; i += 10) {
       const chunk = oldMessages.slice(i, Math.min(i + 10, oldMessages.length));
+      const summaryContent = await this.createSummary(chunk);
       const summary: Message = {
         role: 'system',
-        content: this.createSummary(chunk),
+        content: summaryContent,
       };
 
       const summaryStored: StoredMessage = {
@@ -215,9 +236,20 @@ export class InMemoryMessageStore implements MessageStore {
 
   /**
    * Create a simple summary of messages
-   * (In production, use LLM for better summaries)
+   * Uses LLM if available, otherwise falls back to rule-based summary
    */
-  private createSummary(messages: Message[], customPrompt?: string): string {
+  private async createSummary(messages: Message[], customPrompt?: string): Promise<string> {
+    // If LLM provider is available, use it for intelligent summarization
+    if (this.config.llmProvider) {
+      try {
+        return await this.createLLMSummary(messages, customPrompt);
+      } catch (error) {
+        console.warn('LLM summarization failed, falling back to rule-based:', error);
+        // Fall through to rule-based summary
+      }
+    }
+
+    // Rule-based summary fallback
     if (customPrompt) {
       return `${customPrompt}\n\nMessages:\n${messages.map((m) => `${m.role}: ${m.content}`).join('\n')}`;
     }
@@ -226,5 +258,37 @@ export class InMemoryMessageStore implements MessageStore {
     const assistantMessages = messages.filter((m) => m.role === 'assistant');
 
     return `Summary of ${messages.length} messages: ${userMessages.length} user messages, ${assistantMessages.length} assistant responses.`;
+  }
+
+  /**
+   * Create LLM-based summary
+   */
+  private async createLLMSummary(messages: Message[], customPrompt?: string): Promise<string> {
+    const summaryPrompt = customPrompt || this.config.defaultSummaryPrompt ||
+      'Please provide a concise summary of the following conversation, capturing the key points and context:';
+
+    const conversationText = messages.filter((m) => ['user', 'assistant'].includes(m.role))
+      .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+      .join('\n');
+
+    const summaryMessages: Message[] = [
+      {
+        role: 'user',
+        content: `${summaryPrompt}\n\n${conversationText}`,
+      },
+    ];
+
+    const response$ = this.config.llmProvider!.call({
+      messages: summaryMessages,
+      stream: false,
+    });
+
+    const response = await firstValueFrom(response$);
+
+    if (response.message?.content) {
+      return response.message.content;
+    }
+
+    throw new Error('Failed to get summary from LLM');
   }
 }

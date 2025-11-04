@@ -9,10 +9,15 @@
  */
 
 import type { Message } from '../src/core/types';
+import { LiteLLM } from '../src/providers';
 import { BedrockMemoryStore } from '../src/stores/messages/bedrock-memory-store';
 import { HybridMessageStore } from '../src/stores/messages/hybrid-message-store';
 import { type Mem0MemoryLevel, Mem0MessageStore } from '../src/stores/messages/mem0-message-store';
 import { InMemoryMessageStore } from '../src/stores/messages/memory-message-store';
+
+// Configuration
+const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
+const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 
 // ============================================================================
 // Example 1: In-Memory Message Store (Development/Testing)
@@ -58,6 +63,62 @@ async function exampleInMemory() {
 
   const afterCompact = await store.getAll(contextId);
   console.log('Messages after compaction:', afterCompact.length);
+}
+
+// ============================================================================
+// Example 1b: In-Memory with LLM-based Intelligent Summarization
+// ============================================================================
+
+async function exampleInMemoryWithLLM() {
+  console.log('\n=== In-Memory with LLM Summarization ===\n');
+
+  // Assuming you have an LLMProvider instance (e.g., LiteLLMProvider)
+  // import { LiteLLMProvider } from '../src/providers/litellm-provider';
+  // const llmProvider = new LiteLLMProvider({ model: 'gpt-4' });
+
+  const store = new InMemoryMessageStore({
+    llmProvider: LiteLLM.novaMicro(LITELLM_URL, LITELLM_API_KEY),
+    defaultSummaryPrompt: 'Create a concise summary focusing on key decisions and action items.',
+  });
+
+  const contextId = 'user_123_session_789';
+
+  // Add a longer conversation
+  await store.append(contextId, [
+    { role: 'user', content: 'I need to implement a chat system with message history.' },
+    {
+      role: 'assistant',
+      content: 'I can help with that. What are your requirements for storage and retention?',
+    },
+    { role: 'user', content: 'We need to store messages for 30 days and support conversation summarization.' },
+    {
+      role: 'assistant',
+      content:
+        'For that, I recommend using a MessageStore. You can choose between in-memory for development or AWS Bedrock for production.',
+    },
+    { role: 'user', content: 'What about summarization? How does that work?' },
+    {
+      role: 'assistant',
+      content:
+        'With an LLM provider, summaries are created intelligently. Without one, it uses rule-based extraction of key sentences.',
+    },
+  ]);
+
+  // Compact with summarization
+  // If llmProvider is set, this will use LLM for intelligent summarization
+  // Otherwise, it falls back to rule-based summarization
+  const result = await store.compact(contextId, {
+    strategy: 'summarization',
+    keepRecent: 2, // Keep most recent 2 messages, summarize older ones
+  });
+
+  console.log('Compaction result:', result);
+  console.log('Summary messages created:', result.summaryMessages.length);
+  console.log('Tokens saved:', result.tokensSaved);
+
+  const afterCompact = await store.getAll(contextId);
+  console.log('Messages after summarization:', afterCompact);
+  console.log('First message (summary):', afterCompact[0]);
 }
 
 // ============================================================================
@@ -299,11 +360,12 @@ async function exampleCompaction() {
 
 async function main() {
   try {
-    await exampleInMemory();
+    // await exampleInMemory();
+    await exampleInMemoryWithLLM();
     // await exampleBedrock(); // Requires AWS setup
     // await exampleMem0(); // Requires Mem0 API key
     // await exampleHybrid(); // Requires Mem0 API key
-    await exampleCompaction();
+    // await exampleCompaction();
 
     console.log('\n✅ All examples completed!\n');
   } catch (error) {
@@ -311,9 +373,11 @@ async function main() {
   }
 }
 
-// Run if executed directly
-if (require.main === module) {
-  main();
-}
+// Run the example
+main().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
 
-export { exampleBedrock, exampleCompaction, exampleHybrid, exampleInMemory, exampleMem0 };
+export { exampleBedrock, exampleCompaction, exampleHybrid, exampleInMemory, exampleInMemoryWithLLM, exampleMem0 };
+

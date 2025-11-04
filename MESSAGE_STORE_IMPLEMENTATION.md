@@ -6,12 +6,19 @@ Implemented comprehensive message storage backends with support for:
 
 ### 1. **In-Memory Message Store** ✅
 - Local development and testing
+- **Optional LLM-based summarization** with automatic fallback
 - Three compaction strategies:
   - **Sliding window**: Drop old messages
-  - **Summarization**: Create LLM summaries
+  - **Summarization**: Create intelligent LLM summaries (or rule-based fallback)
   - **Hierarchical**: Multi-level summaries
 - Full message history
 - Token budget management
+
+**LLM Summarization Feature**:
+- Pass an `LLMProvider` for intelligent conversation summarization
+- Automatically falls back to rule-based summaries if LLM unavailable
+- Custom prompts supported via `defaultSummaryPrompt`
+- Async summarization with Observable-to-Promise conversion
 
 ### 2. **AWS Bedrock AgentCore Memory Store** ✅
 - Managed AWS service integration
@@ -114,12 +121,39 @@ Implemented comprehensive message storage backends with support for:
 
 ## Usage Examples
 
-### In-Memory Store
+### In-Memory Store (Basic)
 ```typescript
 const store = new InMemoryMessageStore();
 await store.append(contextId, messages);
 const recent = await store.getRecent(contextId, { maxMessages: 50 });
 await store.compact(contextId, { strategy: 'summarization', keepRecent: 20 });
+```
+
+### In-Memory Store (with LLM Summarization)
+```typescript
+import { LiteLLMProvider } from '../providers/litellm-provider';
+import { InMemoryMessageStore } from '../stores/messages/memory-message-store';
+
+// Create with LLM provider for intelligent summarization
+const llmProvider = new LiteLLMProvider({ model: 'gpt-4' });
+
+const store = new InMemoryMessageStore({
+  llmProvider, // Optional: enables intelligent summarization
+  defaultSummaryPrompt: 'Summarize focusing on key decisions and action items.',
+});
+
+await store.append(contextId, messages);
+
+// This will use LLM for intelligent summarization
+// If LLM fails, automatically falls back to rule-based summary
+await store.compact(contextId, {
+  strategy: 'summarization',
+  keepRecent: 10, // Keep most recent 10 messages
+  summaryPrompt: 'Custom prompt for this compaction', // Optional override
+});
+
+const recent = await store.getRecent(contextId);
+// First message will be the LLM-generated summary
 ```
 
 ### AWS Bedrock Store
