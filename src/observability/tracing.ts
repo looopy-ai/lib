@@ -104,7 +104,7 @@ function validateAuthHeaders(endpoint: string): void {
   const hasBasicAuth = headers.includes('Authorization=Basic');
   const hasCustomHeaders = !hasBasicAuth && headers.includes('=');
 
-  DEFAULT_LOGGER.debug(
+  DEFAULT_LOGGER.trace(
     {
       authType: hasBasicAuth ? 'Basic Auth' : hasCustomHeaders ? 'Custom Headers' : 'Unknown',
       headerCount: headers.split(',').length,
@@ -128,7 +128,7 @@ function validateOTLPEndpoint(endpoint: string): void {
   if (endpoint.includes('langfuse.com')) {
     // Langfuse requires /v1/traces suffix
     if (!endpoint.endsWith('/v1/traces')) {
-      DEFAULT_LOGGER.warn(
+      DEFAULT_LOGGER.trace(
         {
           endpoint,
           correctEndpoint: endpoint.replace(/\/?$/, '/v1/traces'),
@@ -140,7 +140,7 @@ function validateOTLPEndpoint(endpoint: string): void {
 
   // Warn about common base URL mistakes
   if (endpoint.includes('/api/public/otel') && !endpoint.includes('/v1/traces')) {
-    DEFAULT_LOGGER.warn(
+    DEFAULT_LOGGER.trace(
       {
         endpoint,
         suggestion: `${endpoint}/v1/traces`,
@@ -156,7 +156,7 @@ function validateOTLPEndpoint(endpoint: string): void {
 export function initializeTracing(config?: TelemetryConfig): Tracer {
   if (!config?.enabled && process.env.OTEL_ENABLED !== 'true') {
     // Return no-op tracer if disabled
-    DEFAULT_LOGGER.debug('OpenTelemetry tracing is disabled');
+    DEFAULT_LOGGER.trace('OpenTelemetry tracing is disabled');
     return trace.getTracer('looopy-noop');
   }
 
@@ -164,7 +164,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
   const serviceVersion = config?.serviceVersion || '1.0.0';
   const environment = config?.environment || process.env.NODE_ENV || 'development';
 
-  DEFAULT_LOGGER.info(
+  DEFAULT_LOGGER.trace(
     {
       serviceName,
       serviceVersion,
@@ -192,7 +192,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
 
   const hasAuthHeaders = !!process.env.OTEL_EXPORTER_OTLP_HEADERS;
 
-  DEFAULT_LOGGER.debug(
+  DEFAULT_LOGGER.trace(
     {
       otlpEndpoint,
       hasAuthHeaders,
@@ -208,7 +208,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
     validateAuthHeaders(otlpEndpoint);
   } else if (otlpEndpoint.includes('cloud.langfuse.com')) {
     // Warn if using cloud endpoint without auth
-    DEFAULT_LOGGER.warn(
+    DEFAULT_LOGGER.trace(
       {
         otlpEndpoint,
       },
@@ -223,7 +223,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
   // Wrap exporter to log export attempts for debugging
   const originalExport = exporter.export.bind(exporter);
   exporter.export = (spans, resultCallback) => {
-    DEFAULT_LOGGER.debug(
+    DEFAULT_LOGGER.trace(
       {
         spanCount: spans.length,
         endpoint: otlpEndpoint,
@@ -234,12 +234,12 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
     originalExport(spans, (result) => {
       if (result.code !== 0) {
         // Export failed
-        DEFAULT_LOGGER.error(
+        DEFAULT_LOGGER.trace(
           parseOTLPError(result.error),
           'Failed to export spans to OTLP collector'
         );
       } else {
-        DEFAULT_LOGGER.debug({ spanCount: spans.length }, 'Successfully exported spans');
+        DEFAULT_LOGGER.trace({ spanCount: spans.length }, 'Successfully exported spans');
       }
       resultCallback(result);
     });
@@ -258,7 +258,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
 
   tracerProvider.register();
 
-  DEFAULT_LOGGER.info('OpenTelemetry tracing initialized successfully');
+  DEFAULT_LOGGER.trace('OpenTelemetry tracing initialized successfully');
 
   defaultTracer = tracerProvider.getTracer(serviceName, serviceVersion);
 
@@ -281,14 +281,14 @@ export function getTracer(): Tracer {
  */
 export async function shutdownTracing(): Promise<void> {
   if (tracerProvider) {
-    DEFAULT_LOGGER.debug('Shutting down OpenTelemetry tracing');
+    DEFAULT_LOGGER.trace('Shutting down OpenTelemetry tracing');
     try {
       await tracerProvider.shutdown();
-      DEFAULT_LOGGER.info('OpenTelemetry tracing shutdown complete');
+      DEFAULT_LOGGER.trace('OpenTelemetry tracing shutdown complete');
     } catch (error) {
       // Log warning but don't throw - shutdown errors are common if collector is unavailable
       const errorDetails = parseOTLPError(error);
-      DEFAULT_LOGGER.warn(
+      DEFAULT_LOGGER.error(
         errorDetails,
         'Error during OpenTelemetry shutdown (collector may be unavailable or misconfigured)'
       );
@@ -305,7 +305,7 @@ export async function shutdownTracing(): Promise<void> {
 export function extractTraceContext(traceContext?: TraceContext): Context | undefined {
   if (!traceContext) return undefined;
 
-  DEFAULT_LOGGER.debug(
+  DEFAULT_LOGGER.trace(
     {
       traceId: traceContext.traceId,
       spanId: traceContext.spanId,
@@ -335,13 +335,13 @@ export function injectTraceContext(ctx?: Context): TraceContext | undefined {
   const span = trace.getSpan(activeContext);
 
   if (!span) {
-    DEFAULT_LOGGER.debug('No active span found for trace context injection');
+    DEFAULT_LOGGER.warn('No active span found for trace context injection');
     return undefined;
   }
 
   const spanContext = span.spanContext();
 
-  DEFAULT_LOGGER.debug(
+  DEFAULT_LOGGER.trace(
     {
       traceId: spanContext.traceId,
       spanId: spanContext.spanId,
@@ -375,7 +375,7 @@ export async function withSpan<T>(
 
   const ctx = parentContext || context.active();
 
-  DEFAULT_LOGGER.debug({ spanName: name, hasParent: !!parentContext }, 'Starting span');
+  DEFAULT_LOGGER.trace({ spanName: name, hasParent: !!parentContext }, 'Starting span');
 
   return tracer.startActiveSpan(
     name,
@@ -388,7 +388,7 @@ export async function withSpan<T>(
       try {
         const result = await fn(span);
         span.setStatus({ code: SpanStatusCode.OK });
-        DEFAULT_LOGGER.debug({ spanName: name }, 'Span completed successfully');
+        DEFAULT_LOGGER.trace({ spanName: name }, 'Span completed successfully');
         return result;
       } catch (error) {
         span.setStatus({
@@ -396,7 +396,7 @@ export async function withSpan<T>(
           message: error instanceof Error ? error.message : String(error),
         });
         span.recordException(error as Error);
-        DEFAULT_LOGGER.debug(
+        DEFAULT_LOGGER.error(
           {
             spanName: name,
             error: error instanceof Error ? error.message : String(error),

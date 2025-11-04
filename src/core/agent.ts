@@ -366,7 +366,7 @@ export class Agent {
       },
     });
 
-    this.config.logger.debug(
+    this.config.logger.trace(
       { userMessage, spanName: `agent.turn[${this.config.agentId}]` },
       'Created agent turn span with input'
     );
@@ -483,7 +483,7 @@ export class Agent {
 
                     span.setAttribute('output', messageContent);
 
-                    this.config.logger.debug(
+                    this.config.logger.trace(
                       { messageContent },
                       `Added assistant message output to agent.turn[${this.config.agentId}] span`
                     );
