@@ -4,7 +4,7 @@
  * Tracing utilities for agent turn execution (multi-turn conversation spans)
  */
 
-import { type Span, trace } from '@opentelemetry/api';
+import { context, type Span, trace } from '@opentelemetry/api';
 import { SpanAttributes } from '../tracing';
 
 export interface AgentTurnSpanParams {
@@ -96,18 +96,29 @@ export function failAgentTurnSpan(span: Span, error: Error): void {
 /**
  * Start agent initialization span
  */
-export function startAgentInitializeSpan(params: { agentId: string; contextId: string }): Span {
+export function startAgentInitializeSpan(params: {
+  agentId: string;
+  contextId: string;
+  parentSpan?: Span;
+}): Span {
   const tracer = trace.getTracer('looopy-agent');
 
-  const span = tracer.startSpan(`agent.initialize[${params.agentId}]`, {
+  const spanOptions: import('@opentelemetry/api').SpanOptions = {
     attributes: {
       'session.id': params.contextId,
       'agent.contextId': params.contextId,
       'agent.agentId': params.agentId,
+      [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'event',
     },
-  });
+  };
 
-  return span;
+  // If parent span provided, create child span using context
+  if (params.parentSpan) {
+    const ctx = trace.setSpan(context.active(), params.parentSpan);
+    return tracer.startSpan(`agent.initialize`, spanOptions, ctx);
+  }
+
+  return tracer.startSpan(`agent.initialize[${params.agentId}]`, spanOptions);
 }
 
 /**

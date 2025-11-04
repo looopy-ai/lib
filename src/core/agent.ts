@@ -197,8 +197,10 @@ export class Agent {
   /**
    * Initialize agent state by loading existing messages
    * Called automatically on first startTurn() if not already initialized
+   *
+   * @param parentSpan - Optional parent span to nest the initialization span within
    */
-  private async initialize(): Promise<void> {
+  private async initialize(parentSpan?: import('@opentelemetry/api').Span): Promise<void> {
     if (this._state.status !== 'created') {
       return; // Already initialized
     }
@@ -206,6 +208,7 @@ export class Agent {
     const span = startAgentInitializeSpan({
       agentId: this.config.agentId,
       contextId: this.config.contextId,
+      parentSpan,
     });
 
     try {
@@ -264,94 +267,12 @@ export class Agent {
       taskId?: string;
     }
   ): Promise<Observable<AgentEvent>> {
-    // Auto-initialize on first turn
-    if (this._state.status === 'created') {
-      await this.initialize();
-    }
-
-    // Generate taskId if not provided
-    const taskId =
-      options?.taskId || `${this.config.contextId}-turn-${this._state.turnCount + 1}-${Date.now()}`;
-
-    // Validate state
-    if (this._state.status === 'shutdown') {
-      const error = new Error('Cannot execute turn: Agent has been shutdown');
-      this.config.logger.error({ contextId: this.config.contextId }, error.message);
-      return of({
-        kind: 'status-update',
-        taskId,
-        contextId: this.config.contextId,
-        status: {
-          state: 'failed',
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
-        metadata: { error: error.message },
-      } as AgentEvent);
-    }
-
-    if (this._state.status === 'error') {
-      const error = new Error(
-        `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`
-      );
-      this.config.logger.error({ contextId: this.config.contextId }, error.message);
-      return of({
-        kind: 'status-update',
-        taskId,
-        contextId: this.config.contextId,
-        status: {
-          state: 'failed',
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
-        metadata: { error: error.message },
-      } as AgentEvent);
-    }
-
-    if (this._state.status === 'busy') {
-      const error = new Error('Cannot execute turn: Agent is already executing a turn');
-      this.config.logger.error({ contextId: this.config.contextId }, error.message);
-      return of({
-        kind: 'status-update',
-        taskId,
-        contextId: this.config.contextId,
-        status: {
-          state: 'failed',
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
-        metadata: { error: error.message },
-      } as AgentEvent);
-    }
-
-    this.config.logger.info(
-      { contextId: this.config.contextId, taskId, userMessage },
-      'Executing turn'
-    );
-
-    this._state.status = 'busy';
-    this._state.lastActivity = new Date();
-
-    // Load conversation history and execute turn
-    return this.executeInternal(userMessage, taskId, options?.authContext);
-  }
-
-  /**
-   * Execute a single conversational turn
-   *
-   * @param userMessage - User's message (or null for continuation)
-   * @param authContext - Authentication context (refreshed token, user credentials)
-  /**
-   * Internal turn execution with full error handling
-   */
-  private executeInternal(
-    userMessage: string | null,
-    taskId: string,
-    authContext?: import('./types').AuthContext
-  ): Observable<AgentEvent> {
     const turnNumber = this._state.turnCount + 1;
 
-    // Create span for the entire turn execution
+    // Generate taskId if not provided
+    const taskId = options?.taskId || `${this.config.contextId}-turn-${turnNumber}-${Date.now()}`;
+
+    // Create span for the entire turn execution (including initialization and validation)
     const span = startAgentTurnSpan({
       agentId: this.config.agentId,
       taskId,
@@ -364,6 +285,121 @@ export class Agent {
       { userMessage, spanName: `agent.turn[${this.config.agentId}]` },
       'Created agent turn span with input'
     );
+
+    try {
+      // Auto-initialize on first turn (will be nested within this span)
+      if (this._state.status === 'created') {
+        await this.initialize(span);
+      }
+
+      // Validate state
+      if (this._state.status === 'shutdown') {
+        const error = new Error('Cannot execute turn: Agent has been shutdown');
+        this.config.logger.error({ contextId: this.config.contextId }, error.message);
+
+        failAgentTurnSpan(span, error);
+
+        return of({
+          kind: 'status-update',
+          taskId,
+          contextId: this.config.contextId,
+          status: {
+            state: 'failed',
+            timestamp: new Date().toISOString(),
+          },
+          final: true,
+          metadata: { error: error.message },
+        } as AgentEvent);
+      }
+
+      if (this._state.status === 'error') {
+        const error = new Error(
+          `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`
+        );
+        this.config.logger.error({ contextId: this.config.contextId }, error.message);
+
+        failAgentTurnSpan(span, error);
+
+        return of({
+          kind: 'status-update',
+          taskId,
+          contextId: this.config.contextId,
+          status: {
+            state: 'failed',
+            timestamp: new Date().toISOString(),
+          },
+          final: true,
+          metadata: { error: error.message },
+        } as AgentEvent);
+      }
+
+      if (this._state.status === 'busy') {
+        const error = new Error('Cannot execute turn: Agent is already executing a turn');
+        this.config.logger.error({ contextId: this.config.contextId }, error.message);
+
+        failAgentTurnSpan(span, error);
+
+        return of({
+          kind: 'status-update',
+          taskId,
+          contextId: this.config.contextId,
+          status: {
+            state: 'failed',
+            timestamp: new Date().toISOString(),
+          },
+          final: true,
+          metadata: { error: error.message },
+        } as AgentEvent);
+      }
+
+      this.config.logger.info(
+        { contextId: this.config.contextId, taskId, userMessage },
+        'Executing turn'
+      );
+
+      this._state.status = 'busy';
+      this._state.lastActivity = new Date();
+
+      // Load conversation history and execute turn
+      return this.executeInternal(userMessage, taskId, options?.authContext, span);
+    } catch (error) {
+      const err = error as Error;
+      this.config.logger.error(
+        { contextId: this.config.contextId, error: err },
+        'Failed to start turn'
+      );
+
+      failAgentTurnSpan(span, err);
+
+      return of({
+        kind: 'status-update',
+        taskId,
+        contextId: this.config.contextId,
+        status: {
+          state: 'failed',
+          timestamp: new Date().toISOString(),
+        },
+        final: true,
+        metadata: { error: err.message },
+      } as AgentEvent);
+    }
+  }
+
+  /**
+   * Internal turn execution with full error handling
+   *
+   * @param userMessage - User's message (or null for continuation)
+   * @param taskId - Task ID for this turn
+   * @param authContext - Authentication context (refreshed token, user credentials)
+   * @param span - Parent span created in startTurn()
+   */
+  private executeInternal(
+    userMessage: string | null,
+    taskId: string,
+    authContext: import('./types').AuthContext | undefined,
+    span: import('@opentelemetry/api').Span
+  ): Observable<AgentEvent> {
+    const turnNumber = this._state.turnCount + 1;
 
     // Extract trace context from the span for propagation to AgentLoop
     const spanContext = span.spanContext();
@@ -525,9 +561,12 @@ export class Agent {
           this._state.status = 'error';
           this._state.error = error;
 
+          // Fail the span for any errors caught in the pipeline
+          failAgentTurnSpan(span, error);
+
           return of({
             kind: 'status-update',
-            taskId: this.config.contextId,
+            taskId,
             contextId: this.config.contextId,
             status: {
               state: 'failed',
