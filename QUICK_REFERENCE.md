@@ -1,5 +1,21 @@
 # Quick Reference: Design vs Implementation
 
+## Project Architecture Overview
+
+**Looopy** is an RxJS-based AI agent framework with two core classes:
+
+- **Agent** - Multi-turn conversation manager (stateful)
+  - Manages message history via MessageStore
+  - Persists artifacts via ArtifactStore
+  - Lifecycle: created → ready → busy → ready
+  - Lazy initialization on first turn
+
+- **AgentLoop** - Single-turn execution engine (stateless)
+  - Operator-based RxJS pipeline
+  - Executes one complete LLM reasoning cycle
+  - Operated by Agent class
+  - No conversation memory between calls
+
 ## Where Does This Go?
 
 Use this flowchart to decide where to put your work:
@@ -38,109 +54,112 @@ Are you explaining HOW the system works conceptually?
 
 ### ✅ Design Document (design/agent-loop.md)
 
-```markdown
-## State Persistence
+**Purpose**: Explain single-turn execution conceptually
 
-The agent loop persists state at checkpoint intervals to enable resumption.
+```markdown
+## Operator-Based Architecture
+
+AgentLoop uses RxJS operator factories for modular execution.
 
 ### Interface
 
 ```typescript
-interface StateStore {
-  save(taskId: string, state: State): Promise<void>;
-  load(taskId: string): Promise<State | null>;
-}
+// Factory creates operator with closures
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context>
 ```
 
-### Conceptual Flow
+### Conceptual Pipeline
 
 ```typescript
-// Checkpoint after significant operations
-const checkpoint$ = pipe(
-  filter(state => shouldCheckpoint(state)),
-  tap(state => stateStore.save(state))
-);
+// Simplified execution flow
+defer(() => of(context))
+  → tap(beforeExecute)      // Start span, emit TaskEvent
+  → switchMap(runLoop)       // Iteration loop
+  → tap(afterExecute)        // Final StatusUpdate
+  → catchError(handleError)  // Error handling
+  → shareReplay(1)           // Hot observable
 ```
 
 ### Implementations
 
-- **RedisStateStore**: Production Redis storage
-- **InMemoryStateStore**: Testing and development
-
-See [src/stores/](../src/stores/) for implementations.
+See [src/core/operators/](../src/core/operators/) for:
+- **execute-operators.ts** - Root span management
+- **iteration-operators.ts** - Iteration loop
+- **llm-operators.ts** - LLM calls and responses
 ```
 
-### ✅ Implementation Code (src/stores/redis/redis-state-store.ts)
+### ✅ Implementation Code (src/core/operators/execute-operators.ts)
+
+**Purpose**: Implement operator factory pattern
 
 ```typescript
 /**
- * Redis State Store Implementation
+ * Execute Operators
  *
- * Design: design/agent-loop.md#state-persistence
+ * Root span management and initial/final events for AgentLoop execution.
+ *
+ * Design: design/agent-loop.md (Operator-Based Architecture section)
  */
 
-import { StateStore, State } from '../interfaces';
+import { tap, catchError, type OperatorFunction } from 'rxjs';
+import type { Context, AgentEvent } from '../types';
+import type { Logger } from 'pino';
 
-export class RedisStateStore implements StateStore {
-  constructor(
-    private redis: RedisClient,
-    private ttl: number = 24 * 60 * 60
-  ) {}
-
-  async save(taskId: string, state: State): Promise<void> {
-    const key = `task:${taskId}:state`;
-
-    try {
-      await this.redis.setex(
-        key,
-        this.ttl,
-        JSON.stringify(state)
-      );
-
-      logger.debug('Saved state', { taskId });
-    } catch (error) {
-      logger.error('Failed to save state', { taskId, error });
-      throw new StateStorageError(`Save failed: ${error.message}`);
-    }
-  }
-
-  async load(taskId: string): Promise<State | null> {
-    // Full implementation with error handling...
-  }
+/**
+ * Factory function creates operator with closures
+ */
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
+  return tap((ctx) => {
+    spanRef.current = startExecutionSpan(ctx);
+    logger.trace({ taskId: ctx.taskId }, 'Started execution span');
+  });
 }
+
+// Additional operators: tapAfterExecuteEvents, catchExecuteError
 ```
 
 ### ✅ Usage Example (examples/basic-agent.ts)
+
+**Purpose**: Show how to use Agent for multi-turn conversations
 
 ```typescript
 /**
  * Basic Agent Example
  *
- * Shows how to create and run a simple agent with state persistence.
+ * Shows how to create and run a multi-turn agent with message persistence.
  */
 
-import { AgentLoop, StoreFactory } from 'looopy';
+import { Agent } from 'looopy';
+import { LiteLLMProvider } from 'looopy/providers';
+import { InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
 
-// Create stores
-const stateStore = StoreFactory.createStateStore({
-  type: 'redis',
-  redis: createRedisClient(),
-  ttl: 86400
+// Create agent (lazy initialization on first turn)
+const agent = new Agent({
+  contextId: 'user-123-session-456',
+  llmProvider: new LiteLLMProvider({ model: 'gpt-4' }),
+  toolProviders: [localTools],
+  messageStore: new InMemoryMessageStore(),
+  artifactStore: new InMemoryArtifactStore(),
 });
 
-// Create agent
-const agent = new AgentLoop({
-  stateStore,
-  // ... other config
-});
+// Turn 1 - Auto-initializes
+const turn1$ = await agent.startTurn('Hello, what can you help with?');
+await lastValueFrom(turn1$);
 
-// Run
-const result$ = agent.execute('Analyze this data', context);
-result$.subscribe({
-  next: event => console.log('Event:', event),
-  error: err => console.error('Error:', err),
-  complete: () => console.log('Done')
-});
+// Turn 2 - Continues with message history
+const turn2$ = await agent.startTurn('Tell me about TypeScript');
+await lastValueFrom(turn2$);
+
+// Shutdown
+await agent.shutdown();
 ```
 
 ## Common Mistakes
@@ -150,80 +169,102 @@ result$.subscribe({
 ```markdown
 <!-- design/agent-loop.md -->
 
-## State Store
+## Operator-Based Architecture
 
 ```typescript
-class RedisStateStore {
-  async save(taskId: string, state: State): Promise<void> {
-    const key = `task:${taskId}:state`;
-
-    try {
-      const serialized = JSON.stringify(state);
-      await this.redis.setex(key, this.ttl, serialized);
-
-      // Also update index
-      await this.redis.sadd('all-tasks', taskId);
-
-      // Log for debugging
-      logger.debug('Saved state', { taskId, size: serialized.length });
-
-    } catch (error) {
-      if (error instanceof RedisError) {
-        // Handle Redis-specific errors
-        logger.error('Redis error', { error });
-        throw new StateStorageError('Redis save failed');
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
+  return tap((ctx) => {
+    // Start execution span
+    const span = trace.getTracer('looopy').startSpan('agent.execute', {
+      attributes: {
+        'agent.id': ctx.agentId,
+        'task.id': ctx.taskId,
+        'context.id': ctx.contextId
       }
-      throw error;
-    }
-  }
+    });
 
-  // ... 200 more lines
+    // Set span in ref
+    spanRef.current = span;
+
+    // Emit initial event
+    this.events$.next({
+      kind: 'task',
+      id: ctx.taskId,
+      contextId: ctx.contextId,
+      status: { state: 'submitted', timestamp: new Date().toISOString() }
+    });
+
+    // Log trace-level
+    logger.trace({ taskId: ctx.taskId, traceId: span.spanContext().traceId }, 'Started execution span');
+  });
 }
+
+// ... 200 more lines of complete implementation
 ```
 ```
 
-**Problem**: This is complete implementation code. Should be in `src/`.
+**Problem**: This is complete implementation code with full error handling and logging. Should be in `src/core/operators/`.
+
+**Fix**: Keep only interface and conceptual flow in design doc, link to implementation.
 
 ### ❌ No Design Reference in Implementation
 
 ```typescript
-// src/stores/redis/redis-state-store.ts
+// src/core/operators/execute-operators.ts
 
-export class RedisStateStore implements StateStore {
-  async save(taskId: string, state: State): Promise<void> {
-    // Implementation here
-  }
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
+  return tap((ctx) => {
+    spanRef.current = startExecutionSpan(ctx);
+    logger.trace({ taskId: ctx.taskId }, 'Started execution span');
+  });
 }
 ```
 
 **Problem**: Missing design reference. Should have:
+
 ```typescript
 /**
- * Redis State Store Implementation
+ * Execute Operators
  *
- * Provides production-ready state persistence using Redis with TTL support.
+ * Root span management and initial/final events for AgentLoop execution.
  *
- * Design: design/agent-loop.md#state-persistence-strategy
+ * Design: design/agent-loop.md (Operator-Based Architecture section)
  */
-export class RedisStateStore implements StateStore {
+
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
+  // Implementation...
+}
 ```
 
 ### ❌ Interface in Wrong Place
 
 ```typescript
-// Only in src/stores/redis/redis-state-store.ts
+// Only in src/core/operators/execute-operators.ts
 
-interface StateStore {
-  save(taskId: string, state: State): Promise<void>;
-  load(taskId: string): Promise<State | null>;
-}
+type OperatorFunction<T, R> = (source: Observable<T>) => Observable<R>;
 
-export class RedisStateStore implements StateStore {
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
   // ...
 }
 ```
 
-**Problem**: Interface should be in design doc AND in `src/stores/interfaces.ts`.
+**Problem**: Core type definitions should be in design doc AND in `src/core/types.ts`, not buried in operator files.
 
 ## Checklist
 
@@ -269,6 +310,6 @@ export class RedisStateStore implements StateStore {
 ## Need Help?
 
 - Read [PROJECT.md](./PROJECT.md) for full guidelines
-- Check [REFACTOR_PLAN.md](./REFACTOR_PLAN.md) for refactoring strategy
-- See [DESIGN_IMPLEMENTATION_SEPARATION.md](./DESIGN_IMPLEMENTATION_SEPARATION.md) for detailed examples
+- Check [A2A_ALIGNMENT.md](./A2A_ALIGNMENT.md) for event type mapping
+- See design docs in [design/](./design/) for architecture details
 - Look at existing code in `src/` for patterns

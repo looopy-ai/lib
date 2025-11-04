@@ -4,6 +4,10 @@
 
 This is an RxJS-based AI agent framework implementing the A2A (Agent-to-Agent) protocol. We follow a **documentation-first approach** with strict separation between conceptual design and implementation code.
 
+**Key Architecture**: The framework has two core classes:
+- **Agent** - Multi-turn conversation manager (stateful)
+- **AgentLoop** - Single-turn execution engine (stateless)
+
 **CRITICAL**: Design documents in the `design/` folder are the **source of truth** for architecture and must be kept up-to-date. When making changes to implementations, always update the corresponding design document if the change affects architecture, interfaces, or design decisions.
 
 ## Documentation Structure
@@ -49,7 +53,7 @@ Implementation code should:
 - ✅ Reference design documents in comments:
   ```typescript
   // Implementation of agent loop checkpoint strategy
-  // Design: design/agent-loop.md#checkpointing-during-execution
+  // Design: design/agent-loop.md (State Persistence section)
   ```
 - ✅ Use proper TypeScript types and follow strict mode
 - ✅ Include JSDoc comments for public APIs
@@ -128,7 +132,7 @@ When working in `src/**/*.ts` files:
     *
     * Production-ready state persistence using Redis with TTL support.
     *
-    * Design: design/agent-loop.md#state-store-implementations
+    * Design: design/agent-loop.md (State Persistence section)
     */
    export class RedisStateStore implements StateStore {
    ```
@@ -177,8 +181,8 @@ When reviewing or generating code changes:
 **Example Workflow**:
 ```
 1. Task: Add streaming support to LLMProvider
-2. Read: design/agent-loop.md#llm-provider
-3. Code: Implement streaming in src/core/llm-provider.ts
+2. Read: design/agent-loop.md (LLM Provider section)
+3. Code: Implement streaming in src/providers/litellm-provider.ts
 4. Update: design/agent-loop.md to show new streaming interface
 5. Commit: Both implementation and design doc changes together
 ```
@@ -198,14 +202,49 @@ When reviewing or generating code changes:
 
 - **Way of Working**: See [PROJECT.md](../PROJECT.md)
 - **Quick Reference**: See [QUICK_REFERENCE.md](../QUICK_REFERENCE.md)
-- **Refactoring Plan**: See [REFACTOR_PLAN.md](../REFACTOR_PLAN.md)
 - **A2A Alignment**: See [A2A_ALIGNMENT.md](../A2A_ALIGNMENT.md)
+
+## Key Design Documents
+
+- **[design/architecture.md](../design/architecture.md)** - Overall system architecture
+- **[design/agent-lifecycle.md](../design/agent-lifecycle.md)** - Agent class design (multi-turn)
+- **[design/agent-loop.md](../design/agent-loop.md)** - AgentLoop class design (single-turn)
+- **[design/a2a-protocol.md](../design/a2a-protocol.md)** - A2A event specification
+- **[design/tool-integration.md](../design/tool-integration.md)** - Tool provider patterns
+- **[design/observability.md](../design/observability.md)** - Distributed tracing
 
 ## Common Patterns
 
-### Pattern: Factory Pattern
+### Pattern: Operator Factory Pattern
 
-**Design doc** (`design/*.md`):
+**Design doc** (`design/agent-loop.md`):
+```typescript
+// Factory function creates operator with closures
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context>
+```
+
+**Implementation** (`src/core/operators/execute-operators.ts`):
+```typescript
+// Design: design/agent-loop.md (Operator-Based Architecture section)
+export function tapBeforeExecute(
+  spanRef: { current: Span | undefined },
+  logger: Logger,
+  context: Context
+): OperatorFunction<Context, Context> {
+  return tap((ctx) => {
+    spanRef.current = startExecutionSpan(ctx);
+    logger.trace({ taskId: ctx.taskId }, 'Started execution span');
+  });
+}
+```
+
+### Pattern: Store Factory Pattern
+
+**Design doc** (`design/agent-loop.md`):
 ```typescript
 // Interface definition only
 interface StoreFactory {
@@ -216,7 +255,7 @@ interface StoreFactory {
 
 **Implementation** (`src/stores/factory.ts`):
 ```typescript
-// Design: design/agent-loop.md#store-factory-pattern
+// Design: design/agent-loop.md (State Persistence section)
 export class StoreFactory {
   static createStateStore(config: StateConfig): StateStore {
     // Complete implementation with validation, error handling, etc.
@@ -224,36 +263,79 @@ export class StoreFactory {
 }
 ```
 
-### Pattern: RxJS Pipelines
+### Pattern: Agent/AgentLoop Separation
 
-**Design doc** (`design/*.md`):
+**Design doc** (`design/agent-lifecycle.md`, `design/agent-loop.md`):
 ```typescript
-// Conceptual flow
-const loop$ = pipe(
-  prepareExecution,
-  callLLM,
-  executeTools,
-  updateState
-);
+// Agent manages multi-turn conversations
+class Agent {
+  async startTurn(message: string): Promise<Observable<AgentEvent>>
+}
+
+// AgentLoop executes single turns
+class AgentLoop {
+  startTurn(messages: Message[], context: Context): Observable<AgentEvent>
+}
 ```
 
-**Implementation** (`src/core/agent-loop.ts`):
-```typescript
-// Design: design/agent-loop.md#reactive-execution-pipeline
-export const createAgentLoop = (context: Context): Observable<State> => {
-  return of(context).pipe(
-    // Complete implementation with error handling, tracing, etc.
-  );
-};
-```
+**Implementation**:
+- `src/core/agent.ts` - Multi-turn manager with MessageStore
+- `src/core/agent-loop.ts` - Single-turn execution with operator pipeline
 
 ## Technology Stack
 
 - **TypeScript** (strict mode)
 - **RxJS** for reactive programming
 - **OpenTelemetry** for observability
-- **Server-Sent Events** (SSE) for A2A protocol
+- **Pino** for structured logging
+- **Vitest** for testing (103 tests passing)
+- **LiteLLM** for multi-provider LLM integration
+- **Server-Sent Events** (SSE) for A2A protocol (planned)
 - **Redis** for state persistence (optional)
+
+## Current Project Structure
+
+```
+src/
+├── core/              # Agent and AgentLoop
+│   ├── agent.ts       # Multi-turn conversation manager
+│   ├── agent-loop.ts  # Single-turn execution engine (includes checkpointing)
+│   ├── operators/     # RxJS operator factories
+│   │   ├── execute-operators.ts
+│   │   ├── iteration-operators.ts
+│   │   └── llm-operators.ts
+│   ├── types.ts       # Core type definitions
+│   ├── config.ts      # Configuration interfaces
+│   ├── logger.ts      # Pino logger setup
+│   └── cleanup.ts     # State cleanup service
+├── stores/            # State and artifact storage
+│   ├── interfaces.ts  # Store interfaces
+│   ├── factory.ts     # Store creation factory
+│   ├── redis/         # Redis implementations
+│   │   └── redis-state-store.ts
+│   ├── memory/        # In-memory implementations
+│   │   └── memory-state-store.ts
+│   └── artifacts/     # Artifact store implementations
+│       ├── memory-artifact-store.ts
+│       └── artifact-store-with-events.ts
+├── tools/             # Tool integration
+│   ├── interfaces.ts  # ToolProvider interface
+│   ├── local-tools.ts # Local function tools
+│   ├── client-tool-provider.ts # Client-delegated tools
+│   └── artifact-tools.ts # Artifact management tools (planned)
+├── providers/         # LLM providers
+│   └── litellm-provider.ts # LiteLLM proxy integration
+├── observability/     # Tracing and logging
+│   ├── tracing.ts     # OpenTelemetry setup
+│   └── spans/         # Span helper functions
+│       └── agent-turn.ts
+└── README.md          # Implementation guide
+
+Future directories (planned):
+├── a2a/               # A2A protocol (not yet implemented)
+│   ├── server.ts      # SSE server
+│   └── client.ts      # SSE client
+```
 
 ## Remember
 
