@@ -67,6 +67,27 @@ Example code should:
 - ✅ Demonstrate best practices
 - ✅ Include clear comments
 
+### AI Journal (`ai-journal/`)
+
+**Progress tracking and completion summaries** go here:
+
+- ✅ Feature completion summaries (e.g., `FEATURE_NAME_COMPLETE.md`)
+- ✅ Implementation progress tracking
+- ✅ Refactoring plans and completion reports
+- ✅ API change documentation
+- ✅ Migration guides for completed work
+- ✅ Historical development notes
+
+**Purpose**: Keep the root directory clean while preserving development history.
+
+**When to create these files**:
+- After completing a significant feature or refactoring
+- To document breaking API changes
+- To track multi-step implementation progress
+- To summarize complex changes for team/future reference
+
+**Never create in root**: All completion summaries and progress tracking files must go in `ai-journal/`, not in the project root.
+
 ## When Generating Code
 
 ### For Design Documents

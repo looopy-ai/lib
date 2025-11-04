@@ -145,7 +145,33 @@ Future directories (planned):
 │   └── client.ts      # SSE client
 ```
 
-### 6. Code Examples in Design
+### 6. Progress Tracking and Completion Summaries
+
+**All progress tracking and completion summary files belong in `ai-journal/`**, not in the project root.
+
+**When to create files in `ai-journal/`**:
+- ✅ After completing a significant feature or refactoring
+- ✅ To document breaking API changes
+- ✅ To track multi-step implementation progress
+- ✅ To summarize complex changes for team/future reference
+- ✅ Historical development notes
+
+**Naming convention**:
+- Feature completions: `FEATURE_NAME_COMPLETE.md`
+- Progress tracking: `FEATURE_NAME_PROGRESS.md`
+- Implementation guides: `FEATURE_NAME_IMPLEMENTATION.md`
+- Strategy documents: `FEATURE_NAME_STRATEGY.md`
+
+**Examples**:
+```
+ai-journal/
+├── AGENT_LIFECYCLE_COMPLETE.md
+├── ARTIFACT_IMPLEMENTATION.md
+├── TASKID_IMPLEMENTATION_COMPLETE.md
+└── MESSAGE_STORE_IMPLEMENTATION.md
+```
+
+### 7. Code Examples in Design
 
 When code examples are necessary in design docs:
 
@@ -181,7 +207,7 @@ async save(taskId: string, state: State): Promise<void> {
 }
 ```
 
-### 7. Testing Philosophy
+### 8. Testing Philosophy
 
 - Unit tests for individual components
 - Integration tests for A2A protocol compliance
@@ -189,7 +215,7 @@ async save(taskId: string, state: State): Promise<void> {
 - Test against design document specifications
 - Use in-memory implementations for fast tests
 
-### 8. Version Control Practices
+### 9. Version Control Practices
 
 **Commit messages:**
 ```
@@ -206,7 +232,7 @@ impl/feature-name      # Implementation work
 fix/bug-description    # Bug fixes
 ```
 
-### 9. Code Review Checklist
+### 10. Code Review Checklist
 
 **For Design Changes:**
 - [ ] Does it explain *why* not just *how*?
@@ -222,7 +248,7 @@ fix/bug-description    # Bug fixes
 - [ ] Are there tests?
 - [ ] Is it production-ready?
 
-### 10. Documentation Maintenance
+### 11. Documentation Maintenance
 
 **Quarterly Review:**
 - Review all design docs for accuracy
@@ -244,6 +270,7 @@ fix/bug-description    # Bug fixes
 | Implementation         | `src/**/*.ts`                          | Full TypeScript       |
 | Usage examples         | `README.md` or `examples/`             | Working code          |
 | API documentation      | Generated from code                    | TSDoc comments        |
+| Progress tracking      | `ai-journal/*.md`                      | Completion summaries  |
 
 ## Tools
 

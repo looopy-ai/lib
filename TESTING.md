@@ -160,6 +160,6 @@ The example demonstrates:
 After running tests and examples:
 
 1. Review `A2A_ALIGNMENT.md` for event structure details
-2. Check `AGENT_LOOP_PROGRESS.md` for implementation status
-3. See `PROJECT.md` for design/implementation guidelines
-4. Read `design/agent-loop.md` for architecture overview
+2. See `PROJECT.md` for design/implementation guidelines
+3. Read `design/agent-loop.md` for architecture overview
+4. Check `ai-journal/` for feature completion summaries
