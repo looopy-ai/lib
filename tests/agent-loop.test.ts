@@ -188,6 +188,17 @@ describe('AgentLoop', () => {
   let config: AgentLoopConfig;
   let stateStore: MockStateStore;
 
+  // Helper to create test context
+  const createTestContext = (
+    userMessage: string,
+    overrides: Partial<import('../src/core/types').Context> = {}
+  ): import('../src/core/types').Context => ({
+    agentId: 'test-agent',
+    contextId: 'test-context',
+    messages: [{ role: 'user', content: userMessage }],
+    ...overrides,
+  });
+
   beforeEach(() => {
     stateStore = new MockStateStore();
 
@@ -218,7 +229,7 @@ describe('AgentLoop', () => {
         llmProvider,
       });
 
-      const events$ = loop.execute('Hi there!');
+      const events$ = loop.execute(createTestContext('Hi there!'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should have: task, working, completed events
@@ -251,7 +262,7 @@ describe('AgentLoop', () => {
         llmProvider,
       });
 
-      const events$ = loop.execute('Test');
+      const events$ = loop.execute(createTestContext('Test'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Verify all events are A2A-compliant
@@ -309,7 +320,7 @@ describe('AgentLoop', () => {
         llmProvider,
       });
 
-      const events$ = loop.execute('What is the weather in San Francisco?');
+      const events$ = loop.execute(createTestContext('What is the weather in San Francisco?'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should complete successfully
@@ -360,7 +371,7 @@ describe('AgentLoop', () => {
         llmProvider,
       });
 
-      const events$ = loop.execute('Get weather and calculate 2+2');
+      const events$ = loop.execute(createTestContext('Get weather and calculate 2+2'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       const finalEvent = events[events.length - 1];
@@ -422,7 +433,7 @@ describe('AgentLoop', () => {
         toolProviders: [errorProvider],
       });
 
-      const events$ = loop.execute('Test error handling');
+      const events$ = loop.execute(createTestContext('Test error handling'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should still complete
@@ -457,7 +468,7 @@ describe('AgentLoop', () => {
         checkpointInterval: 1,
       });
 
-      const events$ = loop.execute('Multi-iteration test');
+      const events$ = loop.execute(createTestContext('Multi-iteration test'));
       await lastValueFrom(events$.pipe(toArray()));
 
       // Should have checkpointed
@@ -563,7 +574,7 @@ describe('AgentLoop', () => {
         llmProvider: errorProvider,
       });
 
-      const events$ = loop.execute('This will fail');
+      const events$ = loop.execute(createTestContext('This will fail'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       const errorEvent = events[events.length - 1];
@@ -589,7 +600,7 @@ describe('AgentLoop', () => {
         maxIterations: 5,
       });
 
-      const events$ = loop.execute('Infinite loop test');
+      const events$ = loop.execute(createTestContext('Infinite loop test'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should stop after max iterations
@@ -621,7 +632,7 @@ describe('AgentLoop', () => {
         traceFlags: 1,
       };
 
-      const events$ = loop.execute('Test', { traceContext });
+      const events$ = loop.execute(createTestContext('Test', { traceContext }));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events.length).toBeGreaterThan(0);
@@ -646,7 +657,7 @@ describe('AgentLoop', () => {
         scopes: ['read', 'write'],
       };
 
-      const events$ = loop.execute('Test', { authContext });
+      const events$ = loop.execute(createTestContext('Test', { authContext }));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events.length).toBeGreaterThan(0);

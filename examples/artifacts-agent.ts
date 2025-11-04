@@ -174,8 +174,10 @@ async function main() {
 
   // Execute agent
   console.log('📝 Task: Create a sample report\n');
-  const result$ = agent.execute('Create a sample report with sections', {
+  const result$ = agent.execute({
+    agentId: 'artifact-agent',
     contextId: 'example-context',
+    messages: [{ role: 'user', content: 'Create a sample report with sections' }],
   });
 
   // Subscribe to execution events

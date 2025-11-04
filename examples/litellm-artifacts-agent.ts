@@ -160,7 +160,11 @@ You must perform any computations before writing results to an artifact.
   console.log('='.repeat(70));
 
   // Execute
-  const events$ = agentLoop.execute(selectedPrompt);
+  const events$ = agentLoop.execute({
+    agentId: 'litellm-artifacts-agent',
+    contextId: `ctx_${Date.now()}`,
+    messages: [{ role: 'user', content: selectedPrompt }],
+  });
 
   // Track events
   let eventCount = 0;

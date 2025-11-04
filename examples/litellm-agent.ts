@@ -92,7 +92,11 @@ async function main() {
   console.log('='.repeat(70));
 
   // Execute
-  const events$ = agentLoop.execute(selectedPrompt);
+  const events$ = agentLoop.execute({
+    agentId: 'litellm-agent',
+    contextId: `ctx_${Date.now()}`,
+    messages: [{ role: 'user', content: selectedPrompt }],
+  });
 
   // Track events
   let eventCount = 0;

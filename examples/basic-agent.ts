@@ -107,7 +107,11 @@ async function main() {
   console.log('\n📝 User Prompt:', prompt);
   console.log('='.repeat(60));
 
-  const events$ = agentLoop.execute(prompt);
+  const events$ = agentLoop.execute({
+    agentId: 'basic-agent',
+    contextId: `ctx_${Date.now()}`,
+    messages: [{ role: 'user', content: prompt }],
+  });
 
   // Subscribe to events
   events$.subscribe({
