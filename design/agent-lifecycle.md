@@ -17,19 +17,19 @@ This design separates the stateful **Agent** (lifecycle and persistence manageme
 ### Desired Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                           Agent                              │
-│  (Stateful, Multi-turn, Lifecycle Management)               │
-│                                                              │
-│  - contextId / sessionId                                    │
-│  - MessageStore (conversation history)                      │
-│  - ArtifactStore (generated artifacts)                      │
-│  - StateStore (agent metadata)                              │
-│  - Lifecycle: start, pause, resume, shutdown                │
-│                                                              │
+┌────────────────────────────────────────────────────────────┐
+│                           Agent                            │
+│  (Stateful, Multi-turn, Lifecycle Management)              │
+│                                                            │
+│  - contextId / sessionId                                   │
+│  - MessageStore (conversation history)                     │
+│  - ArtifactStore (generated artifacts)                     │
+│  - StateStore (agent metadata)                             │
+│  - Lifecycle: start, pause, resume, shutdown               │
+│                                                            │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │            startTurn(userMessage)                │    │
-│  │                                                     │    │
+│  │            startTurn(userMessage)                  │    │
+│  │                                                    │    │
 │  │  1. Load conversation history                      │    │
 │  │  2. Append user message                            │    │
 │  │  3. Call AgentLoop.execute(messages, context)      │    │
@@ -37,24 +37,24 @@ This design separates the stateful **Agent** (lifecycle and persistence manageme
 │  │  5. Save artifacts                                 │    │
 │  │  6. Return events                                  │    │
 │  └────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────┘
                             │
                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       AgentLoop                              │
-│  (Stateless, Single-turn, Execution)                        │
-│                                                              │
-│  execute(messages, context) → Observable<AgentEvent>        │
-│                                                              │
-│  Single Turn:                                               │
-│  1. LLM call with message history                           │
-│  2. Execute tools if requested                              │
-│  3. Repeat until:                                           │
-│     - LLM finish_reason = 'stop'                            │
-│     - Max iterations reached                                │
-│     - Error occurs                                          │
-│  4. Return final state                                      │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                       AgentLoop                            │
+│  (Stateless, Single-turn, Execution)                       │
+│                                                            │
+│  execute(messages, context) → Observable<AgentEvent>       │
+│                                                            │
+│  Single Turn:                                              │
+│  1. LLM call with message history                          │
+│  2. Execute tools if requested                             │
+│  3. Repeat until:                                          │
+│     - LLM finish_reason = 'stop'                           │
+│     - Max iterations reached                               │
+│     - Error occurs                                         │
+│  4. Return final state                                     │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Concepts
@@ -100,8 +100,8 @@ interface AgentConfig {
   /** LLM provider for generating responses */
   llmProvider: LLMProvider;
 
-  /** Tool provider for tool execution */
-  toolProvider: ToolProvider;
+  /** Tool providers for tool execution */
+  toolProviders: ToolProvider[];
 
   /** Message store for conversation history */
   messageStore: MessageStore;
@@ -109,10 +109,7 @@ interface AgentConfig {
   /** Artifact store for generated content */
   artifactStore: ArtifactStore;
 
-  /** State store for agent metadata (optional) */
-  stateStore?: StateStore;
-
-  /** Agent loop configuration */
+  /** Agent loop configuration (optional overrides) */
   loopConfig?: Partial<AgentLoopConfig>;
 
   /** Auto-save messages after each turn (default: true) */
@@ -121,8 +118,17 @@ interface AgentConfig {
   /** Auto-compact messages when exceeding limit (default: false) */
   autoCompact?: boolean;
 
-  /** Maximum messages to keep before compaction */
+  /** Maximum messages to keep before compaction warning */
   maxMessages?: number;
+
+  /** System prompt */
+  systemPrompt?: string;
+
+  /** Agent ID for tracing */
+  agentId?: string;
+
+  /** Logger */
+  logger?: import('pino').Logger;
 }
 
 interface Agent {
@@ -133,48 +139,41 @@ interface Agent {
   readonly state: AgentState;
 
   /**
-   * Start or resume the agent
-   * Loads state from stores if resuming
-   */
-  start(): Promise<void>;
-
-  /**
    * Execute a single conversational turn
+   *
+   * Automatically initializes the agent on first call (lazy initialization).
+   *
    * @param userMessage - User's message or null for continuation
-   * @param authContext - Fresh authentication context (token may be refreshed)
+   * @param options - Turn options including authContext and optional taskId
    * @returns Observable stream of agent events
    */
   startTurn(
     userMessage: string | null,
-    authContext?: AuthContext
-  ): Observable<AgentEvent>;
-
-  /**
-   * Pause the agent (save state, keep in memory)
-   * Can be resumed without reloading
-   */
-  pause(): Promise<void>;
+    options?: {
+      authContext?: AuthContext;
+      taskId?: string;
+    }
+  ): Promise<Observable<AgentEvent>>;
 
   /**
    * Shutdown the agent (save state, cleanup resources)
-   * Must call start() to resume
    */
   shutdown(): Promise<void>;
 
   /**
-   * Get conversation history
+   * Get conversation messages
    */
   getMessages(options?: GetMessagesOptions): Promise<Message[]>;
 
   /**
    * Get generated artifacts
    */
-  getArtifacts(): Promise<Artifact[]>;
+  getArtifacts(): Promise<Array<{ id: string; content: unknown }>>;
 
   /**
-   * Manually save current state
+   * Manually save current conversation state
    */
-  saveState(): Promise<void>;
+  save(): Promise<void>;
 
   /**
    * Clear conversation history and artifacts
@@ -183,14 +182,17 @@ interface Agent {
 }
 
 interface AgentState {
-  /** Agent lifecycle state */
-  status: 'created' | 'starting' | 'ready' | 'busy' | 'paused' | 'shutdown';
+  /** Agent lifecycle status */
+  status: 'created' | 'ready' | 'busy' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;
 
   /** Last activity timestamp */
   lastActivity: Date;
+
+  /** Creation timestamp */
+  createdAt: Date;
 
   /** Error if in error state */
   error?: Error;
@@ -204,11 +206,20 @@ interface AgentState {
 
 ```typescript
 interface AgentLoopConfig {
+  /** Agent ID for tracing */
+  agentId?: string;
+
   /** LLM provider */
   llmProvider: LLMProvider;
 
-  /** Tool provider */
-  toolProvider: ToolProvider;
+  /** Tool providers for tool execution */
+  toolProviders: ToolProvider[];
+
+  /** State store (not used by Agent, uses NoopStateStore) */
+  stateStore: StateStore;
+
+  /** Artifact store for generated content */
+  artifactStore: ArtifactStore;
 
   /** Maximum iterations per turn */
   maxIterations?: number;
@@ -216,34 +227,40 @@ interface AgentLoopConfig {
   /** System prompt */
   systemPrompt?: string;
 
-  /** Tracing configuration */
-  tracing?: TracingConfig;
+  /** Logger */
+  logger?: import('pino').Logger;
 }
 
-interface TurnContext {
+interface StartTurnOptions {
   /** Context ID for this session */
   contextId: string;
+
+  /** Task ID for this turn */
+  taskId: string;
 
   /** Turn number (1-indexed) */
   turnNumber: number;
 
   /** Available artifacts (read-only) */
-  artifacts?: Artifact[];
+  artifacts?: Array<{ id: string; content: unknown }>;
 
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
+  /** Authentication context */
+  authContext?: AuthContext;
+
+  /** Trace context for distributed tracing */
+  traceContext?: TraceContext;
 }
 
 interface AgentLoop {
   /**
    * Execute a single turn
    * @param messages - Full conversation history
-   * @param context - Turn context
+   * @param options - Turn execution options
    * @returns Observable stream of events
    */
   startTurn(
     messages: Message[],
-    context: TurnContext
+    options: StartTurnOptions
   ): Observable<AgentEvent>;
 }
 ```
@@ -259,38 +276,38 @@ interface AgentLoop {
      │ "What's the weather?"
      ▼
 ┌─────────────────────────────────────────┐
-│ Agent.startTurn(userMessage)          │
-│                                          │
+│ Agent.startTurn(userMessage)            │
+│                                         │
 │ 1. Load messages from MessageStore      │
-│    messages = [                          │
+│    messages = [                         │
 │      { role: 'user', content: '...' }   │
-│    ]                                     │
-│                                          │
+│    ]                                    │
+│                                         │
 │ 2. Append user message                  │
 │    messages.push(userMessage)           │
-│                                          │
+│                                         │
 │ 3. Execute turn via AgentLoop           │
-│    ┌──────────────────────────────┐    │
-│    │ AgentLoop.startTurn()      │    │
-│    │                               │    │
-│    │ - LLM call with messages     │    │
-│    │ - Tool execution (weather)   │    │
-│    │ - LLM call with tool result  │    │
-│    │ - finish_reason = 'stop'     │    │
-│    │                               │    │
-│    │ Returns: assistant message   │    │
-│    └──────────────────────────────┘    │
-│                                          │
-│ 4. Save assistant message                │
+│    ┌──────────────────────────────┐     │
+│    │ AgentLoop.startTurn()        │     │
+│    │                              │     │
+│    │ - LLM call with messages     │     │
+│    │ - Tool execution (weather)   │     │
+│    │ - LLM call with tool result  │     │
+│    │ - finish_reason = 'stop'     │     │
+│    │                              │     │
+│    │ Returns: assistant message   │     │
+│    └──────────────────────────────┘     │
+│                                         │
+│ 4. Save assistant message               │
 │    messageStore.append([assistantMsg])  │
-│                                          │
+│                                         │
 │ 5. Save artifacts (if any)              │
 │    artifactStore.save(...)              │
-│                                          │
+│                                         │
 │ 6. Update agent state                   │
 │    state.turnCount++                    │
 │    state.lastActivity = now()           │
-│                                          │
+│                                         │
 │ 7. Emit events to user                  │
 └─────────────────────────────────────────┘
      │
@@ -302,17 +319,17 @@ interface AgentLoop {
      │ "Thanks, now check my calendar"
      ▼
 ┌─────────────────────────────────────────┐
-│ Agent.startTurn(userMessage)          │
-│                                          │
+│ Agent.startTurn(userMessage)            │
+│                                         │
 │ 1. Load messages (includes previous)    │
-│    messages = [                          │
+│    messages = [                         │
 │      { role: 'user', content: 'weather' },
 │      { role: 'assistant', ... },        │
 │      { role: 'tool', ... }              │
-│    ]                                     │
-│                                          │
+│    ]                                    │
+│                                         │
 │ 2. Append new user message              │
-│    ... (same flow)                       │
+│    ... (same flow)                      │
 └─────────────────────────────────────────┘
 ```
 
@@ -320,45 +337,45 @@ interface AgentLoop {
 
 ```
 Agent Session 1:
-┌──────────────────────────────────────┐
-│ agent = new Agent({ contextId })     │
-│ await agent.start()                  │
-│                                       │
-│ // Turn 1                             │
-│ agent.startTurn("Hello").subscribe()│
-│ messageStore: [user, assistant]      │
-│                                       │
-│ // Turn 2                             │
-│ agent.startTurn("Help me").subscribe()│
-│ messageStore: [user, asst, user, asst]│
-│                                       │
-│ // Pause                              │
-│ await agent.pause()                  │
-│ → Saves to messageStore              │
-│ → Saves to stateStore                │
-│   { turnCount: 2, ... }              │
-└──────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ agent = new Agent({ contextId })         │
+│ await agent.start()                      │
+│                                          │
+│ // Turn 1                                │
+│ agent.startTurn("Hello").subscribe()     │
+│ messageStore: [user, assistant]          │
+│                                          │
+│ // Turn 2                                │
+│ agent.startTurn("Help me").subscribe()   │
+│ messageStore: [user, asst, user, asst]   │
+│                                          │
+│ // Pause                                 │
+│ await agent.pause()                      │
+│ → Saves to messageStore                  │
+│ → Saves to stateStore                    │
+│   { turnCount: 2, ... }                  │
+└──────────────────────────────────────────┘
 
 ... (user closes app, time passes) ...
 
 Agent Session 2 (same contextId):
-┌──────────────────────────────────────┐
-│ agent = new Agent({                  │
-│   contextId: 'same-id'               │
-│ })                                    │
-│                                       │
-│ await agent.start()                  │
-│ → Loads from messageStore            │
-│   [user, asst, user, asst]           │
-│ → Loads from stateStore              │
-│   { turnCount: 2, ... }              │
-│                                       │
-│ state.status = 'ready'               │
-│                                       │
-│ // Continue conversation             │
-│ agent.startTurn("Continue").subscribe()│
-│ → Turn 3 with full history           │
-└──────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ agent = new Agent({                      │
+│   contextId: 'same-id'                   │
+│ })                                       │
+│                                          │
+│ await agent.start()                      │
+│ → Loads from messageStore                │
+│   [user, asst, user, asst]               │
+│ → Loads from stateStore                  │
+│   { turnCount: 2, ... }                  │
+│                                          │
+│ state.status = 'ready'                   │
+│                                          │
+│ // Continue conversation                 │
+│ agent.startTurn("Continue").subscribe()  │
+│ → Turn 3 with full history               │
+└──────────────────────────────────────────┘
 ```
 
 ## Turn Completion Conditions
@@ -490,19 +507,18 @@ const artifacts = await artifactStore.list(contextId);
 ```typescript
 import { Agent } from 'looopy';
 import { LiteLLMProvider } from 'looopy/providers';
-import { InMemoryMessageStore } from 'looopy/stores';
+import { InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
 
 // Create agent
 const agent = new Agent({
   contextId: 'user-123-session-456',
   llmProvider: new LiteLLMProvider({ model: 'gpt-4' }),
-  toolProvider: localTools,
+  toolProviders: [localTools],
   messageStore: new InMemoryMessageStore(),
   artifactStore: new InMemoryArtifactStore(),
 });
 
-// Start agent
-await agent.start();
+// Note: No start() call needed - lazy initialization on first startTurn()
 
 // Get fresh auth context (e.g., from request headers, JWT)
 const getAuthContext = () => ({
@@ -511,11 +527,16 @@ const getAuthContext = () => ({
 });
 
 // Turn 1 - Pass fresh auth context
-const turn1$ = agent.startTurn('Hello, what can you help with?', getAuthContext());
+// Agent auto-initializes on first call
+const turn1$ = await agent.startTurn('Hello, what can you help with?', {
+  authContext: getAuthContext()
+});
 await lastValueFrom(turn1$);
 
 // Turn 2 - Pass potentially refreshed auth context
-const turn2$ = agent.startTurn('Tell me about TypeScript', getAuthContext());
+const turn2$ = await agent.startTurn('Tell me about TypeScript', {
+  authContext: getAuthContext()
+});
 await lastValueFrom(turn2$);
 
 // Shutdown
@@ -548,7 +569,7 @@ app.post('/chat', async (req, res) => {
   };
 
   // Pass fresh auth to this turn
-  const events$ = agent.startTurn(req.body.message, authContext);
+  const events$ = await agent.startTurn(req.body.message, { authContext });
 
   events$.subscribe({
     next: (event) => res.write(JSON.stringify(event) + '\n'),
@@ -557,38 +578,56 @@ app.post('/chat', async (req, res) => {
 });
 ```
 
-### Pause and Resume
+### Resume Previous Conversation
 
 ```typescript
 // Session 1
-const agent = new Agent({ contextId: 'persistent-session' });
-await agent.start();
-
-agent.startTurn('Start a complex task').subscribe({
-  complete: async () => {
-    await agent.pause(); // Save state
-    console.log('Paused, can resume later');
-  }
+const agent = new Agent({
+  contextId: 'persistent-session',
+  llmProvider,
+  toolProviders,
+  messageStore, // Persistent message store (e.g., Redis, DB)
+  artifactStore
 });
+
+const turn1$ = await agent.startTurn('Start a complex task');
+await lastValueFrom(turn1$);
+
+// Messages automatically saved if autoSave: true (default)
+await agent.shutdown();
 
 // ... later (different process, after restart, etc.) ...
 
-// Session 2
-const agent2 = new Agent({ contextId: 'persistent-session' });
-await agent2.start(); // Loads previous state
+// Session 2 - same contextId
+const agent2 = new Agent({
+  contextId: 'persistent-session', // Same context ID
+  llmProvider,
+  toolProviders,
+  messageStore, // Same store - loads previous messages
+  artifactStore
+});
 
+// Agent auto-initializes and loads message history on first startTurn
+const turn2$ = await agent2.startTurn('Continue the task');
 console.log('Resumed with', agent2.state.turnCount, 'previous turns');
 
-agent2.startTurn('Continue the task').subscribe();
+await lastValueFrom(turn2$);
 ```
 
 ### Error Handling
 
 ```typescript
-const agent = new Agent({ contextId: 'session' });
-await agent.start();
+const agent = new Agent({
+  contextId: 'session',
+  llmProvider,
+  toolProviders,
+  messageStore,
+  artifactStore
+});
 
-agent.startTurn('Do something').subscribe({
+const events$ = await agent.startTurn('Do something');
+
+events$.subscribe({
   next: (event) => {
     if (event.kind === 'status-update' && event.status.state === 'failed') {
       console.error('Turn failed:', event.metadata?.error);
@@ -599,7 +638,7 @@ agent.startTurn('Do something').subscribe({
     await agent.shutdown(); // Cleanup
   },
   complete: async () => {
-    if (agent.state.status === 'busy') {
+    if (agent.state.status === 'ready') {
       // Normal completion
       console.log('Turn completed successfully');
     }
@@ -619,33 +658,77 @@ app.post('/api/a2a', async (req, res) => {
 
     // Create or resume agent
     const agent = getOrCreateAgent(contextId);
-    await agent.start(); // Loads if resuming
+    // Note: No start() call - lazy initialization on first startTurn
 
     // Execute turn
     const userMessage = params.message.parts[0].text;
-    const events$ = agent.startTurn(userMessage);
+    const events$ = await agent.startTurn(userMessage);
 
     res.setHeader('Content-Type', 'text/event-stream');
 
     events$.subscribe({
       next: (event) => {
         if (!event.kind.startsWith('internal:')) {
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
+          const response = {
+            jsonrpc: '2.0',
+            id: req.body.id,
+            result: event
+          };
+          res.write(`data: ${JSON.stringify(response)}\n\n`);
         }
       },
-      complete: async () => {
-        await agent.pause(); // Save state between turns
+      complete: () => {
+        // Messages auto-saved if autoSave: true
         res.end();
       },
       error: async (err) => {
         await agent.shutdown();
-        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+        const errorResponse = {
+          jsonrpc: '2.0',
+          id: req.body.id,
+          error: { code: -32000, message: err.message }
+        };
+        res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
         res.end();
       }
     });
   }
 });
 ```
+
+## Design Decisions
+
+### Implementation Notes
+
+#### Lazy Initialization
+
+The Agent automatically initializes on the first `startTurn()` call. There is no separate `start()` method:
+
+```typescript
+const agent = new Agent({ ... });
+
+// First call - triggers initialization (loads existing messages if any)
+const events$ = await agent.startTurn('Hello');
+
+// Status transitions: 'created' → 'ready' → 'busy' → 'ready'
+```
+
+#### No Pause Method
+
+The design document mentioned `pause()`, but the actual implementation doesn't have it. Instead:
+
+- Messages are auto-saved after each turn (if `autoSave: true`, which is the default)
+- State is persisted in the MessageStore
+- Simply create a new Agent with the same `contextId` to resume
+
+#### State Store Not Used
+
+The Agent passes a `NoopStateStore` to AgentLoop. State persistence happens via:
+- **MessageStore**: Conversation history
+- **ArtifactStore**: Generated artifacts
+- **Agent state**: In-memory only (not persisted)
+
+If you need to persist agent metadata (turnCount, etc.), implement it in your application layer.
 
 ## Design Decisions
 
@@ -671,26 +754,27 @@ app.post('/api/a2a', async (req, res) => {
 - A: AgentLoop loads/saves messages
 - B: Agent loads/saves messages, passes to AgentLoop
 
-**Decision**: B (Agent). AgentLoop should be stateless and focused on execution. Agent coordinates persistence.
+**Decision**: B (Agent). AgentLoop is stateless and focused on single-turn execution. Agent coordinates persistence.
 
 ### 3. Auto-save vs Manual Save?
 
-**Decision**: Auto-save by default (`autoSave: true`), with option to disable. Most users want automatic persistence, advanced users can control it manually.
+**Decision**: Auto-save by default (`autoSave: true`), with option to disable. Most users want automatic persistence, advanced users can control it manually via `save()`.
 
 ### 4. What Happens on Error Mid-turn?
 
 **Decision**:
-- Save partial state (messages up to error point)
-- Emit error event
-- Set agent status to 'failed'
+- Set agent status to 'error'
+- Emit error event with details
+- Partial state saved (messages up to error point) if autoSave is enabled
 - User can retry turn or shutdown
 
-### 5. Message Compaction Strategy?
+### 5. Lazy Initialization vs Explicit Start
 
-**Decision**:
-- Agent can auto-compact when `maxMessages` exceeded
-- User can manually compact via `messageStore.compact()`
-- Agent doesn't force compaction, just warns
+**Decision**: Lazy initialization. No separate `start()` method - the agent initializes automatically on the first `startTurn()` call. This simplifies the API and matches common usage patterns.
+
+### 6. ToolProvider vs ToolProviders
+
+**Decision**: Array of `toolProviders` instead of single `toolProvider`. Allows composing multiple tool sources (local tools, MCP servers, client tools, etc.).
 
 ## Migration Path
 
@@ -713,26 +797,22 @@ const events$ = loop.execute('Do something', context);
 const agent = new Agent({
   contextId: context.contextId,
   llmProvider,
-  toolProvider,
+  toolProviders: [toolProvider],
   messageStore,
-  artifactStore,
-  stateStore
+  artifactStore
 });
 
-await agent.start();
-const events$ = agent.startTurn('Do something');
+// No need to call start() - lazy initialization
+const events$ = await agent.startTurn('Do something');
 ```
 
 **Breaking Changes**:
 - `AgentLoop.execute()` → `Agent.startTurn()`
-- Must call `agent.start()` before first turn
+- `toolProvider` → `toolProviders` (now an array)
+- No separate `stateStore` - Agent uses NoopStateStore internally
 - Context is now part of agent config, not per-execution
-- Must manage agent lifecycle (shutdown)
-
-**Migration Support**:
-- Keep `AgentLoop.execute()` as deprecated wrapper
-- Add migration guide
-- Provide codemods if needed
+- `startTurn()` returns `Promise<Observable>` instead of `Observable`
+- Must manage agent lifecycle (call `shutdown()` when done)
 
 ## References
 
@@ -744,9 +824,9 @@ const events$ = agent.startTurn('Do something');
 ## Next Steps
 
 1. ✅ Design document (this file)
-2. Refactor `AgentLoop` to single-turn execution
-3. Implement `Agent` class with lifecycle management
-4. Update A2A server to use Agent
-5. Write tests for multi-turn scenarios
-6. Update examples and documentation
-7. Add migration guide
+2. ✅ Refactor `AgentLoop` to single-turn execution
+3. ✅ Implement `Agent` class with lifecycle management
+4. ✅ Update examples and documentation
+5. 🔄 Update A2A server to use Agent (in progress)
+6. 🔄 Add comprehensive tests for multi-turn scenarios
+7. 📝 Add migration guide for users upgrading from old API
