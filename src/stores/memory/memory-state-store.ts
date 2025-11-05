@@ -7,9 +7,9 @@
  * Design Reference: design/agent-loop.md#state-store-implementations
  */
 
-import type { PersistedLoopState, StateStore } from '../../core/types';
+import type { PersistedLoopState, TaskStateStore } from '../../core/types';
 
-export class InMemoryStateStore implements StateStore {
+export class InMemoryStateStore implements TaskStateStore {
   private states = new Map<string, { state: PersistedLoopState; expiresAt: number }>();
 
   async save(taskId: string, state: PersistedLoopState): Promise<void> {

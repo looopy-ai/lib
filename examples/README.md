@@ -34,11 +34,75 @@ pnpm tsx examples/client-tools-agent.ts
 pnpm tsx examples/artifacts-agent.ts
 pnpm tsx examples/litellm-artifacts-agent.ts
 pnpm tsx examples/message-stores.ts
+pnpm tsx examples/kitchen-sink.ts
 ```
 
 ## Available Examples
 
-### 1. `basic-agent.ts`
+### 1. `kitchen-sink.ts` ⭐ COMPLETE EXAMPLE
+
+**Status**: ✅ Complete
+
+**Purpose**: Comprehensive interactive CLI agent demonstrating ALL framework components working together.
+
+**Features**:
+- **Interactive CLI**: Real-time conversation interface with commands
+- **Filesystem Persistence**: All data stored on disk (state, messages, artifacts)
+- **Agent Lifecycle**: Full multi-turn conversation management
+- **Real LLM**: LiteLLM provider integration
+- **Multiple Tools**: Math, weather, random numbers, and artifacts
+- **Resume Support**: Continue previous conversations by context ID
+- **Organized Storage**: Clean directory structure under `./_agent_store/`
+
+**Directory Structure**:
+```
+./_agent_store/agent={agentId}/context={contextId}/
+├── state/        # Persisted loop state (JSON files)
+├── messages/     # Conversation history (timestamped)
+└── artifacts/    # Created artifacts (organized by ID)
+```
+
+**Commands**:
+- `/quit` or `/exit` - Shutdown agent and exit
+- `/history` - View conversation history
+- `/artifacts` - List created artifacts
+- `/clear` - Clear conversation history
+
+**To run**:
+```nu
+# New conversation (auto-generated context ID)
+pnpm tsx examples/kitchen-sink.ts
+
+# Resume or use specific context
+pnpm tsx examples/kitchen-sink.ts --context-id my-session
+
+# Custom agent and context IDs
+pnpm tsx examples/kitchen-sink.ts --agent-id my-agent --context-id my-session
+```
+
+**What it demonstrates**:
+- Complete Agent setup with all stores
+- Filesystem-based persistence (FileSystemStateStore, FileSystemMessageStore, FileSystemArtifactStore)
+- Interactive CLI with readline
+- Multi-turn conversations with context
+- Tool execution (local tools + artifact tools)
+- Event handling and display
+- Graceful shutdown
+
+**Key Learning Points**:
+- How all components fit together in a real application
+- Filesystem store implementations for production use
+- CLI interaction patterns
+- Session management and resumption
+- Complete agent lifecycle
+
+**Design Reference**: This example brings together concepts from:
+- [design/agent-lifecycle.md](../design/agent-lifecycle.md) - Agent and multi-turn
+- [design/agent-loop.md](../design/agent-loop.md) - Single-turn execution
+- [design/message-management.md](../design/message-management.md) - Message persistence
+- [design/artifact-management.md](../design/artifact-management.md) - Artifact storage
+
+### 2. `basic-agent.ts`
 
 **Status**: ✅ Complete
 

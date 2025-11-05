@@ -11,7 +11,7 @@ Looopy provides a reactive, extensible architecture for building AI agent system
 - **Multi-turn conversation management** via the Agent class
 - **Single-turn execution engine** via the AgentLoop class
 - **Tool execution** across multiple backends (local functions, client tools)
-- **State persistence** with Redis or in-memory stores
+- **State persistence** with Redis, in-memory, or filesystem stores
 - **Distributed tracing** with OpenTelemetry
 - **A2A protocol compliance** for event streaming
 
@@ -54,10 +54,11 @@ Looopy provides a reactive, extensible architecture for building AI agent system
 - Selective trace-level logging for span operations
 - See [docs/OBSERVABILITY.md](./docs/OBSERVABILITY.md) for details
 
-### � State Persistence
+### 💾 State Persistence
 - **StateStore**: Save/restore execution state for resumption
 - **ArtifactStore**: Manage conversation artifacts
-- Redis and in-memory implementations
+- **MessageStore**: Persist conversation history across sessions
+- Redis, in-memory, and filesystem implementations
 - Factory pattern for easy store creation
 
 ## Architecture
@@ -211,32 +212,86 @@ events$.subscribe(event => logToFile(event));
 
 ### State Persistence
 
+Looopy supports multiple storage backends for state, messages, and artifacts:
+
+#### Storage Backends
+
+**In-Memory** (for development/testing):
+```typescript
+import { InMemoryStateStore, InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
+
+const stateStore = new InMemoryStateStore();
+const messageStore = new InMemoryMessageStore();
+const artifactStore = new InMemoryArtifactStore();
+```
+
+**Redis** (for production):
 ```typescript
 import { StoreFactory } from 'looopy';
 
-// Create stores
 const stateStore = StoreFactory.createStateStore({
   type: 'redis',
   redis: redisClient,
   ttl: 86400 // 24 hours
 });
+```
 
-const artifactStore = StoreFactory.createArtifactStore({
-  type: 'memory'
-});
+**Filesystem** (for persistence without external dependencies):
+```typescript
+import {
+  FileSystemStateStore,
+  FileSystemMessageStore,
+  FileSystemArtifactStore
+} from 'looopy/stores/filesystem';
 
-// Use in Agent
+const basePath = './_agent_store';
+
+const stateStore = new FileSystemStateStore({ basePath, ttl: 86400 });
+const messageStore = new FileSystemMessageStore({ basePath });
+const artifactStore = new FileSystemArtifactStore({ basePath });
+```
+
+**Directory Structure** (filesystem stores):
+```
+./_agent_store/
+  agent={agentId}/
+    context={contextId}/
+      state/         # Loop state as JSON files
+        {taskId}.json
+      messages/      # Timestamped message files
+        {timestamp}-{index}.json
+      artifacts/     # Artifact content + metadata
+        {artifactId}/
+          metadata.json
+          parts/{partIndex}.json
+          content.txt or content.json
+```
+
+#### Using Stores with Agent
+
+```typescript
 const agent = new Agent({
   agentId: 'my-agent',
+  contextId: 'session-123',
   llmProvider,
   toolProviders,
-  messageStore: stateStore, // For conversation history
-  artifactStore
+  messageStore,   // For conversation history
+  artifactStore,  // For created artifacts
+  stateStore      // For loop state (used internally by AgentLoop)
 });
 
-// Resume from checkpoint
+// Agent automatically loads existing messages on first turn
+const events$ = await agent.startTurn('Continue our conversation');
+```
+
+#### Resumption
+
+```typescript
+// Resume AgentLoop from checkpoint
 const events$ = await AgentLoop.resume('task-123', config);
 ```
+
+**💡 See [examples/kitchen-sink.ts](./examples/kitchen-sink.ts)** for a complete example using filesystem stores with an interactive CLI.
 
 See [examples/](./examples/) for complete working examples.
 

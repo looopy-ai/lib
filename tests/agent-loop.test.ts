@@ -11,18 +11,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { AgentLoopConfig } from '../src/core/config';
 import type {
-  ArtifactPart,
-  ArtifactStore,
-  ExecutionContext,
-  LLMProvider,
-  LLMResponse,
-  PersistedLoopState,
-  StateStore,
-  StoredArtifact,
-  ToolCall,
-  ToolDefinition,
-  ToolProvider,
-  ToolResult,
+    ArtifactPart,
+    ArtifactStore,
+    ExecutionContext,
+    LLMProvider,
+    LLMResponse,
+    PersistedLoopState,
+    StoredArtifact,
+    TaskStateStore,
+    ToolCall,
+    ToolDefinition,
+    ToolProvider,
+    ToolResult,
 } from '../src/core/types';
 
 // Mock LLM Provider
@@ -106,7 +106,7 @@ class MockToolProvider implements ToolProvider {
 }
 
 // Mock State Store
-class MockStateStore implements StateStore {
+class MockStateStore implements TaskStateStore {
   private states = new Map<string, PersistedLoopState>();
 
   async save(taskId: string, state: PersistedLoopState): Promise<void> {

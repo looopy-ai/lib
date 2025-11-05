@@ -9,37 +9,37 @@
 
 import { catchError, concat, Observable, of } from 'rxjs';
 import {
-  addMessagesCompactedEvent,
-  addMessagesLoadedEvent,
-  addMessagesSavedEvent,
-  completeAgentInitializeSpan,
-  completeAgentTurnSpan,
-  failAgentInitializeSpan,
-  failAgentTurnSpan,
-  setResumeAttributes,
-  setTurnCountAttribute,
-  setTurnOutputAttribute,
-  startAgentInitializeSpan,
-  startAgentTurnSpan,
+    addMessagesCompactedEvent,
+    addMessagesLoadedEvent,
+    addMessagesSavedEvent,
+    completeAgentInitializeSpan,
+    completeAgentTurnSpan,
+    failAgentInitializeSpan,
+    failAgentTurnSpan,
+    setResumeAttributes,
+    setTurnCountAttribute,
+    setTurnOutputAttribute,
+    startAgentInitializeSpan,
+    startAgentTurnSpan,
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
 import { AgentLoop } from './agent-loop';
 import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
 import type {
-  AgentEvent,
-  ArtifactStore,
-  LLMProvider,
-  Message,
-  PersistedLoopState,
-  StateStore,
-  ToolProvider,
+    AgentEvent,
+    ArtifactStore,
+    LLMProvider,
+    Message,
+    PersistedLoopState,
+    TaskStateStore,
+    ToolProvider,
 } from './types';
 
 /**
  * No-op state store for Agent (doesn't use old checkpoint system)
  */
-class NoopStateStore implements StateStore {
+class NoopStateStore implements TaskStateStore {
   async save(_taskId: string, _state: PersistedLoopState): Promise<void> {}
   async load(_taskId: string): Promise<PersistedLoopState | null> {
     return null;

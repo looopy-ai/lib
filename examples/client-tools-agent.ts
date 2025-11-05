@@ -312,7 +312,23 @@ async function main() {
     console.log('-'.repeat(80));
 
     try {
-      const events$ = agentLoop.execute(scenario.prompt);
+      // Create context with messages
+      const contextId = `scenario-${scenarios.indexOf(scenario) + 1}`;
+      const taskId = `task-${Date.now()}`;
+
+      const events$ = agentLoop.startTurn(
+        [
+          {
+            role: 'user',
+            content: scenario.prompt,
+          },
+        ],
+        {
+          contextId,
+          taskId,
+          turnNumber: 1,
+        }
+      );
 
       // Collect all events
       const events: AgentEvent[] = [];
