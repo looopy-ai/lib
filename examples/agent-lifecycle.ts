@@ -54,6 +54,7 @@ async function main() {
 
   // Create an agent with persistent state
   const agent = new Agent({
+    agentId: 'lifecycle-example',
     contextId,
     llmProvider: LiteLLM.novaMicro(LITELLM_URL, LITELLM_API_KEY),
     toolProviders: [toolProvider],
