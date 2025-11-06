@@ -5,4 +5,9 @@
  * See: ai-journal/DISCRIMINATED_UNIONS_REFACTOR.md
  */
 
+export {
+  InternalEventArtifactStore,
+  type InternalEventArtifactStoreConfig,
+  type InternalEventEmitter,
+} from './internal-event-artifact-store';
 export { InMemoryArtifactStore } from './memory-artifact-store';
