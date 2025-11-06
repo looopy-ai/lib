@@ -1,0 +1,247 @@
+
+> looopy@1.0.0 test /mnt/data/code/personal/github/looopy-ai/lib
+> CI=true vitest
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90m/mnt/data/code/personal/github/looopy-ai/lib[39m
+
+ [32m✓[39m tests/internal-event-artifact-store.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [32m✓[39m tests/artifact-store.test.ts [2m([22m[2m27 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32m✓[39m tests/local-tools.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 17[2mms[22m[39m
+ [32m✓[39m tests/client-tool-provider.test.ts [2m([22m[2m24 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+[90mstderr[2m | tests/sse-server.test.ts[2m > [22m[2mEventRouter[2m > [22m[2mshould handle subscriber errors gracefully
+[22m[39mFailed to send event to subscriber sub-error: Error: Send failed
+    at Object.<anonymous> [90m(/mnt/data/code/personal/github/looopy-ai/lib/[39mtests/sse-server.test.ts:422:15[90m)[39m
+    at Object.mockCall [90m(file:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+spy@2.1.9/node_modules/[4m@vitest/spy[24m/dist/index.js:61:17[90m)[39m
+    at Object.spy [as send] [90m(file:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/tinyspy@3.0.2/node_modules/[4mtinyspy[24m/dist/index.js:45:80[90m)[39m
+    at EventRouter.route [90m(/mnt/data/code/personal/github/looopy-ai/lib/[39msrc/server/event-router.ts:122:22[90m)[39m
+    at [90m/mnt/data/code/personal/github/looopy-ai/lib/[39mtests/sse-server.test.ts:435:25
+    at [90mfile:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@2.1.9/node_modules/[4m@vitest/runner[24m/dist/index.js:146:14
+    at [90mfile:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@2.1.9/node_modules/[4m@vitest/runner[24m/dist/index.js:533:11
+    at runWithTimeout [90m(file:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@2.1.9/node_modules/[4m@vitest/runner[24m/dist/index.js:39:7[90m)[39m
+    at runTest [90m(file:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@2.1.9/node_modules/[4m@vitest/runner[24m/dist/index.js:1056:17[90m)[39m
+    at runSuite [90m(file:///mnt/data/code/personal/github/looopy-ai/lib/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@2.1.9/node_modules/[4m@vitest/runner[24m/dist/index.js:1205:15[90m)[39m
+
+ [32m✓[39m tests/sse-server.test.ts [2m([22m[2m29 tests[22m[2m)[22m[90m 121[2mms[22m[39m
+ [32m✓[39m tests/sanitize.test.ts [2m([22m[2m12 tests[22m[2m)[22m[90m 4[2mms[22m[39m
+[19:36:03.740] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hi there!"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_hl8bjw"
+[19:36:03.756] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763742_2yv7nizb8"
+    [35mfinishReason[39m: "stop"
+[19:36:03.757] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Test"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_6ue9ft"
+[19:36:03.769] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763757_3bfndakai"
+    [35mfinishReason[39m: "stop"
+[19:36:03.769] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is the weather in San Francisco?"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_fowqk9"
+[19:36:03.781] [32mINFO[39m: [36mExecuting tool calls[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763770_hzo50qtqd"
+    [35mtoolCallCount[39m: 1
+    [35mtools[39m: [
+      "get_weather"
+    ]
+[19:36:03.792] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763770_hzo50qtqd"
+    [35mfinishReason[39m: "stop"
+[19:36:03.792] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Get weather and calculate 2+2"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_xngy52"
+[19:36:03.803] [32mINFO[39m: [36mExecuting tool calls[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763792_qayrl6dv9"
+    [35mtoolCallCount[39m: 2
+    [35mtools[39m: [
+      "get_weather",
+      "calculate"
+    ]
+[19:36:03.816] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763792_qayrl6dv9"
+    [35mfinishReason[39m: "stop"
+[19:36:03.816] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Test error handling"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_m3tpmm"
+[19:36:03.827] [32mINFO[39m: [36mExecuting tool calls[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763817_nye02k1xv"
+    [35mtoolCallCount[39m: 1
+    [35mtools[39m: [
+      "failing_tool"
+    ]
+[19:36:03.838] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763817_nye02k1xv"
+    [35mfinishReason[39m: "stop"
+[19:36:03.839] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Multi-iteration test"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_k2gg4i"
+[19:36:03.871] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763839_6n7ptjbn4"
+    [35mfinishReason[39m: "stop"
+[19:36:03.873] [32mINFO[39m: [36mResuming agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "test-task-resume"
+[19:36:03.884] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "test-task-resume"
+    [35mfinishReason[39m: "stop"
+[19:36:03.885] [32mINFO[39m: [36mResuming agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "completed-task"
+[19:36:03.885] [32mINFO[39m: [36mTask already completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "completed-task"
+[19:36:03.886] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "This will fail"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_1wyrva"
+[19:36:03.893] [31mERROR[39m: [36mAgent execution failed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mstack[39m: "Error: LLM service unavailable\n    at /mnt/data/code/personal/github/looopy-ai/lib/tests/agent-loop.test.ts:588:35\n    at Observable.init [as _subscribe] (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/observable/throwError.ts:123:68)\n    at Observable._trySubscribe (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/Observable.ts:235:19)\n    at /mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/Observable.ts:225:18\n    at Object.errorContext (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/util/errorContext.ts:29:5)\n    at Observable.subscribe (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/Observable.ts:211:5)\n    at /mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/operators/scanInternals.ts:34:12\n    at OperatorSubscriber.<anonymous> (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/util/lift.ts:24:18)\n    at /mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/Observable.ts:217:22\n    at Object.errorContext (/mnt/data/code/personal/github/looopy-ai/lib/node_modules/.pnpm/rxjs@7.8.2/node_modules/rxjs/src/internal/util/errorContext.ts:29:5)"
+    [35mexecId[39m: "exec_1wyrva"
+    error: "LLM service unavailable"
+[19:36:03.894] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Infinite loop test"
+        }
+      ]
+    }
+    [35mexecId[39m: "exec_6mu2df"
+[19:36:03.953] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Test"
+        }
+      ],
+      "traceContext": {
+        "traceId": "trace-123",
+        "spanId": "span-456",
+        "traceFlags": 1
+      }
+    }
+    [35mexecId[39m: "exec_ff9vd8"
+[19:36:03.964] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763953_wxhuvnffl"
+    [35mfinishReason[39m: "stop"
+[19:36:03.965] [32mINFO[39m: [36mStarting agent execution[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mcontext[39m: {
+      "agentId": "test-agent",
+      "contextId": "test-context",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Test"
+        }
+      ],
+      "authContext": {
+        "userId": "user-123",
+        "scopes": [
+          "read",
+          "write"
+        ]
+      }
+    }
+    [35mexecId[39m: "exec_kwsa2v"
+ [32m✓[39m tests/agent-loop.test.ts [2m([22m[2m12 tests[22m[2m)[22m[90m 240[2mms[22m[39m
+[19:36:03.977] [32mINFO[39m: [36mTask completed[39m
+    [35mcomponent[39m: "AgentLoop"
+    [35mtaskId[39m: "task_1762457763966_g044nyo79"
+    [35mfinishReason[39m: "stop"
+
+[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[32m130 passed[39m[22m[90m (130)[39m
+[2m   Start at [22m 08:36:02
+[2m   Duration [22m 1.08s[2m (transform 564ms, setup 0ms, collect 1.69s, tests 414ms, environment 1ms, prepare 453ms)[22m
+

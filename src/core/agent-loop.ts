@@ -401,21 +401,42 @@ export class AgentLoop {
           }
         ),
         tap(({ response, chunkIndex }) => {
+          if (!this.eventEmitter) return;
+
+          // Extract thoughts from content delta (if present)
+          let deltaContent = response.message.contentDelta;
+          if (deltaContent) {
+            // Don't trim deltas - preserve whitespace for streaming
+            deltaContent = this.extractAndEmitThoughts(
+              state.taskId,
+              state.contextId,
+              deltaContent,
+              false // Not final - preserve whitespace
+            );
+          }
+
           // Emit content streaming events using the delta from the provider
-          if (this.eventEmitter && response.message.contentDelta) {
+          if (deltaContent) {
             // Intermediate chunk - emit the delta provided by the LLM provider
             this.eventEmitter.emitContentDelta(
               state.taskId,
               state.contextId,
-              response.message.contentDelta, // The actual new content chunk
+              deltaContent, // The actual new content chunk (with thoughts removed)
               chunkIndex
             );
-          } else if (this.eventEmitter && response.finished && response.message.content) {
+          } else if (response.finished && response.message.content) {
+            // Extract thoughts from final content as well
+            const finalContent = this.extractAndEmitThoughts(
+              state.taskId,
+              state.contextId,
+              response.message.content,
+              true // Final content - can trim
+            );
             // Final response - emit complete with full accumulated content
             this.eventEmitter.emitContentComplete(
               state.taskId,
               state.contextId,
-              response.message.content
+              finalContent
             );
           }
         }),
@@ -709,6 +730,57 @@ export class AgentLoop {
       lastActivity: new Date().toISOString(),
       resumeFrom: state.completed ? 'completed' : 'llm-call',
     };
+  }
+
+  /**
+   * Extract thoughts from content and emit thought events
+   *
+   * Extracts content within <thinking>...</thinking> tags and emits them
+   * as thought-stream events, then returns the content with tags removed.
+   *
+   * @param taskId - Task identifier
+   * @param contextId - Context identifier
+   * @param content - Content to extract thoughts from
+   * @param isFinal - Whether this is the final content (allows trimming)
+   * @returns Content with thinking tags removed
+   */
+  private extractAndEmitThoughts(
+    taskId: string,
+    contextId: string,
+    content: string,
+    isFinal = false
+  ): string {
+    if (!this.eventEmitter) return content;
+
+    // Regex to match <thinking>...</thinking> tags (non-greedy, multiline)
+    const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs;
+    let match: RegExpExecArray | null;
+    let cleanedContent = content;
+
+    // Extract all thinking blocks
+    while ((match = thinkingRegex.exec(content)) !== null) {
+      const thoughtContent = match[1].trim();
+
+      if (thoughtContent) {
+        // Emit thought event (reasoning type by default)
+        this.eventEmitter.emitThought(taskId, contextId, 'reasoning', thoughtContent, {
+          verbosity: 'normal',
+        });
+      }
+
+      // Remove the entire thinking tag from content
+      cleanedContent = cleanedContent.replace(match[0], '');
+    }
+
+    // Clean up any extra whitespace left by tag removal
+    cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+
+    // Only trim if this is the final content to preserve whitespace in deltas
+    if (isFinal) {
+      cleanedContent = cleanedContent.trim();
+    }
+
+    return cleanedContent;
   }
 
   /**

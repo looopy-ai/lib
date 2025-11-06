@@ -181,7 +181,7 @@ When creating artifacts:
 Be concise and helpful in your responses.`;
 
   // Create logger (pino.default for CommonJS modules)
-  const logger = OTEL_ENABLED ? undefined : pino.default({ level: 'error' });
+  const logger = pino.default({ level: 'error' });
 
   // Create agent
   console.log('🎯 Creating agent...\n');
@@ -502,18 +502,49 @@ Be concise and helpful in your responses.`;
     await logSSEEvent(event);
 
     // Handle specific events for console output
-    if (event.kind === 'task-status') {
-      handleTaskStatus(event);
-    } else if (event.kind === 'content-complete') {
-      console.log(`📦 Content completed`);
+    switch (event.kind) {
+      case 'task-status':
+        handleTaskStatus(event);
+        break;
+      case 'content-delta':
+        process.stdout.write(event.delta);
+        break;
+      case 'content-complete':
+        console.log(`\n\n📦 Content completed:\n${event.content}`);
+        break;
+      case 'thought-stream':
+        handleThoughtEvent(event);
+        break;
     }
+  }
+
+  function handleThoughtEvent(event: {
+    kind: 'thought-stream';
+    thoughtType: string;
+    verbosity: string;
+    content: string;
+  }) {
+    // Display thoughts with different icons based on type
+    const icons: Record<string, string> = {
+      planning: '📋',
+      reasoning: '🧠',
+      reflection: '🤔',
+      decision: '⚖️',
+      observation: '👁️',
+      strategy: '♟️',
+    };
+
+    const icon = icons[event.thoughtType] || '💭';
+    const verbosityLabel = event.verbosity === 'detailed' ? ' [detailed]' : '';
+
+    console.log(`\n${icon} ${event.thoughtType}${verbosityLabel}: ${event.content}`);
   }
 
   function handleTaskStatus(event: { kind: 'task-status'; status: string; message?: string }) {
     const { status } = event;
 
     if (status === 'working') {
-      process.stdout.write('🤔 ');
+      console.log('⏳ Working...');
     } else if (status === 'completed' && event.message) {
       console.log(`🤖 ${event.message}`);
     } else if (status === 'failed') {
