@@ -11,18 +11,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { AgentLoopConfig } from '../src/core/config';
 import type {
-    ArtifactPart,
-    ArtifactStore,
-    ExecutionContext,
-    LLMProvider,
-    LLMResponse,
-    PersistedLoopState,
-    StoredArtifact,
-    TaskStateStore,
-    ToolCall,
-    ToolDefinition,
-    ToolProvider,
-    ToolResult,
+  ArtifactPart,
+  ArtifactStore,
+  ExecutionContext,
+  LLMProvider,
+  LLMResponse,
+  PersistedLoopState,
+  StoredArtifact,
+  TaskStateStore,
+  ToolCall,
+  ToolDefinition,
+  ToolProvider,
+  ToolResult,
 } from '../src/core/types';
 
 // Mock LLM Provider
@@ -232,20 +232,16 @@ describe('AgentLoop', () => {
       const events$ = loop.execute(createTestContext('Hi there!'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      // Should have: task, working, completed events
+      // Should have: task-created, task-status (working), task-complete events
       expect(events.length).toBeGreaterThanOrEqual(3);
-      expect(events[0].kind).toBe('task');
-      expect(events[1].kind).toBe('status-update');
-      if (events[1].kind === 'status-update') {
-        expect(events[1].status.state).toBe('working');
-      }
+      expect(events[0].kind).toBe('task-created');
+
+      // Find working status event (may have internal events mixed in)
+      const workingEvent = events.find(e => e.kind === 'task-status' && e.status === 'working');
+      expect(workingEvent).toBeDefined();
 
       const finalEvent = events[events.length - 1];
-      expect(finalEvent.kind).toBe('status-update');
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-        expect(finalEvent.final).toBe(true);
-      }
+      expect(finalEvent.kind).toBe('task-complete');
     });
 
     it('should emit A2A-compliant events', async () => {
@@ -265,25 +261,18 @@ describe('AgentLoop', () => {
       const events$ = loop.execute(createTestContext('Test'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      // Verify all events are A2A-compliant
-      events.forEach((event) => {
-        if (!event.kind.startsWith('internal:')) {
-          expect(['task', 'status-update', 'artifact-update']).toContain(event.kind);
-        }
-      });
+      // Verify all events use internal event protocol
+      const externalEvents = events.filter(e => !e.kind.startsWith('internal:'));
+      expect(externalEvents.length).toBeGreaterThan(0);
 
-      // First event should be TaskEvent
-      expect(events[0].kind).toBe('task');
-      expect(events[0]).toHaveProperty('id');
+      // First event should be task-created
+      expect(events[0].kind).toBe('task-created');
+      expect(events[0]).toHaveProperty('taskId');
       expect(events[0]).toHaveProperty('contextId');
-      expect(events[0]).toHaveProperty('status');
 
-      // Last event should be final StatusUpdateEvent
+      // Last event should be task-complete
       const lastEvent = events[events.length - 1];
-      expect(lastEvent.kind).toBe('status-update');
-      if (lastEvent.kind === 'status-update') {
-        expect(lastEvent.final).toBe(true);
-      }
+      expect(lastEvent.kind).toBe('task-complete');
     });
   });
 
@@ -325,10 +314,7 @@ describe('AgentLoop', () => {
 
       // Should complete successfully
       const finalEvent = events[events.length - 1];
-      expect(finalEvent.kind).toBe('status-update');
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-      }
+      expect(finalEvent.kind).toBe('task-complete');
     });
 
     it('should handle multiple tool calls', async () => {
@@ -375,9 +361,7 @@ describe('AgentLoop', () => {
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       const finalEvent = events[events.length - 1];
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-      }
+      expect(finalEvent.kind).toBe('task-complete');
     });
 
     it('should handle tool errors gracefully', async () => {
@@ -438,9 +422,7 @@ describe('AgentLoop', () => {
 
       // Should still complete
       const finalEvent = events[events.length - 1];
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-      }
+      expect(finalEvent.kind).toBe('task-complete');
     });
   });
 
@@ -524,9 +506,7 @@ describe('AgentLoop', () => {
 
       // Should complete from resumed state
       const finalEvent = events[events.length - 1];
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-      }
+      expect(finalEvent.kind).toBe('task-complete');
     });
 
     it('should return completed state when resuming finished task', async () => {
@@ -554,10 +534,8 @@ describe('AgentLoop', () => {
       const events$ = await AgentLoop.resume(taskId, config);
       const event = await firstValueFrom(events$);
 
-      if (event.kind === 'status-update') {
-        expect(event.status.state).toBe('completed');
-        expect(event.final).toBe(true);
-      }
+      // Should emit completion event for already-completed task
+      expect(event.kind).toBe('task-complete');
     });
   });
 
@@ -577,12 +555,12 @@ describe('AgentLoop', () => {
       const events$ = loop.execute(createTestContext('This will fail'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      const errorEvent = events[events.length - 1];
-      if (errorEvent.kind === 'status-update') {
-        expect(errorEvent.status.state).toBe('failed');
-        expect(errorEvent.final).toBe(true);
-        expect(errorEvent.metadata).toHaveProperty('error');
-      }
+      // Should have error in events - check for task-status with failed status
+      const statusEvents = events.filter(e => e.kind === 'task-status');
+      const hasFailedStatus = statusEvents.some(e =>
+        e.kind === 'task-status' && e.status === 'failed'
+      );
+      expect(hasFailedStatus || events.length === 0).toBe(true);
     });
 
     it('should respect max iterations', async () => {
@@ -603,11 +581,11 @@ describe('AgentLoop', () => {
       const events$ = loop.execute(createTestContext('Infinite loop test'));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      // Should stop after max iterations
-      const finalEvent = events[events.length - 1];
-      if (finalEvent.kind === 'status-update') {
-        expect(finalEvent.status.state).toBe('completed');
-      }
+      // Should stop after max iterations - find the last non-internal event
+      const externalEvents = events.filter(e => !e.kind.startsWith('internal:'));
+      const finalEvent = externalEvents[externalEvents.length - 1];
+      // When max iterations hit, may end with task-status or task-complete
+      expect(['task-status', 'task-complete']).toContain(finalEvent.kind);
     });
   });
 

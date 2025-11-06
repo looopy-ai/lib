@@ -216,12 +216,21 @@ export interface A2AArtifact {
 
 /**
  * Events emitted during agent loop execution
- * Aligned with A2A protocol event types
+ * Now using the internal event protocol (design/internal-event-protocol.md)
+ *
+ * AgentEvent is a union of all internal events from the event protocol.
+ * This includes both external events (sent to clients) and internal events (debug/observability).
  */
-export type AgentEvent = TaskEvent | StatusUpdateEvent | ArtifactUpdateEvent | InternalEvent;
+export type AgentEvent = import('../events').InternalEvent;
 
 /**
- * Initial task response (A2A protocol)
+ * @deprecated Legacy A2A protocol types - kept for backward compatibility
+ * Use the new internal event protocol types from src/events instead
+ */
+
+/**
+ * Initial task response (A2A protocol) - DEPRECATED
+ * @deprecated Use TaskCreatedEvent from src/events instead
  */
 export interface TaskEvent {
   kind: 'task';
@@ -234,7 +243,8 @@ export interface TaskEvent {
 }
 
 /**
- * Status update event (A2A protocol)
+ * Status update event (A2A protocol) - DEPRECATED
+ * @deprecated Use TaskStatusEvent or TaskCompleteEvent from src/events instead
  */
 export interface StatusUpdateEvent {
   kind: 'status-update';
@@ -246,7 +256,8 @@ export interface StatusUpdateEvent {
 }
 
 /**
- * Artifact update event (A2A protocol)
+ * Artifact update event (A2A protocol) - DEPRECATED
+ * @deprecated Use FileWriteEvent, DataWriteEvent, or DatasetWriteEvent from src/events instead
  */
 export interface ArtifactUpdateEvent {
   kind: 'artifact-update';

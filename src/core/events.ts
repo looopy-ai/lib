@@ -1,43 +1,49 @@
 /**
  * Event Factory Functions
  *
- * Functions for creating A2A protocol events and internal events.
+ * Functions for creating internal event protocol events.
+ * These replace the old A2A-specific events with the new internal event protocol.
+ *
+ * Design: design/internal-event-protocol.md
  */
 
+import {
+  createInternalCheckpointEvent,
+  createTaskCompleteEvent,
+  createTaskCreatedEvent,
+  createTaskStatusEvent,
+} from '../events';
 import type { AgentEvent, LoopState, Message } from './types';
 
 /**
- * Create initial task event (A2A protocol)
+ * Create initial task event
  */
 export const createTaskEvent = (
   taskId: string,
   contextId: string,
   history: Message[]
-): AgentEvent => ({
-  kind: 'task',
-  id: taskId,
-  contextId,
-  status: {
-    state: 'submitted',
-    timestamp: new Date().toISOString(),
-  },
-  history,
-  artifacts: [],
-});
+): AgentEvent => {
+  return createTaskCreatedEvent({
+    contextId,
+    taskId,
+    initiator: 'user', // Default to user; can be overridden
+    metadata: {
+      historyLength: history.length,
+    },
+  }) as AgentEvent;
+};
 
 /**
  * Create working status event
  */
-export const createWorkingEvent = (taskId: string, contextId: string): AgentEvent => ({
-  kind: 'status-update',
-  taskId,
-  contextId,
-  status: {
-    state: 'working',
-    timestamp: new Date().toISOString(),
-  },
-  final: false,
-});
+export const createWorkingEvent = (taskId: string, contextId: string): AgentEvent => {
+  return createTaskStatusEvent({
+    contextId,
+    taskId,
+    status: 'working',
+    metadata: {},
+  }) as AgentEvent;
+};
 
 /**
  * Create completed status event
@@ -46,17 +52,14 @@ export const createCompletedEvent = (
   taskId: string,
   contextId: string,
   message?: Message
-): AgentEvent => ({
-  kind: 'status-update',
-  taskId,
-  contextId,
-  status: {
-    state: 'completed',
-    message,
-    timestamp: new Date().toISOString(),
-  },
-  final: true,
-});
+): AgentEvent => {
+  return createTaskCompleteEvent({
+    contextId,
+    taskId,
+    content: message?.content,
+    metadata: {},
+  }) as AgentEvent;
+};
 
 /**
  * Create failed status event
@@ -65,27 +68,30 @@ export const createFailedEvent = (
   taskId: string,
   contextId: string,
   error: string
-): AgentEvent => ({
-  kind: 'status-update',
-  taskId,
-  contextId,
-  status: {
-    state: 'failed',
-    timestamp: new Date().toISOString(),
-  },
-  final: true,
-  metadata: { error },
-});
+): AgentEvent => {
+  return createTaskStatusEvent({
+    contextId,
+    taskId,
+    status: 'failed',
+    message: error,
+    metadata: { error },
+  }) as AgentEvent;
+};
 
 /**
  * Create internal checkpoint event (for debugging/observability)
  */
-export const createCheckpointEvent = (taskId: string, iteration: number): AgentEvent => ({
-  kind: 'internal:checkpoint',
-  taskId,
-  iteration,
-  timestamp: new Date().toISOString(),
-});
+export const createCheckpointEvent = (
+  taskId: string,
+  contextId: string,
+  iteration: number
+): AgentEvent => {
+  return createInternalCheckpointEvent({
+    contextId,
+    taskId,
+    iteration,
+  }) as AgentEvent;
+};
 
 /**
  * Convert loop state to appropriate events
@@ -95,5 +101,5 @@ export const stateToEvents = (state: LoopState): AgentEvent[] => {
     return [createCompletedEvent(state.taskId, state.contextId, state.lastLLMResponse?.message)];
   }
 
-  return [createCheckpointEvent(state.taskId, state.iteration)];
+  return [createCheckpointEvent(state.taskId, state.contextId, state.iteration)];
 };

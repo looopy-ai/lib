@@ -8,7 +8,7 @@
  */
 
 import type { Span, Context as SpanContext } from '@opentelemetry/api';
-import { concat, defer, type Observable, of } from 'rxjs';
+import { concat, defer, merge, type Observable, of } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import {
   completeToolExecutionSpan,
@@ -31,6 +31,7 @@ import {
   tapBeforeExecute,
   tapLLMResponse,
 } from './operators';
+import { LoopEventEmitter } from './operators/event-emitter';
 import type {
   AgentEvent,
   Context,
@@ -63,6 +64,7 @@ export class AgentLoop {
   private readonly config: Required<Omit<AgentLoopConfig, 'logger'>> & {
     logger: import('pino').Logger;
   };
+  private eventEmitter: LoopEventEmitter | null = null;
 
   constructor(config: AgentLoopConfig) {
     this.config = {
@@ -118,10 +120,14 @@ export class AgentLoop {
     const execId = `exec_${Math.random().toString(36).slice(2, 8)}`;
     this.config.logger.info({ context, execId }, 'Starting agent execution');
 
+    // Create event emitter for this execution
+    this.eventEmitter = new LoopEventEmitter();
+
     // Store root span in ref so operators can access it
     const rootSpanRef = { current: null as Span | null };
 
-    return defer(() => {
+    // Create execution pipeline
+    const execution$ = defer(() => {
       this.config.logger.trace({ execId }, 'defer() executing - prepareExecution');
       return this.prepareExecution(context);
     }).pipe(
@@ -132,6 +138,26 @@ export class AgentLoop {
       }),
       tap(tapAfterExecuteEvents()),
       catchError(catchExecuteError(rootSpanRef, context, this.config.logger, execId)),
+      // Complete event emitter on execution completion
+      tap({
+        complete: () => {
+          if (this.eventEmitter) {
+            this.eventEmitter.complete();
+          }
+        },
+        error: (err) => {
+          if (this.eventEmitter) {
+            this.eventEmitter.error(err);
+          }
+        },
+      })
+    );
+
+    // Merge execution events with internal protocol events
+    return merge(
+      execution$,
+      this.eventEmitter.events$
+    ).pipe(
       // Share the execution to prevent duplicate executions on multiple subscriptions
       // shareReplay(1) ensures:
       // - Only one execution happens regardless of subscriber count
@@ -325,9 +351,21 @@ export class AgentLoop {
   /**
    * Call the LLM provider
    */
-  private callLLM(state: LoopState, _iteration: number): Observable<LoopState> {
+  private callLLM(state: LoopState, iteration: number): Observable<LoopState> {
     const spanRef = { current: null as Span | null };
     const { state: preparedState, messages } = prepareLLMCall(spanRef, this.config.logger)(state);
+
+    // Emit internal LLM call event
+    if (this.eventEmitter) {
+      this.eventEmitter.emitLLMCall(
+        state.taskId,
+        state.contextId,
+        iteration,
+        'llm', // Model name - could be made configurable
+        messages,
+        preparedState.availableTools.length
+      );
+    }
 
     return this.config.llmProvider
       .call({
@@ -448,6 +486,11 @@ export class AgentLoop {
     };
 
     const resultPromises = toolCalls.map(async (toolCall) => {
+      // Emit tool-start event
+      if (this.eventEmitter) {
+        this.eventEmitter.emitToolStart(state.taskId, state.contextId, toolCall);
+      }
+
       // Start tool execution span
       const span = startToolExecutionSpan({
         agentId: state.agentId,
@@ -480,13 +523,20 @@ export class AgentLoop {
         const errorMessage = `No provider found for tool: ${toolCall.function.name}`;
         failToolExecutionSpan(span, errorMessage);
 
-        return {
+        const result = {
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: false,
           result: null,
           error: errorMessage,
         };
+
+        // Emit tool-complete event
+        if (this.eventEmitter) {
+          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
+        }
+
+        return result;
       }
 
       try {
@@ -502,6 +552,11 @@ export class AgentLoop {
 
         // Complete span with result
         completeToolExecutionSpan(span, result);
+
+        // Emit tool-complete event
+        if (this.eventEmitter) {
+          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
+        }
 
         return result;
       } catch (error) {
@@ -519,13 +574,20 @@ export class AgentLoop {
         // Fail span with exception
         failToolExecutionSpanWithException(span, err);
 
-        return {
+        const result = {
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: false,
           result: null,
           error: err.message,
         };
+
+        // Emit tool-complete event
+        if (this.eventEmitter) {
+          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
+        }
+
+        return result;
       }
     });
 
@@ -561,6 +623,12 @@ export class AgentLoop {
       const persisted = this.serializeState(state);
       await this.config.stateStore.save(state.taskId, persisted);
       this.config.logger.trace({ taskId: state.taskId }, 'State checkpoint saved');
+
+      // Emit internal checkpoint event
+      if (this.eventEmitter) {
+        this.eventEmitter.emitCheckpoint(state.taskId, state.contextId, state.iteration);
+      }
+
       return state;
     });
   }

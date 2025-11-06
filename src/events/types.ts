@@ -138,10 +138,7 @@ export interface TaskCompleteEvent {
 /**
  * Union of all task lifecycle events
  */
-export type TaskLifecycleEvent =
-  | TaskCreatedEvent
-  | TaskStatusEvent
-  | TaskCompleteEvent;
+export type TaskLifecycleEvent = TaskCreatedEvent | TaskStatusEvent | TaskCompleteEvent;
 
 // ============================================================================
 // 2. Content Streaming Events
@@ -240,10 +237,7 @@ export interface ToolCompleteEvent {
 /**
  * Union of all tool execution events
  */
-export type ToolExecutionEvent =
-  | ToolStartEvent
-  | ToolProgressEvent
-  | ToolCompleteEvent;
+export type ToolExecutionEvent = ToolStartEvent | ToolProgressEvent | ToolCompleteEvent;
 
 // ============================================================================
 // 4. Input Request Events
@@ -568,53 +562,39 @@ export function isDebugEvent(event: InternalEvent): event is DebugEvent {
 /**
  * Check if an event is a task lifecycle event
  */
-export function isTaskLifecycleEvent(
-  event: InternalEvent
-): event is TaskLifecycleEvent {
+export function isTaskLifecycleEvent(event: InternalEvent): event is TaskLifecycleEvent {
   return (
-    event.kind === 'task-created' ||
-    event.kind === 'task-status' ||
-    event.kind === 'task-complete'
+    event.kind === 'task-created' || event.kind === 'task-status' || event.kind === 'task-complete'
   );
 }
 
 /**
  * Check if an event is a content streaming event
  */
-export function isContentStreamingEvent(
-  event: InternalEvent
-): event is ContentStreamingEvent {
+export function isContentStreamingEvent(event: InternalEvent): event is ContentStreamingEvent {
   return event.kind === 'content-delta' || event.kind === 'content-complete';
 }
 
 /**
  * Check if an event is a tool execution event
  */
-export function isToolExecutionEvent(
-  event: InternalEvent
-): event is ToolExecutionEvent {
+export function isToolExecutionEvent(event: InternalEvent): event is ToolExecutionEvent {
   return (
-    event.kind === 'tool-start' ||
-    event.kind === 'tool-progress' ||
-    event.kind === 'tool-complete'
+    event.kind === 'tool-start' || event.kind === 'tool-progress' || event.kind === 'tool-complete'
   );
 }
 
 /**
  * Check if an event is an input request event
  */
-export function isInputRequestEvent(
-  event: InternalEvent
-): event is InputRequestEvent {
+export function isInputRequestEvent(event: InternalEvent): event is InputRequestEvent {
   return event.kind === 'input-required' || event.kind === 'input-received';
 }
 
 /**
  * Check if an event is an authentication event
  */
-export function isAuthenticationEvent(
-  event: InternalEvent
-): event is AuthenticationEvent {
+export function isAuthenticationEvent(event: InternalEvent): event is AuthenticationEvent {
   return event.kind === 'auth-required' || event.kind === 'auth-completed';
 }
 
@@ -623,26 +603,20 @@ export function isAuthenticationEvent(
  */
 export function isArtifactEvent(event: InternalEvent): event is ArtifactEvent {
   return (
-    event.kind === 'file-write' ||
-    event.kind === 'data-write' ||
-    event.kind === 'dataset-write'
+    event.kind === 'file-write' || event.kind === 'data-write' || event.kind === 'dataset-write'
   );
 }
 
 /**
  * Check if an event is a sub-agent event
  */
-export function isSubAgentEvent(
-  event: InternalEvent
-): event is SubAgentEvent {
+export function isSubAgentEvent(event: InternalEvent): event is SubAgentEvent {
   return event.kind === 'subtask-created';
 }
 
 /**
  * Check if an event is a thought streaming event
  */
-export function isThoughtStreamEvent(
-  event: InternalEvent
-): event is ThoughtStreamEvent {
+export function isThoughtStreamEvent(event: InternalEvent): event is ThoughtStreamEvent {
   return event.kind === 'thought-stream';
 }
