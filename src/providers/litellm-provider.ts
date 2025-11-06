@@ -9,7 +9,7 @@
  * @see https://docs.litellm.ai/
  */
 
-import { from, type Observable } from 'rxjs';
+import { from, Observable } from 'rxjs';
 import { getLogger } from '../core/logger';
 import type { LLMProvider, LLMResponse, Message, ToolCall, ToolDefinition } from '../core/types';
 
@@ -54,6 +54,14 @@ interface LiteLLMRequest {
     content: string;
     name?: string;
     tool_call_id?: string;
+    tool_calls?: Array<{
+      id: string;
+      type: string;
+      function: {
+        name: string;
+        arguments: string;
+      };
+    }>;
   }>;
   tools?: Array<{
     type: string;
@@ -102,6 +110,33 @@ interface LiteLLMResponse {
 }
 
 /**
+ * LiteLLM streaming chunk format (SSE)
+ */
+interface LiteLLMStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      role?: string;
+      content?: string;
+      tool_calls?: Array<{
+        index: number;
+        id?: string;
+        type?: string;
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
+    };
+    finish_reason: string | null;
+  }>;
+}
+
+/**
  * LiteLLM Provider Implementation
  */
 export class LiteLLMProvider implements LLMProvider {
@@ -145,7 +180,251 @@ export class LiteLLMProvider implements LLMProvider {
     stream?: boolean;
     sessionId?: string;
   }): Observable<LLMResponse> {
+    // If streaming is requested, use SSE streaming
+    if (request.stream) {
+      return this.callStreaming(request);
+    }
+
+    // Otherwise use non-streaming call
     return from(this.callAsync(request));
+  }
+
+  /**
+   * Stream LLM responses via SSE
+   */
+  private callStreaming(request: {
+    messages: Message[];
+    tools?: ToolDefinition[];
+    sessionId?: string;
+  }): Observable<LLMResponse> {
+    return new Observable<LLMResponse>((subscriber) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+
+      // Prepare request
+      const litellmRequest: LiteLLMRequest = {
+        model: this.config.model,
+        messages: request.messages.map((msg) => {
+          const baseMsg: LiteLLMRequest['messages'][0] = {
+            role: msg.role,
+            content: msg.content,
+          };
+
+          if (msg.name) baseMsg.name = msg.name;
+          if (msg.toolCallId) baseMsg.tool_call_id = msg.toolCallId;
+
+          if (msg.toolCalls && msg.toolCalls.length > 0) {
+            baseMsg.tool_calls = msg.toolCalls.map((tc) => ({
+              id: tc.id,
+              type: tc.type,
+              function: {
+                name: tc.function.name,
+                arguments:
+                  typeof tc.function.arguments === 'string'
+                    ? tc.function.arguments
+                    : JSON.stringify(tc.function.arguments),
+              },
+            }));
+          }
+
+          return baseMsg;
+        }),
+        temperature: this.config.temperature,
+        max_tokens: this.config.maxTokens,
+        top_p: this.config.topP,
+        stream: true,
+        ...this.config.extraParams,
+      };
+
+      if (request.sessionId) {
+        litellmRequest.metadata = {
+          ...((litellmRequest.metadata as Record<string, unknown>) || {}),
+          session_id: request.sessionId,
+        };
+      }
+
+      if (request.tools && request.tools.length > 0) {
+        litellmRequest.tools = request.tools.map((tool) => ({
+          type: 'function',
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters as Record<string, unknown>,
+          },
+        }));
+      }
+
+      const url = `${this.config.baseUrl}/chat/completions`;
+
+      // Start the streaming request
+      (async () => {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(this.config.apiKey && {
+                Authorization: `Bearer ${this.config.apiKey}`,
+              }),
+            },
+            body: JSON.stringify(litellmRequest),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `LiteLLM API error: ${response.status} ${response.statusText} - ${errorText}`
+            );
+          }
+
+          if (!response.body) {
+            throw new Error('No response body');
+          }
+
+          // Parse SSE stream
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let contentAccumulator = '';
+          let currentRole = 'assistant';
+          const toolCallsAccumulator: Array<{
+            id: string;
+            type: 'function';
+            function: { name: string; arguments: string };
+          }> = [];
+          let finishReason: string | null = null;
+
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.trim() || line.trim() === '') continue;
+              if (!line.startsWith('data: ')) continue;
+
+              const data = line.slice(6).trim();
+              if (data === '[DONE]') continue;
+
+              try {
+                const chunk: LiteLLMStreamChunk = JSON.parse(data);
+                const choice = chunk.choices[0];
+
+                if (!choice) continue;
+
+                // Update role if provided
+                if (choice.delta.role) {
+                  currentRole = choice.delta.role;
+                }
+
+                // Accumulate content and emit delta
+                if (choice.delta.content) {
+                  contentAccumulator += choice.delta.content;
+
+                  // Emit intermediate response with BOTH delta and accumulated content
+                  subscriber.next({
+                    message: {
+                      role: currentRole as 'assistant',
+                      content: contentAccumulator, // Full accumulated content
+                      contentDelta: choice.delta.content, // Just the new chunk
+                    },
+                    finished: false,
+                  });
+                }
+
+                // Accumulate tool calls
+                if (choice.delta.tool_calls) {
+                  for (const toolCallDelta of choice.delta.tool_calls) {
+                    const index = toolCallDelta.index;
+
+                    // Initialize tool call if it doesn't exist
+                    if (!toolCallsAccumulator[index]) {
+                      toolCallsAccumulator[index] = {
+                        id: toolCallDelta.id || '',
+                        type: 'function',
+                        function: {
+                          name: '',
+                          arguments: '',
+                        },
+                      };
+                    }
+
+                    // Update tool call fields
+                    if (toolCallDelta.id) {
+                      toolCallsAccumulator[index].id = toolCallDelta.id;
+                    }
+                    if (toolCallDelta.function?.name) {
+                      toolCallsAccumulator[index].function.name = toolCallDelta.function.name;
+                    }
+                    if (toolCallDelta.function?.arguments) {
+                      toolCallsAccumulator[index].function.arguments +=
+                        toolCallDelta.function.arguments;
+                    }
+                  }
+                }
+
+                // Capture finish reason
+                if (choice.finish_reason) {
+                  finishReason = choice.finish_reason;
+                }
+              } catch (error) {
+                logger.warn({ error, line }, 'Failed to parse SSE chunk');
+              }
+            }
+          }
+
+          // Emit final response
+          const finalMessage: Message = {
+            role: currentRole as 'assistant',
+            content: contentAccumulator,
+          };
+
+          const finalToolCalls =
+            toolCallsAccumulator.length > 0
+              ? toolCallsAccumulator.map((tc) => ({
+                  id: tc.id,
+                  type: 'function' as const,
+                  function: {
+                    name: tc.function.name,
+                    arguments: JSON.parse(tc.function.arguments),
+                  },
+                }))
+              : undefined;
+
+          if (finalToolCalls) {
+            finalMessage.toolCalls = finalToolCalls;
+          }
+
+          subscriber.next({
+            message: finalMessage,
+            toolCalls: finalToolCalls,
+            finished: true,
+            finishReason: (finishReason as LLMResponse['finishReason']) || 'stop',
+            model: this.config.model,
+          });
+
+          subscriber.complete();
+        } catch (error) {
+          clearTimeout(timeoutId);
+          subscriber.error(error);
+        }
+      })();
+
+      // Cleanup on unsubscribe
+      return () => {
+        clearTimeout(timeoutId);
+        controller.abort();
+      };
+    });
   }
 
   /**

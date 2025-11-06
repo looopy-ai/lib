@@ -9,7 +9,7 @@
 
 import type { Span, Context as SpanContext } from '@opentelemetry/api';
 import { concat, defer, merge, type Observable, of } from 'rxjs';
-import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { catchError, last, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators';
 import {
   completeToolExecutionSpan,
   failToolExecutionSpan,
@@ -386,22 +386,32 @@ export class AgentLoop {
         messages,
         tools: preparedState.availableTools.length > 0 ? preparedState.availableTools : undefined,
         sessionId: preparedState.taskId,
+        stream: true, // Enable streaming for real-time content updates
       })
       .pipe(
-        map(sanitizeLLMResponse),
-        tap(tapLLMResponse(spanRef, messages, this.config.logger)),
-        tap((response) => {
-          // Emit content streaming events for LLM response
-          if (this.eventEmitter && response.message.content) {
-            // For now, emit the full content as a single chunk
-            // TODO: When LLM provider supports streaming, emit actual chunks
+        // Track chunk index for delta events
+        scan(
+          (acc, response) => ({
+            response,
+            chunkIndex: acc.chunkIndex + 1,
+          }),
+          {
+            chunkIndex: -1,
+            response: null as unknown as import('./types').LLMResponse,
+          }
+        ),
+        tap(({ response, chunkIndex }) => {
+          // Emit content streaming events using the delta from the provider
+          if (this.eventEmitter && response.message.contentDelta) {
+            // Intermediate chunk - emit the delta provided by the LLM provider
             this.eventEmitter.emitContentDelta(
               state.taskId,
               state.contextId,
-              response.message.content,
-              0
+              response.message.contentDelta, // The actual new content chunk
+              chunkIndex
             );
-
+          } else if (this.eventEmitter && response.finished && response.message.content) {
+            // Final response - emit complete with full accumulated content
             this.eventEmitter.emitContentComplete(
               state.taskId,
               state.contextId,
@@ -409,6 +419,14 @@ export class AgentLoop {
             );
           }
         }),
+        // Extract just the response for further processing
+        map(({ response }) => response),
+        // Take only the last (finished) response for pipeline processing
+        // This allows all chunks to emit events but only processes the final state
+        last(),
+        // Sanitize only the final response to avoid stripping whitespace between chunks
+        map(sanitizeLLMResponse),
+        tap(tapLLMResponse(spanRef, messages, this.config.logger)),
         map(mapLLMResponseToState(preparedState)),
         catchError(catchLLMError(spanRef))
       );

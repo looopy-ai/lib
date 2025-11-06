@@ -50,6 +50,7 @@ export interface Message {
   name?: string;
   toolCallId?: string;
   toolCalls?: ToolCall[]; // For assistant messages that make tool calls
+  contentDelta?: string; // For streaming: the new content chunk (not accumulated)
 }
 
 /**

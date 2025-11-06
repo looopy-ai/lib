@@ -626,8 +626,10 @@ describe('AgentLoop', () => {
       // Should stop after max iterations - find the last non-internal event
       const externalEvents = events.filter((e) => !e.kind.startsWith('internal:'));
       const finalEvent = externalEvents[externalEvents.length - 1];
-      // When max iterations hit, may end with task-status, task-complete, or content-complete
-      expect(['task-status', 'task-complete', 'content-complete']).toContain(finalEvent.kind);
+      // When max iterations hit, may end with task-status, task-complete, content-complete, or content-delta
+      expect(['task-status', 'task-complete', 'content-complete', 'content-delta']).toContain(
+        finalEvent.kind
+      );
     });
   });
 

@@ -189,7 +189,7 @@ Be concise and helpful in your responses.`;
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider], // HACK: artifact tool calls have been removed
+    toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
     artifactStore,
     systemPrompt,
