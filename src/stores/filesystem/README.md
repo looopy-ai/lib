@@ -7,9 +7,6 @@ Filesystem-based implementations of state, message, and artifact stores.
 All data is stored in a structured directory hierarchy:
 
 ```
-## Directory Structure
-
-```
 ./_agent_store/
 └── agent={agentId}/
     └── context={contextId}/
@@ -21,8 +18,10 @@ All data is stored in a structured directory hierarchy:
         │   └── {timestamp}.json
         └── artifacts/                    # Generated artifacts
             └── {artifactId}/
-                └── {filename}
-```
+                ├── metadata.json         # Artifact metadata
+                ├── content.txt           # File content (FileArtifact - chunks appended)
+                ├── data.json             # Data content (DataArtifact)
+                └── rows.jsonl            # Dataset rows (DatasetArtifact)
 ```
 
 ## Stores
@@ -117,15 +116,163 @@ const messageStore = new FileSystemMessageStore({
 
 ### FileSystemArtifactStore
 
-Stores artifacts with metadata and parts in structured directories.
+Stores artifacts with discriminated union types for files, data, and datasets.
 
 **Features:**
-- Artifact metadata and parts stored separately
-- Consolidated content files (text or JSON)
-- Efficient part-based updates
-- Multi-part artifact support
+- **Discriminated union types** - Separate interfaces for FileArtifact, DataArtifact, DatasetArtifact
+- **Type-specific methods** - Each artifact type has dedicated creation and access methods
+- **Efficient file storage** - Chunks appended to single `content.txt` file (not separate chunk files)
+- **Structured data support** - JSON data storage with schema validation
+- **Dataset rows** - Newline-delimited JSON for streaming dataset access
+- **Version tracking** - Operation history and versioning
+- **Metadata separation** - Artifacts stored independently of messages
 
-**Example:**
+#### Artifact Types
+
+**FileArtifact** - Text/binary file content:
+```typescript
+{
+  type: 'file',
+  artifactId: string,
+  mimeType: string,
+  encoding: 'utf-8' | 'base64',
+  chunks: ChunkMetadata[],    // Metadata only, actual content in content.txt
+  totalChunks: number,
+  totalSize: number,
+  status: 'building' | 'complete' | 'error'
+}
+```
+
+**DataArtifact** - Structured JSON data:
+```typescript
+{
+  type: 'data',
+  artifactId: string,
+  data: Record<string, unknown>,  // Stored in data.json
+  schema?: DataSchema
+}
+```
+
+**DatasetArtifact** - Tabular data with streaming:
+```typescript
+{
+  type: 'dataset',
+  artifactId: string,
+  schema: DatasetSchema,          // Column definitions
+  rows: DataRow[],                // Row metadata (actual rows in rows.jsonl)
+  totalRows: number
+}
+```
+
+#### Directory Structure per Artifact Type
+
+**FileArtifact:**
+```
+artifacts/{artifactId}/
+├── metadata.json       # FileArtifact metadata with chunks array
+└── content.txt         # All chunks appended to single file
+```
+
+**DataArtifact:**
+```
+artifacts/{artifactId}/
+├── metadata.json       # DataArtifact metadata with schema
+└── data.json          # Actual data object
+```
+
+**DatasetArtifact:**
+```
+artifacts/{artifactId}/
+├── metadata.json       # DatasetArtifact metadata with schema
+└── rows.jsonl         # Newline-delimited JSON rows
+```
+
+#### Type-Specific Methods
+
+**File Operations:**
+```typescript
+// Create file artifact
+const artifactId = await artifactStore.createFileArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'analysis.txt',
+  mimeType: 'text/plain',
+  encoding: 'utf-8'
+});
+
+// Append chunks (appended to single content.txt file)
+await artifactStore.appendFileChunk(artifactId, 'First chunk\n');
+await artifactStore.appendFileChunk(artifactId, 'Second chunk\n');
+await artifactStore.appendFileChunk(artifactId, 'Final chunk', { isLastChunk: true });
+
+// Get content (reads single content.txt file)
+const content = await artifactStore.getFileContent(artifactId);
+```
+
+**Data Operations:**
+```typescript
+// Create data artifact
+const artifactId = await artifactStore.createDataArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'results',
+  data: { status: 'success', count: 42 },
+  schema: {
+    type: 'object',
+    properties: {
+      status: { type: 'string' },
+      count: { type: 'number' }
+    }
+  }
+});
+
+// Update data
+await artifactStore.updateDataContent(artifactId, {
+  status: 'complete',
+  count: 100
+});
+
+// Get data
+const data = await artifactStore.getDataContent(artifactId);
+```
+
+**Dataset Operations:**
+```typescript
+// Create dataset artifact
+const artifactId = await artifactStore.createDatasetArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'sales',
+  schema: {
+    columns: [
+      { name: 'date', type: 'string' },
+      { name: 'amount', type: 'number' }
+    ]
+  }
+});
+
+// Append rows (appended to rows.jsonl)
+await artifactStore.appendDatasetRow(artifactId, {
+  date: '2025-01-01',
+  amount: 100
+});
+
+await artifactStore.appendDatasetRows(artifactId, [
+  { date: '2025-01-02', amount: 150 },
+  { date: '2025-01-03', amount: 200 }
+]);
+
+// Get all rows
+const rows = await artifactStore.getDatasetRows(artifactId);
+
+// Stream rows for large datasets
+for await (const row of artifactStore.streamDatasetRows(artifactId)) {
+  console.log(row);
+}
+```
+
+#### Complete Example
+
 ```typescript
 import { FileSystemArtifactStore } from '../src/stores/filesystem';
 
@@ -133,6 +280,53 @@ const artifactStore = new FileSystemArtifactStore({
   basePath: './_agent_store',
   agentId: 'my-agent',
 });
+
+// Create file artifact with streaming chunks
+const fileId = await artifactStore.createFileArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'report.txt',
+  mimeType: 'text/plain'
+});
+
+// Chunks are appended to single content.txt file
+await artifactStore.appendFileChunk(fileId, 'Based on the analysis, ');
+await artifactStore.appendFileChunk(fileId, 'sales increased by 15% in Q4.');
+await artifactStore.appendFileChunk(fileId, '\n\nEnd of report.', { isLastChunk: true });
+
+// Read complete content
+const report = await artifactStore.getFileContent(fileId);
+
+// Create data artifact
+const dataId = await artifactStore.createDataArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'summary',
+  data: {
+    quarter: 'Q4',
+    increase: 0.15,
+    revenue: 1_250_000
+  }
+});
+
+// Create dataset artifact
+const datasetId = await artifactStore.createDatasetArtifact({
+  contextId: 'ctx-123',
+  taskId: 'task-456',
+  name: 'sales_data',
+  schema: {
+    columns: [
+      { name: 'month', type: 'string' },
+      { name: 'sales', type: 'number' }
+    ]
+  }
+});
+
+await artifactStore.appendDatasetRows(datasetId, [
+  { month: 'October', sales: 400_000 },
+  { month: 'November', sales: 425_000 },
+  { month: 'December', sales: 425_000 }
+]);
 ```
 
 ## Store Architecture
@@ -155,9 +349,10 @@ Understanding the different stores:
   - Granularity: per contextId
 
 - **ArtifactStore** - Generated artifacts
-  - Purpose: Store created content
+  - Purpose: Store created content (files, data, datasets)
   - Lifetime: Same as context
   - Granularity: per contextId/taskId
+  - **NEW:** Discriminated union types for type-safe operations
 
 ## Usage with Agent
 
@@ -238,5 +433,4 @@ The `StateStore` type is now an alias for `TaskStateStore` and will be removed i
 
 - [design/agent-lifecycle.md](../../../design/agent-lifecycle.md) - Agent and context management
 - [design/agent-loop.md](../../../design/agent-loop.md) - Task state persistence
-- [design/message-management.md](../../../design/message-management.md) - Message store design (if exists)
-- [design/artifact-management.md](../../../design/artifact-management.md) - Artifact storage
+- [design/artifact-management.md](../../../design/artifact-management.md) - Artifact storage with discriminated unions

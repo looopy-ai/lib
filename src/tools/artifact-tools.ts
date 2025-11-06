@@ -3,48 +3,13 @@
  *
  * Design: design/artifact-management.md#built-in-artifact-tools
  *
- * Provides tools for agents to create and manage artifacts that are
- * streamed to clients via the A2A protocol.
+ * Provides tools for agents to create and manage artifacts using the
+ * discriminated union API (file, data, dataset).
  */
 
 import { z } from 'zod';
-import type { A2APart, ArtifactPart, ArtifactStore, StateStore, ToolProvider } from '../core/types';
+import type { ArtifactStore, StateStore, ToolProvider } from '../core/types';
 import { localTools, tool } from './local-tools';
-
-// Zod schemas matching A2A protocol
-const A2APartSchema = z.union([
-  z.object({
-    kind: z.literal('text'),
-    text: z.string(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  }),
-  z.object({
-    kind: z.literal('file'),
-    file: z.object({
-      name: z.string().optional(),
-      mimeType: z.string().optional(),
-      bytes: z.string().optional().describe('Base64 encoded content'),
-      uri: z.string().optional(),
-    }),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  }),
-  z.object({
-    kind: z.literal('data'),
-    data: z.record(z.string(), z.unknown()),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  }),
-  z.object({}),
-]);
-
-const A2AArtifactSchema = z.object({
-  artifactId: z
-    .string()
-    .describe('Unique identifier for the artifact (e.g., "report-2025", "analysis-results")'),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  parts: z.array(A2APartSchema),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
 
 /**
  * Helper to track artifacts in state
@@ -66,208 +31,13 @@ async function trackArtifactInState(
 }
 
 /**
- * Convert A2A part to internal format
- */
-function convertA2APartToInternal(part: {
-  kind: string;
-  text?: string;
-  file?: { name?: string; mimeType?: string; bytes?: string; uri?: string };
-  data?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}): Omit<ArtifactPart, 'index'> {
-  if (part.kind === 'text') {
-    return { kind: 'text', content: part.text || '', metadata: part.metadata };
-  }
-  if (part.kind === 'file' && part.file) {
-    return {
-      kind: 'file',
-      content: part.file.bytes,
-      metadata: {
-        fileName: part.file.name,
-        mimeType: part.file.mimeType,
-        uri: part.file.uri,
-        ...part.metadata,
-      },
-    };
-  }
-  return { kind: 'data', data: part.data || {}, metadata: part.metadata };
-}
-
-/**
- * Group parts by kind and concatenate text parts
- */
-function groupPartsByKind(
-  parts: Array<{
-    kind: string;
-    text?: string;
-    file?: { name?: string; mimeType?: string; bytes?: string; uri?: string };
-    data?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }>
-): Map<
-  string,
-  {
-    kind: string;
-    text?: string;
-    file?: { name?: string; mimeType?: string; bytes?: string; uri?: string };
-    data?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }
-> {
-  const partsByKind = new Map();
-
-  for (const part of parts) {
-    const existing = partsByKind.get(part.kind);
-    if (existing && part.kind === 'text' && part.text) {
-      // Concatenate text parts
-      existing.text = (existing.text || '') + part.text;
-    } else {
-      // First part of this kind, or non-text part (file/data don't concatenate)
-      partsByKind.set(part.kind, { ...part });
-    }
-  }
-
-  return partsByKind;
-}
-
-/**
- * Replace artifact parts (append=false behavior)
- *
- * Groups parts by kind and concatenates them. For each kind present in the new parts,
- * replaces ALL existing parts of that kind with the concatenated result.
- */
-async function replaceArtifactParts(
-  artifactStore: ArtifactStore,
-  artifactId: string,
-  parts: Array<{
-    kind: string;
-    text?: string;
-    file?: { name?: string; mimeType?: string; bytes?: string; uri?: string };
-    data?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }>,
-  lastChunk: boolean
-): Promise<{ partsReplaced: number; partsAdded: number }> {
-  const existingParts = await artifactStore.getArtifactParts(artifactId);
-
-  // Group new parts by kind and concatenate using helper
-  const partsByKind = groupPartsByKind(parts);
-
-  // Group existing parts by kind
-  const existingByKind = new Map<string, ArtifactPart[]>();
-  for (const part of existingParts) {
-    const list = existingByKind.get(part.kind) || [];
-    list.push(part);
-    existingByKind.set(part.kind, list);
-  }
-
-  let partsReplaced = 0;
-  let partsAdded = 0;
-
-  // Build final parts list
-  const finalParts: Omit<ArtifactPart, 'index'>[] = [];
-
-  // Add parts from new request (concatenated by kind)
-  for (const [kind, part] of partsByKind) {
-    const internalPart = convertA2APartToInternal(part);
-    finalParts.push(internalPart);
-
-    const existingOfKind = existingByKind.get(kind);
-    if (existingOfKind && existingOfKind.length > 0) {
-      partsReplaced += existingOfKind.length;
-    } else {
-      partsAdded++;
-    }
-  }
-
-  // Add existing parts that weren't in the new request (preserve other kinds)
-  for (const [kind, existingOfKind] of existingByKind) {
-    if (!partsByKind.has(kind)) {
-      for (const part of existingOfKind) {
-        const { index: _index, ...partWithoutIndex } = part;
-        finalParts.push(partWithoutIndex);
-      }
-    }
-  }
-
-  // Replace all parts with new set
-  await artifactStore.replaceParts(artifactId, finalParts, lastChunk);
-
-  return { partsReplaced, partsAdded };
-}
-
-/**
- * Append artifact parts (append=true behavior)
- *
- * Groups parts by kind and concatenates them with existing parts of the same kind.
- * For text parts, appends new text to existing text. For other types, adds as new parts.
- */
-async function appendArtifactParts(
-  artifactStore: ArtifactStore,
-  artifactId: string,
-  parts: Array<{
-    kind: string;
-    text?: string;
-    file?: { name?: string; mimeType?: string; bytes?: string; uri?: string };
-    data?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }>,
-  lastChunk: boolean
-): Promise<number> {
-  const existingParts = await artifactStore.getArtifactParts(artifactId);
-
-  // Group new parts by kind and concatenate using helper
-  const partsByKind = groupPartsByKind(parts);
-
-  // Build final parts list
-  const finalParts: Omit<ArtifactPart, 'index'>[] = [];
-
-  // Add all existing parts, concatenating with new parts of same kind
-  const processedKinds = new Set<string>();
-
-  for (const part of existingParts) {
-    const { index: _index, ...partWithoutIndex } = part;
-
-    const newPart = partsByKind.get(part.kind);
-    if (newPart && !processedKinds.has(part.kind)) {
-      // Concatenate with new part of same kind
-      if (part.kind === 'text' && newPart.text) {
-        finalParts.push({
-          kind: 'text',
-          content: (part.content || '') + newPart.text,
-          metadata: part.metadata,
-        });
-      } else {
-        // Non-text: keep existing, will add new as separate part
-        finalParts.push(partWithoutIndex);
-      }
-      processedKinds.add(part.kind);
-    } else if (!newPart) {
-      // No new part of this kind, keep existing
-      finalParts.push(partWithoutIndex);
-    }
-  }
-
-  // Add new parts that didn't exist before
-  for (const [kind, part] of partsByKind) {
-    if (!processedKinds.has(kind)) {
-      const internalPart = convertA2APartToInternal(part);
-      finalParts.push(internalPart);
-    }
-  }
-
-  // Replace all parts with concatenated set
-  await artifactStore.replaceParts(artifactId, finalParts, lastChunk);
-
-  return parts.length;
-}
-
-/**
  * Create artifact management tool provider
+ *
+ * Provides type-specific tools for file, data, and dataset artifacts.
  *
  * @example
  * const artifactTools = createArtifactTools(artifactStore, stateStore);
- * const agentLoop = new AgentLoop({
+ * const agent = new Agent({
  *   toolProviders: [artifactTools, ...otherTools],
  *   // ...
  * });
@@ -277,84 +47,287 @@ export function createArtifactTools(
   stateStore: StateStore
 ): ToolProvider {
   return localTools([
+    // ============================================================================
+    // File Artifact Tools
+    // ============================================================================
+
     tool(
-      'artifact_update',
-      'Create or update an artifact with one or more parts. Use append=false to replace all parts of an artifact, append=true to append parts to an existing artifact.',
+      'create_file_artifact',
+      'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content.',
       z.object({
-        artifact: A2AArtifactSchema.describe(
-          'Artifact with parts to create or update. An artifact may have up to one part of each kind.'
-        ),
-        append: z
-          .boolean()
+        artifactId: z
+          .string()
+          .describe('Unique identifier for the artifact (e.g., "report-2025", "analysis-results")'),
+        name: z.string().optional().describe('Human-readable name for the artifact'),
+        description: z.string().optional().describe('Description of the artifact content'),
+        mimeType: z
+          .string()
           .optional()
-          .default(false)
-          .describe(
-            'If true, append parts to existing artifact. If false, replace all parts of the artifact.'
-          ),
-        lastChunk: z
-          .boolean()
+          .default('text/plain')
+          .describe('MIME type of the content (e.g., "text/plain", "text/markdown")'),
+        encoding: z
+          .enum(['utf-8', 'base64'])
           .optional()
-          .default(false)
-          .describe('If true, marks the artifact as complete (no more updates expected)'),
+          .default('utf-8')
+          .describe('Content encoding'),
       }),
-      async ({ artifact, append, lastChunk }, context) => {
-        const { artifactId: requestedArtifactId, name, description, parts } = artifact;
-        const filteredParts = parts.filter(
-          (p): p is Exclude<A2APart, Record<string, never>> => 'kind' in p
-        ); // Remove empty parts
-
-        // Check if artifact exists
-        const existing = await artifactStore.getArtifact(requestedArtifactId);
-
-        let actualArtifactId: string;
-
-        if (!existing) {
-          // Create new artifact with the requested ID
-          actualArtifactId = await artifactStore.createArtifact({
-            artifactId: requestedArtifactId,
-            taskId: context.taskId,
-            contextId: context.contextId,
-            name,
-            description,
-          });
-
-          // Track in state
-          await trackArtifactInState(context.taskId, actualArtifactId, stateStore);
-        } else {
-          actualArtifactId = requestedArtifactId;
+      async (params, context) => {
+        // Check if artifact already exists
+        const existing = await artifactStore.getArtifact(params.artifactId);
+        if (existing) {
+          throw new Error(`Artifact already exists: ${params.artifactId}`);
         }
 
-        // Replace or append parts based on append flag
-        if (existing && !append) {
-          const { partsReplaced, partsAdded } = await replaceArtifactParts(
-            artifactStore,
-            actualArtifactId,
-            filteredParts,
-            lastChunk
-          );
-          return {
-            artifactId: actualArtifactId,
-            partsReplaced,
-            partsAdded,
-            complete: lastChunk,
-          };
-        }
+        await artifactStore.createFileArtifact({
+          artifactId: params.artifactId,
+          taskId: context.taskId,
+          contextId: context.contextId,
+          name: params.name,
+          description: params.description,
+          mimeType: params.mimeType,
+          encoding: params.encoding,
+        });
 
-        // Append parts (new artifact or append=true)
-        const partsAdded = await appendArtifactParts(
-          artifactStore,
-          actualArtifactId,
-          filteredParts,
-          lastChunk
-        );
+        // Track in state
+        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
 
         return {
-          artifactId: actualArtifactId,
-          partsAdded,
-          complete: lastChunk,
+          artifactId: params.artifactId,
+          type: 'file',
+          status: 'building',
+          message: 'File artifact created. Use append_file_chunk to add content.',
         };
       }
     ),
+
+    tool(
+      'append_file_chunk',
+      'Append a chunk of content to a file artifact. Call multiple times to stream content.',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to append to'),
+        chunk: z.string().describe('Content chunk to append'),
+        isLastChunk: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Set to true on the final chunk to mark artifact as complete'),
+      }),
+      async (params, _context) => {
+        await artifactStore.appendFileChunk(params.artifactId, params.chunk, {
+          isLastChunk: params.isLastChunk,
+        });
+
+        return {
+          artifactId: params.artifactId,
+          chunkAdded: true,
+          complete: params.isLastChunk,
+          message: params.isLastChunk
+            ? 'Final chunk appended. Artifact is complete.'
+            : 'Chunk appended successfully.',
+        };
+      }
+    ),
+
+    tool(
+      'get_file_content',
+      'Get the complete content of a file artifact',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to retrieve'),
+      }),
+      async (params, _context) => {
+        const content = await artifactStore.getFileContent(params.artifactId);
+        return {
+          artifactId: params.artifactId,
+          content,
+        };
+      }
+    ),
+
+    // ============================================================================
+    // Data Artifact Tools
+    // ============================================================================
+
+    tool(
+      'create_data_artifact',
+      'Create a data artifact with structured JSON data',
+      z.object({
+        artifactId: z.string().describe('Unique identifier for the artifact'),
+        name: z.string().optional().describe('Human-readable name'),
+        description: z.string().optional().describe('Description of the data'),
+        data: z.record(z.string(), z.unknown()).describe('The structured data object'),
+      }),
+      async (params, context) => {
+        // Check if artifact already exists
+        const existing = await artifactStore.getArtifact(params.artifactId);
+        if (existing) {
+          throw new Error(`Artifact already exists: ${params.artifactId}`);
+        }
+
+        // Create the artifact
+        await artifactStore.createDataArtifact({
+          artifactId: params.artifactId,
+          taskId: context.taskId,
+          contextId: context.contextId,
+          name: params.name,
+          description: params.description,
+        });
+
+        // Write the initial data
+        await artifactStore.writeData(params.artifactId, params.data);
+
+        // Track in state
+        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
+
+        return {
+          artifactId: params.artifactId,
+          type: 'data',
+          status: 'complete',
+          message: 'Data artifact created successfully.',
+        };
+      }
+    ),
+
+    tool(
+      'update_data_artifact',
+      'Update the data content of an existing data artifact',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to update'),
+        data: z.record(z.string(), z.unknown()).describe('The new data object'),
+      }),
+      async (params, _context) => {
+        await artifactStore.writeData(params.artifactId, params.data);
+
+        return {
+          artifactId: params.artifactId,
+          updated: true,
+          message: 'Data artifact updated successfully.',
+        };
+      }
+    ),
+
+    tool(
+      'get_data_artifact',
+      'Get the data content of a data artifact',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to retrieve'),
+      }),
+      async (params, _context) => {
+        const data = await artifactStore.getDataContent(params.artifactId);
+        return {
+          artifactId: params.artifactId,
+          data,
+        };
+      }
+    ),
+
+    // ============================================================================
+    // Dataset Artifact Tools
+    // ============================================================================
+
+    tool(
+      'create_dataset_artifact',
+      'Create a dataset artifact for tabular data with a schema',
+      z.object({
+        artifactId: z.string().describe('Unique identifier for the dataset'),
+        name: z.string().optional().describe('Human-readable name'),
+        description: z.string().optional().describe('Description of the dataset'),
+        schema: z.object({
+          columns: z.array(
+            z.object({
+              name: z.string(),
+              type: z.enum(['string', 'number', 'boolean', 'date', 'json']),
+              description: z.string().optional(),
+            })
+          ),
+        }),
+      }),
+      async (params, context) => {
+        // Check if artifact already exists
+        const existing = await artifactStore.getArtifact(params.artifactId);
+        if (existing) {
+          throw new Error(`Artifact already exists: ${params.artifactId}`);
+        }
+
+        await artifactStore.createDatasetArtifact({
+          artifactId: params.artifactId,
+          taskId: context.taskId,
+          contextId: context.contextId,
+          name: params.name,
+          description: params.description,
+          schema: params.schema,
+        });
+
+        // Track in state
+        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
+
+        return {
+          artifactId: params.artifactId,
+          type: 'dataset',
+          status: 'building',
+          message: 'Dataset artifact created. Use append_dataset_row(s) to add data.',
+        };
+      }
+    ),
+
+    tool(
+      'append_dataset_row',
+      'Append a single row to a dataset artifact',
+      z.object({
+        artifactId: z.string().describe('The dataset artifact ID'),
+        row: z.record(z.string(), z.unknown()).describe('Row data matching the dataset schema'),
+      }),
+      async (params, _context) => {
+        // Append as a batch of one row
+        await artifactStore.appendDatasetBatch(params.artifactId, [params.row]);
+
+        return {
+          artifactId: params.artifactId,
+          rowAdded: true,
+          message: 'Row appended to dataset.',
+        };
+      }
+    ),
+
+    tool(
+      'append_dataset_rows',
+      'Append multiple rows to a dataset artifact',
+      z.object({
+        artifactId: z.string().describe('The dataset artifact ID'),
+        rows: z.array(z.record(z.string(), z.unknown())).describe('Array of rows to append'),
+        isLastBatch: z.boolean().optional().describe('Set to true on the final batch'),
+      }),
+      async (params, _context) => {
+        await artifactStore.appendDatasetBatch(params.artifactId, params.rows, {
+          isLastBatch: params.isLastBatch,
+        });
+
+        return {
+          artifactId: params.artifactId,
+          rowsAdded: params.rows.length,
+          message: `${params.rows.length} rows appended to dataset.`,
+        };
+      }
+    ),
+
+    tool(
+      'get_dataset_rows',
+      'Get all rows from a dataset artifact',
+      z.object({
+        artifactId: z.string().describe('The dataset artifact ID'),
+      }),
+      async (params, _context) => {
+        const rows = await artifactStore.getDatasetRows(params.artifactId);
+        return {
+          artifactId: params.artifactId,
+          rows,
+          totalRows: rows.length,
+        };
+      }
+    ),
+
+    // ============================================================================
+    // Common Artifact Tools
+    // ============================================================================
 
     tool(
       'list_artifacts',
@@ -369,7 +342,7 @@ export function createArtifactTools(
         });
 
         const artifacts = await Promise.all(
-          artifactIds.map((id) => artifactStore.getArtifactByContext(context.contextId, id))
+          artifactIds.map((id) => artifactStore.getArtifact(id))
         );
 
         return {
@@ -377,47 +350,69 @@ export function createArtifactTools(
             .filter((a) => a !== null)
             .map((a) => ({
               artifactId: a.artifactId,
+              type: a.type,
               taskId: a.taskId,
               name: a.name,
               description: a.description,
               status: a.status,
-              totalParts: a.totalParts,
+              createdAt: a.createdAt,
+              updatedAt: a.updatedAt,
             })),
+          totalCount: artifacts.length,
         };
       }
     ),
 
     tool(
       'get_artifact',
-      'Get a specific artifact by ID within the current context',
+      'Get metadata for a specific artifact by ID',
       z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, context) => {
-        const artifact = await artifactStore.getArtifactByContext(
-          context.contextId,
-          params.artifactId
-        );
+      async (params, _context) => {
+        const artifact = await artifactStore.getArtifact(params.artifactId);
 
         if (!artifact) {
           throw new Error(`Artifact not found: ${params.artifactId}`);
         }
 
-        const parts = await artifactStore.getArtifactParts(params.artifactId, true);
-
         return {
           artifactId: artifact.artifactId,
+          type: artifact.type,
           taskId: artifact.taskId,
+          contextId: artifact.contextId,
           name: artifact.name,
           description: artifact.description,
           status: artifact.status,
-          parts: parts.map((p) => ({
-            index: p.index,
-            kind: p.kind,
-            content: p.content,
-            data: p.data,
-            metadata: p.metadata,
-          })),
+          createdAt: artifact.createdAt,
+          updatedAt: artifact.updatedAt,
+          ...(artifact.type === 'file' && {
+            mimeType: artifact.mimeType,
+            encoding: artifact.encoding,
+            totalChunks: artifact.totalChunks,
+            totalSize: artifact.totalSize,
+          }),
+          ...(artifact.type === 'dataset' && {
+            totalRows: artifact.totalSize,
+            schema: artifact.schema,
+          }),
+        };
+      }
+    ),
+
+    tool(
+      'delete_artifact',
+      'Delete an artifact by ID',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to delete'),
+      }),
+      async (params, _context) => {
+        await artifactStore.deleteArtifact(params.artifactId);
+
+        return {
+          artifactId: params.artifactId,
+          deleted: true,
+          message: 'Artifact deleted successfully.',
         };
       }
     ),

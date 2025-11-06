@@ -1,52 +1,51 @@
 /**
  * Artifact Store Tests
  *
- * Tests for InMemoryArtifactStore and ArtifactStoreWithEvents decorator
+ * Tests for InMemoryArtifactStore with discriminated union types
  */
 
-import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ArtifactUpdateEvent } from '../src/core/types';
-import {
-  ArtifactStoreWithEvents,
-  SubjectEventEmitter,
-} from '../src/stores/artifacts/artifact-store-with-events';
-import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-store';
+import { InMemoryArtifactStore } from '../src/stores/artifacts';
 
-describe('InMemoryArtifactStore', () => {
+describe('InMemoryArtifactStore - File Artifacts', () => {
   let store: InMemoryArtifactStore;
 
   beforeEach(() => {
     store = new InMemoryArtifactStore();
   });
 
-  describe('createArtifact', () => {
-    it('should create an artifact with provided ID', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'my-artifact-1',
+  describe('createFileArtifact', () => {
+    it('should create a file artifact with provided ID', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-1',
         taskId: 'task-1',
         contextId: 'ctx-1',
-        name: 'Test Artifact',
-        description: 'A test artifact',
+        name: 'Test File',
+        description: 'A test file artifact',
       });
 
-      expect(artifactId).toBe('my-artifact-1');
-      expect(typeof artifactId).toBe('string');
+      expect(artifactId).toBe('file-1');
 
       const artifact = await store.getArtifact(artifactId);
       expect(artifact).toBeTruthy();
-      expect(artifact?.artifactId).toBe('my-artifact-1');
-      expect(artifact?.name).toBe('Test Artifact');
-      expect(artifact?.description).toBe('A test artifact');
+      expect(artifact?.type).toBe('file');
+      expect(artifact?.artifactId).toBe('file-1');
+      expect(artifact?.name).toBe('Test File');
+      expect(artifact?.description).toBe('A test file artifact');
       expect(artifact?.taskId).toBe('task-1');
       expect(artifact?.contextId).toBe('ctx-1');
       expect(artifact?.status).toBe('building');
-      expect(artifact?.parts).toEqual([]);
+
+      if (artifact?.type === 'file') {
+        expect(artifact.chunks).toEqual([]);
+        expect(artifact.totalChunks).toBe(0);
+        expect(artifact.totalSize).toBe(0);
+      }
     });
 
     it('should track artifact by task ID', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-2',
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-2',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -56,8 +55,8 @@ describe('InMemoryArtifactStore', () => {
     });
 
     it('should track artifact by context ID', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-3',
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-3',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -67,142 +66,336 @@ describe('InMemoryArtifactStore', () => {
     });
   });
 
-  describe('appendPart', () => {
-    it('should append text part to artifact', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-4',
+  describe('appendFileChunk', () => {
+    it('should append chunks to file artifact', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-4',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Hello, world!',
-      });
+      await store.appendFileChunk(artifactId, 'Hello, ');
 
       const artifact = await store.getArtifact(artifactId);
-      expect(artifact?.parts).toHaveLength(1);
-      expect(artifact?.parts[0]).toMatchObject({
-        index: 0,
-        kind: 'text',
-        content: 'Hello, world!',
-      });
-      expect(artifact?.status).toBe('building');
+      expect(artifact?.type).toBe('file');
+      if (artifact?.type === 'file') {
+        expect(artifact.chunks).toHaveLength(1);
+        expect(artifact.chunks[0].data).toBe('Hello, ');
+        expect(artifact.status).toBe('building');
+      }
     });
 
     it('should mark artifact as complete on last chunk', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-5',
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-5',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      await store.appendPart(
-        artifactId,
-        {
-          kind: 'text',
-          content: 'Final chunk',
+      await store.appendFileChunk(artifactId, 'Final chunk', {
+        isLastChunk: true,
+      });
+
+      const artifact = await store.getArtifact(artifactId);
+      expect(artifact?.status).toBe('complete');
+      expect(artifact?.completedAt).toBeTruthy();
+    });
+
+    it('should handle multiple chunks', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-6',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.appendFileChunk(artifactId, 'Part 1');
+      await store.appendFileChunk(artifactId, 'Part 2');
+      await store.appendFileChunk(artifactId, 'Part 3');
+
+      const artifact = await store.getArtifact(artifactId);
+      if (artifact?.type === 'file') {
+        expect(artifact.chunks).toHaveLength(3);
+        expect(artifact.chunks[0].data).toBe('Part 1');
+        expect(artifact.chunks[1].data).toBe('Part 2');
+        expect(artifact.chunks[2].data).toBe('Part 3');
+      }
+    });
+
+    it('should throw error for non-file artifact', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-1',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await expect(store.appendFileChunk(artifactId, 'test')).rejects.toThrow();
+    });
+  });
+
+  describe('getFileContent', () => {
+    it('should return combined file content', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-7',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.appendFileChunk(artifactId, 'Hello, ');
+      await store.appendFileChunk(artifactId, 'world!');
+
+      const content = await store.getFileContent(artifactId);
+      expect(content).toBe('Hello, world!');
+    });
+
+    it('should throw error for non-file artifact', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-2',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await expect(store.getFileContent(artifactId)).rejects.toThrow();
+    });
+  });
+});
+
+describe('InMemoryArtifactStore - Data Artifacts', () => {
+  let store: InMemoryArtifactStore;
+
+  beforeEach(() => {
+    store = new InMemoryArtifactStore();
+  });
+
+  describe('createDataArtifact', () => {
+    it('should create a data artifact', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-3',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+        name: 'Test Data',
+      });
+
+      const artifact = await store.getArtifact(artifactId);
+      expect(artifact?.type).toBe('data');
+      if (artifact?.type === 'data') {
+        expect(artifact.data).toEqual({});
+      }
+    });
+  });
+
+  describe('writeData', () => {
+    it('should write data to artifact', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-4',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.writeData(artifactId, { result: 42, status: 'ok' });
+
+      const artifact = await store.getArtifact(artifactId);
+      if (artifact?.type === 'data') {
+        expect(artifact.data).toEqual({ result: 42, status: 'ok' });
+      }
+    });
+
+    it('should replace existing data', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-5',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.writeData(artifactId, { version: 1 });
+      await store.writeData(artifactId, { version: 2, updated: true });
+
+      const content = await store.getDataContent(artifactId);
+      expect(content).toEqual({ version: 2, updated: true });
+    });
+
+    it('should throw error for non-data artifact', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-8',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await expect(store.writeData(artifactId, {})).rejects.toThrow();
+    });
+  });
+
+  describe('getDataContent', () => {
+    it('should return data content', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-6',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.writeData(artifactId, { value: 123 });
+
+      const content = await store.getDataContent(artifactId);
+      expect(content).toEqual({ value: 123 });
+    });
+
+    it('should throw error for non-data artifact', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-9',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await expect(store.getDataContent(artifactId)).rejects.toThrow();
+    });
+  });
+});
+
+describe('InMemoryArtifactStore - Dataset Artifacts', () => {
+  let store: InMemoryArtifactStore;
+
+  beforeEach(() => {
+    store = new InMemoryArtifactStore();
+  });
+
+  describe('createDatasetArtifact', () => {
+    it('should create a dataset artifact', async () => {
+      const artifactId = await store.createDatasetArtifact({
+        artifactId: 'dataset-1',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+        name: 'Sales Data',
+        schema: {
+          columns: [
+            { name: 'date', type: 'string' },
+            { name: 'amount', type: 'number' },
+          ],
         },
-        true // isLastChunk
+      });
+
+      const artifact = await store.getArtifact(artifactId);
+      expect(artifact?.type).toBe('dataset');
+      if (artifact?.type === 'dataset') {
+        expect(artifact.rows).toEqual([]);
+        expect(artifact.schema).toBeDefined();
+        expect(artifact.schema?.columns).toHaveLength(2);
+      }
+    });
+  });
+
+  describe('appendDatasetBatch', () => {
+    it('should append rows to dataset', async () => {
+      const artifactId = await store.createDatasetArtifact({
+        artifactId: 'dataset-2',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.appendDatasetBatch(artifactId, [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+      ]);
+
+      const artifact = await store.getArtifact(artifactId);
+      if (artifact?.type === 'dataset') {
+        expect(artifact.rows).toHaveLength(2);
+        expect(artifact.rows[0]).toEqual({ id: 1, name: 'Alice' });
+      }
+    });
+
+    it('should handle multiple batches', async () => {
+      const artifactId = await store.createDatasetArtifact({
+        artifactId: 'dataset-3',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.appendDatasetBatch(artifactId, [{ id: 1 }]);
+      await store.appendDatasetBatch(artifactId, [{ id: 2 }]);
+      await store.appendDatasetBatch(artifactId, [{ id: 3 }, { id: 4 }]);
+
+      const rows = await store.getDatasetRows(artifactId);
+      expect(rows).toHaveLength(4);
+    });
+
+    it('should mark as complete on last batch', async () => {
+      const artifactId = await store.createDatasetArtifact({
+        artifactId: 'dataset-4',
+        taskId: 'task-1',
+        contextId: 'ctx-1',
+      });
+
+      await store.appendDatasetBatch(
+        artifactId,
+        [{ final: true }],
+        { isLastBatch: true }
       );
 
       const artifact = await store.getArtifact(artifactId);
       expect(artifact?.status).toBe('complete');
-      expect(artifact?.isLastChunk).toBe(true);
-      expect(artifact?.completedAt).toBeTruthy();
     });
 
-    it('should handle multiple parts', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-6',
+    it('should throw error for non-dataset artifact', async () => {
+      const artifactId = await store.createDataArtifact({
+        artifactId: 'data-7',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Part 1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Part 2',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'data',
-        data: { value: 42 },
-      });
-
-      const parts = await store.getArtifactParts(artifactId);
-      expect(parts).toHaveLength(3);
-      expect(parts[0].content).toBe('Part 1');
-      expect(parts[1].content).toBe('Part 2');
-      expect(parts[2].data).toEqual({ value: 42 });
-    });
-
-    it('should throw error for non-existent artifact', async () => {
-      await expect(
-        store.appendPart('non-existent', {
-          kind: 'text',
-          content: 'test',
-        })
-      ).rejects.toThrow('Artifact not found');
+      await expect(store.appendDatasetBatch(artifactId, [])).rejects.toThrow();
     });
   });
 
-  describe('replacePart', () => {
-    it('should replace an existing part', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-7',
+  describe('getDatasetRows', () => {
+    it('should return dataset rows', async () => {
+      const artifactId = await store.createDatasetArtifact({
+        artifactId: 'dataset-5',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Original',
-      });
+      await store.appendDatasetBatch(artifactId, [
+        { x: 1, y: 2 },
+        { x: 3, y: 4 },
+      ]);
 
-      await store.replacePart(artifactId, 0, {
-        kind: 'text',
-        content: 'Replaced',
-      });
-
-      const parts = await store.getArtifactParts(artifactId);
-      expect(parts[0].content).toBe('Replaced');
+      const rows = await store.getDatasetRows(artifactId);
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toEqual({ x: 1, y: 2 });
     });
 
-    it('should throw error for invalid part index', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-8',
+    it('should throw error for non-dataset artifact', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-10',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      await expect(
-        store.replacePart(artifactId, 5, {
-          kind: 'text',
-          content: 'test',
-        })
-      ).rejects.toThrow('Invalid part index');
+      await expect(store.getDatasetRows(artifactId)).rejects.toThrow();
     });
+  });
+});
+
+describe('InMemoryArtifactStore - Common Operations', () => {
+  let store: InMemoryArtifactStore;
+
+  beforeEach(() => {
+    store = new InMemoryArtifactStore();
   });
 
   describe('queryArtifacts', () => {
     it('should query artifacts by context', async () => {
-      const id1 = await store.createArtifact({
-        artifactId: 'artifact-9',
+      const id1 = await store.createFileArtifact({
+        artifactId: 'file-11',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
-      const id2 = await store.createArtifact({
-        artifactId: 'artifact-10',
+      const id2 = await store.createDataArtifact({
+        artifactId: 'data-8',
         taskId: 'task-2',
         contextId: 'ctx-1',
       });
-      await store.createArtifact({
-        artifactId: 'artifact-11',
+      await store.createDatasetArtifact({
+        artifactId: 'dataset-6',
         taskId: 'task-3',
         contextId: 'ctx-2',
       });
@@ -214,13 +407,13 @@ describe('InMemoryArtifactStore', () => {
     });
 
     it('should filter by context and task', async () => {
-      const id1 = await store.createArtifact({
-        artifactId: 'artifact-12',
+      const id1 = await store.createFileArtifact({
+        artifactId: 'file-12',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
-      await store.createArtifact({
-        artifactId: 'artifact-13',
+      await store.createDataArtifact({
+        artifactId: 'data-9',
         taskId: 'task-2',
         contextId: 'ctx-1',
       });
@@ -234,95 +427,10 @@ describe('InMemoryArtifactStore', () => {
     });
   });
 
-  describe('getArtifactByContext', () => {
-    it('should return artifact if context matches', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-14',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-        name: 'Test',
-      });
-
-      const artifact = await store.getArtifactByContext('ctx-1', artifactId);
-      expect(artifact).toBeTruthy();
-      expect(artifact?.name).toBe('Test');
-    });
-
-    it('should return null if context does not match', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-15',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      const artifact = await store.getArtifactByContext('ctx-2', artifactId);
-      expect(artifact).toBeNull();
-    });
-  });
-
-  describe('getArtifactContent', () => {
-    it('should return combined text content', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-16',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Hello, ',
-      });
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'world!',
-      });
-
-      const content = await store.getArtifactContent(artifactId);
-      expect(content).toBe('Hello, world!');
-    });
-
-    it('should return data for single data part', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-17',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'data',
-        data: { result: 42, status: 'ok' },
-      });
-
-      const content = await store.getArtifactContent(artifactId);
-      expect(content).toEqual({ result: 42, status: 'ok' });
-    });
-
-    it('should return structured representation for mixed parts', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-18',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Text part',
-      });
-      await store.appendPart(artifactId, {
-        kind: 'data',
-        data: { value: 42 },
-      });
-
-      const content = await store.getArtifactContent(artifactId);
-      expect(content).toHaveProperty('parts');
-      expect((content as { parts: unknown[] }).parts).toHaveLength(2);
-    });
-  });
-
   describe('deleteArtifact', () => {
     it('should delete artifact and clean up indexes', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-19',
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-13',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
@@ -339,231 +447,30 @@ describe('InMemoryArtifactStore', () => {
       expect(contextArtifacts).not.toContain(artifactId);
     });
   });
-});
 
-describe('ArtifactStoreWithEvents', () => {
-  let baseStore: InMemoryArtifactStore;
-  let eventSubject: Subject<ArtifactUpdateEvent>;
-  let store: ArtifactStoreWithEvents;
-  let events: ArtifactUpdateEvent[];
-
-  beforeEach(() => {
-    baseStore = new InMemoryArtifactStore();
-    eventSubject = new Subject<ArtifactUpdateEvent>();
-    store = new ArtifactStoreWithEvents(baseStore, new SubjectEventEmitter(eventSubject));
-    events = [];
-
-    eventSubject.subscribe((event) => events.push(event));
-  });
-
-  describe('createArtifact', () => {
-    it('should emit artifact-update event on creation', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-20',
+  describe('getArtifactByContext', () => {
+    it('should return artifact if context matches', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-14',
         taskId: 'task-1',
         contextId: 'ctx-1',
-        name: 'Test Artifact',
+        name: 'Test',
       });
 
-      expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({
-        kind: 'artifact-update',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-        append: false,
-        lastChunk: false,
-      });
-      expect(events[0].artifact.artifactId).toBe(artifactId);
-      expect(events[0].artifact.name).toBe('Test Artifact');
-      expect(events[0].artifact.parts).toEqual([]);
-    });
-  });
-
-  describe('appendPart', () => {
-    it('should emit artifact-update event with appended part', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-21',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      events.length = 0; // Clear creation event
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Hello',
-      });
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({
-        kind: 'artifact-update',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-        append: true,
-        lastChunk: false,
-      });
-      expect(events[0].artifact.parts).toHaveLength(1);
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'text',
-        text: 'Hello',
-      });
+      const artifact = await store.getArtifactByContext('ctx-1', artifactId);
+      expect(artifact).toBeTruthy();
+      expect(artifact?.name).toBe('Test');
     });
 
-    it('should emit lastChunk=true on final part', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-23',
+    it('should return null if context does not match', async () => {
+      const artifactId = await store.createFileArtifact({
+        artifactId: 'file-15',
         taskId: 'task-1',
         contextId: 'ctx-1',
       });
 
-      events.length = 0;
-
-      await store.appendPart(
-        artifactId,
-        {
-          kind: 'text',
-          content: 'Final',
-        },
-        true
-      );
-
-      expect(events[0].lastChunk).toBe(true);
-    });
-
-    it('should emit only latest part for append operations', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-24',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Part 1',
-      });
-
-      events.length = 0;
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Part 2',
-      });
-
-      // Should only include the latest part
-      expect(events[0].artifact.parts).toHaveLength(1);
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'text',
-        text: 'Part 2',
-      });
-    });
-  });
-
-  describe('replacePart', () => {
-    it('should emit artifact-update event with all parts', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-25',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Original',
-      });
-
-      events.length = 0;
-
-      await store.replacePart(artifactId, 0, {
-        kind: 'text',
-        content: 'Replaced',
-      });
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({
-        kind: 'artifact-update',
-        append: false, // Replace is not append
-        lastChunk: false,
-      });
-      // For replace, send all parts
-      expect(events[0].artifact.parts).toHaveLength(1);
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'text',
-        text: 'Replaced',
-      });
-    });
-  });
-
-  describe('A2A part conversion', () => {
-    it('should convert text parts correctly', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-26',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      events.length = 0;
-
-      await store.appendPart(artifactId, {
-        kind: 'text',
-        content: 'Test text',
-        metadata: { format: 'markdown' },
-      });
-
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'text',
-        text: 'Test text',
-        metadata: { format: 'markdown' },
-      });
-    });
-
-    it('should convert data parts correctly', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-27',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      events.length = 0;
-
-      await store.appendPart(artifactId, {
-        kind: 'data',
-        data: { result: 42, status: 'success' },
-        metadata: { source: 'calculation' },
-      });
-
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'data',
-        data: { result: 42, status: 'success' },
-        metadata: { source: 'calculation' },
-      });
-    });
-
-    it('should convert file parts with metadata', async () => {
-      const artifactId = await store.createArtifact({
-        artifactId: 'artifact-28',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-      });
-
-      events.length = 0;
-
-      await store.appendPart(artifactId, {
-        kind: 'file',
-        content: 'base64content',
-        metadata: {
-          fileName: 'test.png',
-          mimeType: 'image/png',
-        },
-      });
-
-      expect(events[0].artifact.parts[0]).toMatchObject({
-        kind: 'file',
-        file: {
-          name: 'test.png',
-          mimeType: 'image/png',
-          bytes: 'base64content',
-        },
-      });
+      const artifact = await store.getArtifactByContext('ctx-2', artifactId);
+      expect(artifact).toBeNull();
     });
   });
 });

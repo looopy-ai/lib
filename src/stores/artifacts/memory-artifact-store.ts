@@ -1,43 +1,65 @@
 /**
- * In-Memory Artifact Store Implementation
+ * In-Memory Artifact Store
+ *
+ * Implementation using discriminated unions with separate types for each artifact kind.
+ *
+ * Artifact Types:
+ * - FileArtifact: Text or binary files with chunked streaming
+ * - DataArtifact: Structured JSON data (atomic updates)
+ * - DatasetArtifact: Tabular data with batch streaming
  *
  * Design: design/artifact-management.md
- *
- * Provides lightweight artifact storage for testing and development.
- * All artifacts are stored in memory and lost when process exits.
  */
 
 import { randomUUID } from 'node:crypto';
-import type { ArtifactPart, ArtifactStore, StoredArtifact } from '../../core/types';
+import type {
+  ArtifactChunk,
+  ArtifactPart,
+  ArtifactStore,
+  DataArtifact,
+  DatasetArtifact,
+  DatasetSchema,
+  FileArtifact,
+  StoredArtifact,
+} from '../../core/types';
 
+/**
+ * In-memory artifact store using discriminated unions
+ */
 export class InMemoryArtifactStore implements ArtifactStore {
   private artifacts = new Map<string, StoredArtifact>();
-  private taskArtifacts = new Map<string, Set<string>>();
-  private contextArtifacts = new Map<string, Set<string>>();
 
-  async createArtifact(params: {
+  // ============================================================================
+  // File Artifact Methods
+  // ============================================================================
+
+  /**
+   * Create a new file artifact
+   */
+  async createFileArtifact(params: {
     artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
     description?: string;
+    mimeType?: string;
+    encoding?: 'utf-8' | 'base64';
   }): Promise<string> {
-    const artifactId = params.artifactId;
     const now = new Date().toISOString();
 
-    // Check if artifact with this ID already exists
-    if (this.artifacts.has(artifactId)) {
-      throw new Error(`Artifact already exists: ${artifactId}`);
-    }
-
-    const artifact: StoredArtifact = {
-      artifactId,
+    const artifact: FileArtifact = {
+      type: 'file',
+      artifactId: params.artifactId,
       taskId: params.taskId,
       contextId: params.contextId,
       name: params.name,
       description: params.description,
-      parts: [],
-      totalParts: 0,
+      mimeType: params.mimeType || 'text/plain',
+      encoding: params.encoding || 'utf-8',
+      chunks: [],
+      totalChunks: 0,
+      totalSize: 0,
+      status: 'building',
       version: 1,
       operations: [
         {
@@ -46,259 +68,416 @@ export class InMemoryArtifactStore implements ArtifactStore {
           timestamp: now,
         },
       ],
-      status: 'building',
       createdAt: now,
       updatedAt: now,
-      lastChunkIndex: -1,
-      isLastChunk: false,
     };
 
-    this.artifacts.set(artifactId, artifact);
-
-    // Track by task
-    if (!this.taskArtifacts.has(params.taskId)) {
-      this.taskArtifacts.set(params.taskId, new Set());
-    }
-    const taskSet = this.taskArtifacts.get(params.taskId);
-    if (taskSet) taskSet.add(artifactId);
-
-    // Track by context
-    if (!this.contextArtifacts.has(params.contextId)) {
-      this.contextArtifacts.set(params.contextId, new Set());
-    }
-    const contextSet = this.contextArtifacts.get(params.contextId);
-    if (contextSet) contextSet.add(artifactId);
-
-    return artifactId;
+    this.artifacts.set(params.artifactId, artifact);
+    return params.artifactId;
   }
 
-  async appendPart(
+  /**
+   * Append a chunk to a file artifact
+   */
+  async appendFileChunk(
     artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk: boolean = false
+    chunk: string,
+    options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' }
   ): Promise<void> {
     const artifact = this.artifacts.get(artifactId);
     if (!artifact) {
       throw new Error(`Artifact not found: ${artifactId}`);
     }
 
-    const index = artifact.parts.length;
-    const fullPart: ArtifactPart = { ...part, index };
-
-    artifact.parts.push(fullPart);
-    artifact.totalParts = artifact.parts.length;
-    artifact.version++;
-    artifact.updatedAt = new Date().toISOString();
-    artifact.lastChunkIndex = index;
-    artifact.isLastChunk = isLastChunk;
-
-    if (isLastChunk) {
-      artifact.status = 'complete';
-      artifact.completedAt = artifact.updatedAt;
-    }
-
-    artifact.operations.push({
-      operationId: randomUUID(),
-      type: isLastChunk ? 'complete' : 'append',
-      timestamp: artifact.updatedAt,
-      partIndex: index,
-    });
-  }
-
-  async replacePart(
-    artifactId: string,
-    partIndex: number,
-    part: Omit<ArtifactPart, 'index'>
-  ): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    if (partIndex < 0 || partIndex >= artifact.parts.length) {
-      throw new Error(`Invalid part index: ${partIndex}`);
-    }
-
-    const fullPart: ArtifactPart = { ...part, index: partIndex };
-    artifact.parts[partIndex] = fullPart;
-    artifact.version++;
-    artifact.updatedAt = new Date().toISOString();
-
-    artifact.operations.push({
-      operationId: randomUUID(),
-      type: 'replace',
-      timestamp: artifact.updatedAt,
-      partIndex,
-      replacedPartIndexes: [partIndex],
-    });
-  }
-
-  async replaceParts(
-    artifactId: string,
-    parts: Omit<ArtifactPart, 'index'>[],
-    isLastChunk: boolean = false
-  ): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+    if (artifact.type !== 'file') {
+      throw new Error(
+        `Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`
+      );
     }
 
     const now = new Date().toISOString();
+    const encoding = options?.encoding || artifact.encoding || 'utf-8';
+    const chunkSize = Buffer.byteLength(chunk, encoding);
 
-    // Replace all parts with new set, re-indexing
-    artifact.parts = parts.map((part, index) => ({
-      ...part,
-      index,
-    }));
+    const artifactChunk: ArtifactChunk = {
+      index: artifact.chunks.length,
+      data: chunk,
+      size: chunkSize,
+      timestamp: now,
+    };
 
-    artifact.totalParts = artifact.parts.length;
-    artifact.version++;
+    artifact.chunks.push(artifactChunk);
+    artifact.totalChunks = artifact.chunks.length;
+    artifact.totalSize += chunkSize;
     artifact.updatedAt = now;
-    artifact.lastChunkIndex = artifact.parts.length - 1;
-    artifact.isLastChunk = isLastChunk;
+    artifact.version += 1;
 
-    if (isLastChunk) {
+    if (options?.isLastChunk) {
       artifact.status = 'complete';
       artifact.completedAt = now;
     }
 
     artifact.operations.push({
       operationId: randomUUID(),
-      type: isLastChunk ? 'complete' : 'replace',
+      type: 'append',
       timestamp: now,
-      replacedPartIndexes: artifact.parts.map((_, i) => i),
+      chunkIndex: artifactChunk.index,
     });
   }
 
-  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
-    const artifact = this.artifacts.get(artifactId);
-    return artifact ? { ...artifact } : null;
-  }
-
-  async getArtifactParts(
-    artifactId: string,
-    _resolveExternal: boolean = false
-  ): Promise<ArtifactPart[]> {
+  /**
+   * Get file content (concatenate all chunks)
+   */
+  async getFileContent(artifactId: string): Promise<string> {
     const artifact = this.artifacts.get(artifactId);
     if (!artifact) {
       throw new Error(`Artifact not found: ${artifactId}`);
     }
 
-    // In memory store doesn't have external references
-    // Just return the parts as-is
-    return artifact.parts.map((p) => ({ ...p }));
-  }
-
-  async getTaskArtifacts(taskId: string): Promise<string[]> {
-    const artifactIds = this.taskArtifacts.get(taskId);
-    return artifactIds ? Array.from(artifactIds) : [];
-  }
-
-  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
-    const contextIds = this.contextArtifacts.get(params.contextId);
-    if (!contextIds) return [];
-
-    if (params.taskId) {
-      // Filter by both context and task
-      const taskIds = this.taskArtifacts.get(params.taskId);
-      if (!taskIds) return [];
-
-      return Array.from(contextIds).filter((id) => taskIds.has(id));
+    if (artifact.type !== 'file') {
+      throw new Error(
+        `Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`
+      );
     }
 
-    return Array.from(contextIds);
+    return artifact.chunks.map((chunk) => chunk.data).join('');
   }
 
+  // ============================================================================
+  // Data Artifact Methods
+  // ============================================================================
+
+  /**
+   * Create a new data artifact
+   */
+  async createDataArtifact(params: {
+    artifactId: string;
+    taskId: string;
+    contextId: string;
+    name?: string;
+    description?: string;
+  }): Promise<string> {
+    const now = new Date().toISOString();
+
+    const artifact: DataArtifact = {
+      type: 'data',
+      artifactId: params.artifactId,
+      taskId: params.taskId,
+      contextId: params.contextId,
+      name: params.name,
+      description: params.description,
+      data: {},
+      status: 'building',
+      version: 1,
+      operations: [
+        {
+          operationId: randomUUID(),
+          type: 'create',
+          timestamp: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.artifacts.set(params.artifactId, artifact);
+    return params.artifactId;
+  }
+
+  /**
+   * Write or update data artifact (atomic replacement)
+   */
+  async writeData(artifactId: string, data: Record<string, unknown>): Promise<void> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
+
+    if (artifact.type !== 'data') {
+      throw new Error(
+        `Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    // Atomic replacement
+    artifact.data = data;
+    artifact.updatedAt = now;
+    artifact.version += 1;
+    artifact.status = 'complete';
+    artifact.completedAt = now;
+
+    artifact.operations.push({
+      operationId: randomUUID(),
+      type: 'replace',
+      timestamp: now,
+    });
+  }
+
+  /**
+   * Get data artifact content
+   */
+  async getDataContent(artifactId: string): Promise<Record<string, unknown>> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
+
+    if (artifact.type !== 'data') {
+      throw new Error(
+        `Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`
+      );
+    }
+
+    return artifact.data;
+  }
+
+  // ============================================================================
+  // Dataset Artifact Methods
+  // ============================================================================
+
+  /**
+   * Create a new dataset artifact
+   */
+  async createDatasetArtifact(params: {
+    artifactId: string;
+    taskId: string;
+    contextId: string;
+    name?: string;
+    description?: string;
+    schema?: DatasetSchema;
+  }): Promise<string> {
+    const now = new Date().toISOString();
+
+    const artifact: DatasetArtifact = {
+      type: 'dataset',
+      artifactId: params.artifactId,
+      taskId: params.taskId,
+      contextId: params.contextId,
+      name: params.name,
+      description: params.description,
+      schema: params.schema,
+      rows: [],
+      totalChunks: 0,
+      totalSize: 0,
+      status: 'building',
+      version: 1,
+      operations: [
+        {
+          operationId: randomUUID(),
+          type: 'create',
+          timestamp: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.artifacts.set(params.artifactId, artifact);
+    return params.artifactId;
+  }
+
+  /**
+   * Append a batch of rows to a dataset artifact
+   */
+  async appendDatasetBatch(
+    artifactId: string,
+    rows: Record<string, unknown>[],
+    options?: { isLastBatch?: boolean }
+  ): Promise<void> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
+
+    if (artifact.type !== 'dataset') {
+      throw new Error(
+        `Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    // Append rows
+    artifact.rows.push(...rows);
+    artifact.totalChunks += 1; // Batch count
+    artifact.totalSize = artifact.rows.length; // Total rows
+    artifact.updatedAt = now;
+    artifact.version += 1;
+
+    if (options?.isLastBatch) {
+      artifact.status = 'complete';
+      artifact.completedAt = now;
+    }
+
+    artifact.operations.push({
+      operationId: randomUUID(),
+      type: 'append',
+      timestamp: now,
+      chunkIndex: artifact.totalChunks - 1,
+    });
+  }
+
+  /**
+   * Get dataset rows
+   */
+  async getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
+
+    if (artifact.type !== 'dataset') {
+      throw new Error(
+        `Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`
+      );
+    }
+
+    return artifact.rows;
+  }
+
+  // ============================================================================
+  // Common Methods
+  // ============================================================================
+
+  /**
+   * Get artifact metadata
+   */
+  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
+    return this.artifacts.get(artifactId) || null;
+  }
+
+  /**
+   * List all artifacts for a task
+   */
+  async getTaskArtifacts(taskId: string): Promise<string[]> {
+    const ids: string[] = [];
+    for (const [id, artifact] of this.artifacts.entries()) {
+      if (artifact.taskId === taskId) {
+        ids.push(id);
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Query artifacts by context and optional task
+   */
+  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
+    const ids: string[] = [];
+    for (const [id, artifact] of this.artifacts.entries()) {
+      if (artifact.contextId === params.contextId) {
+        if (!params.taskId || artifact.taskId === params.taskId) {
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Get artifact by context (scoped lookup)
+   */
   async getArtifactByContext(
     contextId: string,
     artifactId: string
   ): Promise<StoredArtifact | null> {
     const artifact = this.artifacts.get(artifactId);
-    if (!artifact) return null;
-
-    // Verify artifact belongs to this context
-    if (artifact.contextId !== contextId) {
-      return null;
+    if (artifact && artifact.contextId === contextId) {
+      return artifact;
     }
-
-    return { ...artifact };
+    return null;
   }
 
+  /**
+   * Delete an artifact
+   */
   async deleteArtifact(artifactId: string): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) return;
-
-    // Remove from task index
-    const taskSet = this.taskArtifacts.get(artifact.taskId);
-    if (taskSet) {
-      taskSet.delete(artifactId);
-      if (taskSet.size === 0) {
-        this.taskArtifacts.delete(artifact.taskId);
-      }
-    }
-
-    // Remove from context index
-    const contextSet = this.contextArtifacts.get(artifact.contextId);
-    if (contextSet) {
-      contextSet.delete(artifactId);
-      if (contextSet.size === 0) {
-        this.contextArtifacts.delete(artifact.contextId);
-      }
-    }
-
-    // Remove artifact
     this.artifacts.delete(artifactId);
   }
 
-  async getArtifactContent(artifactId: string): Promise<string | object> {
+  // ============================================================================
+  // Legacy Methods (backward compatibility)
+  // ============================================================================
+
+  /**
+   * @deprecated Use createFileArtifact, createDataArtifact, or createDatasetArtifact
+   */
+  async createArtifact(params: {
+    artifactId: string;
+    taskId: string;
+    contextId: string;
+    type: 'file' | 'data' | 'dataset';
+    name?: string;
+    description?: string;
+    mimeType?: string;
+    schema?: DatasetSchema;
+  }): Promise<string> {
+    if (params.type === 'file') {
+      return this.createFileArtifact({
+        ...params,
+        mimeType: params.mimeType,
+      });
+    } else if (params.type === 'data') {
+      return this.createDataArtifact(params);
+    } else if (params.type === 'dataset') {
+      return this.createDatasetArtifact({
+        ...params,
+        schema: params.schema,
+      });
+    }
+    throw new Error(`Unknown artifact type: ${params.type}`);
+  }
+
+  /**
+   * @deprecated Use getFileContent, getDataContent, or getDatasetRows
+   */
+  async getArtifactContent(
+    artifactId: string
+  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
     const artifact = this.artifacts.get(artifactId);
     if (!artifact) {
       throw new Error(`Artifact not found: ${artifactId}`);
     }
 
-    // Combine all parts into single content
-    if (artifact.parts.length === 0) {
-      return '';
+    if (artifact.type === 'file') {
+      return this.getFileContent(artifactId);
+    } else if (artifact.type === 'data') {
+      return this.getDataContent(artifactId);
+    } else {
+      return this.getDatasetRows(artifactId);
     }
-
-    if (artifact.parts.length === 1) {
-      const part = artifact.parts[0];
-      if (part.kind === 'text') return part.content || '';
-      if (part.kind === 'data') return part.data || {};
-      if (part.kind === 'file') return part.content || '';
-    }
-
-    // Multi-part: combine text parts, return array for mixed
-    const hasOnlyText = artifact.parts.every((p) => p.kind === 'text');
-    if (hasOnlyText) {
-      return artifact.parts.map((p) => p.content).join('');
-    }
-
-    // Return structured representation
-    return {
-      parts: artifact.parts.map((p) => ({
-        index: p.index,
-        kind: p.kind,
-        content: p.content,
-        data: p.data,
-        metadata: p.metadata,
-      })),
-    };
   }
 
   /**
-   * Clear all artifacts (for testing)
+   * @deprecated Use type-specific methods
    */
-  clear(): void {
-    this.artifacts.clear();
-    this.taskArtifacts.clear();
-    this.contextArtifacts.clear();
-  }
+  async appendPart(
+    artifactId: string,
+    part: Omit<ArtifactPart, 'index'>,
+    isLastChunk?: boolean
+  ): Promise<void> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) {
+      throw new Error(`Artifact not found: ${artifactId}`);
+    }
 
-  /**
-   * Get all artifacts (for testing)
-   */
-  getAll(): StoredArtifact[] {
-    return Array.from(this.artifacts.values()).map((a) => ({ ...a }));
+    // Map old part API to new type-specific methods
+    if (artifact.type === 'file' && part.kind === 'text' && part.content) {
+      await this.appendFileChunk(artifactId, part.content, { isLastChunk });
+    } else if (artifact.type === 'data' && part.kind === 'data' && part.data) {
+      await this.writeData(artifactId, part.data);
+    } else if (artifact.type === 'dataset' && part.kind === 'data' && part.data) {
+      // Assume data is an array of rows
+      const rows = Array.isArray(part.data) ? part.data : [part.data];
+      await this.appendDatasetBatch(artifactId, rows as Record<string, unknown>[], {
+        isLastBatch: isLastChunk,
+      });
+    } else {
+      throw new Error(
+        `Cannot append part of kind '${part.kind}' to artifact type '${artifact.type}'`
+      );
+    }
   }
 }

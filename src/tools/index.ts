@@ -8,16 +8,16 @@
  * Tool Providers and Utilities
  */
 
-export * from './artifact-tools';
+// Note: artifact-tools removed - will be re-implemented using V3 API if needed
 export * from './client-tool-provider';
 export * from './interfaces';
 export {
   FunctionParametersSchema,
   // Schemas
   JsonSchemaPropertySchema,
+  safeValidateToolDefinitions,
   ToolCallSchema,
   ToolDefinitionSchema,
-  safeValidateToolDefinitions,
   // Validation
   validateToolDefinitions,
   type ExecutionContext,

@@ -5,13 +5,15 @@
  * - Artifact stores (Memory, Filesystem)
  * - Message stores (Memory, Bedrock, Mem0, Hybrid)
  * - State stores (Memory)
+ *
+ * Note: Store interfaces are exported from core/types.ts
  */
-
-// Interfaces
-export * from './interfaces';
 
 // Artifact stores
 export * from './artifacts';
+
+// Filesystem stores
+export * from './filesystem';
 
 // Message stores
 export * from './messages';

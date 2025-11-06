@@ -136,6 +136,46 @@ class MockStateStore implements TaskStateStore {
 
 // Mock Artifact Store
 class MockArtifactStore implements ArtifactStore {
+  // New type-specific creation methods
+  async createFileArtifact(): Promise<string> {
+    return `file-artifact-${Date.now()}`;
+  }
+
+  async createDataArtifact(): Promise<string> {
+    return `data-artifact-${Date.now()}`;
+  }
+
+  async createDatasetArtifact(): Promise<string> {
+    return `dataset-artifact-${Date.now()}`;
+  }
+
+  // New type-specific operations
+  async appendFileChunk(): Promise<void> {
+    // No-op for mock
+  }
+
+  async writeData(): Promise<void> {
+    // No-op for mock
+  }
+
+  async appendDatasetBatch(): Promise<void> {
+    // No-op for mock
+  }
+
+  // New type-specific getters
+  async getFileContent(): Promise<string> {
+    return '';
+  }
+
+  async getDataContent(): Promise<Record<string, unknown>> {
+    return {};
+  }
+
+  async getDatasetRows(): Promise<Record<string, unknown>[]> {
+    return [];
+  }
+
+  // Legacy methods (still used in agent.ts)
   async createArtifact(): Promise<string> {
     return `artifact-${Date.now()}`;
   }
@@ -179,7 +219,7 @@ class MockArtifactStore implements ArtifactStore {
     // No-op for mock
   }
 
-  async getArtifactContent(): Promise<string | object> {
+  async getArtifactContent(): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
     return '';
   }
 }

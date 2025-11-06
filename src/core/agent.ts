@@ -601,10 +601,14 @@ export class Agent {
     });
 
     const artifacts = await Promise.all(
-      artifactIds.map(async (id: string) => ({
-        id,
-        content: await this.config.artifactStore.getArtifactContent(id),
-      }))
+      artifactIds.map(async (id: string) => {
+        // Use optional chaining for backward compatibility
+        const content = this.config.artifactStore.getArtifactContent
+          ? await this.config.artifactStore.getArtifactContent(id)
+          : null;
+
+        return { id, content };
+      })
     );
 
     return artifacts.filter((a: { id: string; content: unknown }) => a.content !== null) as Array<{

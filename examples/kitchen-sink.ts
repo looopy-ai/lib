@@ -7,7 +7,7 @@
  * - Filesystem-based persistence (state, messages, artifacts)
  * - LiteLLM provider (real LLM integration)
  * - Local tools (calculator, weather, random numbers)
- * - Artifact creation and management
+ * - Artifact creation and management (NEW: discriminated union types)
  * - Interactive CLI interface
  * - OpenTelemetry tracing (optional)
  *
@@ -19,6 +19,11 @@
  *       ├── task/         # Per-task checkpoint state (JSON)
  *       ├── messages/     # Conversation history (timestamped JSON files)
  *       └── artifacts/    # Created artifacts (organized by ID)
+ *           └── {artifactId}/
+ *               ├── metadata.json  # FileArtifact | DataArtifact | DatasetArtifact
+ *               ├── content.txt    # File content (chunks appended)
+ *               ├── data.json      # Data content
+ *               └── rows.jsonl     # Dataset rows
  *
  * Usage:
  *   pnpm tsx examples/kitchen-sink.ts
@@ -32,6 +37,7 @@ import dotenv from 'dotenv';
 import * as readline from 'node:readline';
 import * as pino from 'pino';
 import { Agent } from '../src/core/agent';
+import type { StoredArtifact } from '../src/core/types';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
 import { LiteLLM } from '../src/providers/litellm-provider';
 import { FileSystemArtifactStore } from '../src/stores/filesystem/filesystem-artifact-store';
@@ -47,7 +53,7 @@ dotenv.config();
 // Initialize OpenTelemetry tracing (optional - only if OTEL_ENABLED=true)
 if (process.env.OTEL_ENABLED === 'true') {
   initializeTracing({
-    serviceName: 'litellm-agent-example',
+    serviceName: 'kitchen-sink-agent',
     serviceVersion: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     enabled: true,
@@ -115,7 +121,7 @@ async function main() {
   // Local tools provider
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
-  // Artifact tools provider (needs stateStore)
+  // Artifact tools provider (NEW: uses discriminated union types)
   const artifactToolProvider = createArtifactTools(artifactStore, stateStore);
 
   // System prompt
@@ -125,13 +131,21 @@ Available capabilities:
 - Mathematical calculations (calculate)
 - Random number generation (get_random_number)
 - Weather information (get_weather)
-- Artifact creation and management (artifact_update, list_artifacts, get_artifact)
+- Artifact creation and management (NEW discriminated union API):
+  - create_file_artifact: Create text/file artifacts with streaming chunks
+  - append_file_chunk: Append content to file artifacts
+  - create_data_artifact: Create structured data artifacts
+  - update_data_artifact: Update data artifact content
+  - create_dataset_artifact: Create tabular datasets
+  - append_dataset_row: Add a row to a dataset
+  - append_dataset_rows: Add multiple rows to a dataset
+  - list_artifacts: List all artifacts
+  - get_artifact: Retrieve artifact details
 
 When creating artifacts:
-- Use artifact_update with the same artifactId for all updates to the same artifact
-- Set append=true to add content, append=false to replace content
-- Set lastChunk=true on the final update to mark the artifact as complete
-- Artifacts can contain text, data, or structured information
+- File artifacts: Use create_file_artifact, then append_file_chunk (set isLastChunk=true on final chunk)
+- Data artifacts: Use create_data_artifact with JSON data object
+- Dataset artifacts: Use create_dataset_artifact with schema, then append_dataset_row or append_dataset_rows
 
 Be concise and helpful in your responses.`;
 
@@ -183,26 +197,42 @@ Be concise and helpful in your responses.`;
   console.log('   Commands: /quit, /exit, /history, /artifacts, /clear');
   console.log('            /contexts, /title <title>, /tag <tag>, /info\n');
 
-  // Handle commands
-  async function handleCommand(input: string, rl: readline.Interface): Promise<boolean> {
-    if (input === '/quit' || input === '/exit') {
+  // Helper to display artifact info
+  function getArtifactTypeInfo(artifact: StoredArtifact): string {
+    if (artifact.type === 'file') {
+      return `File (${artifact.mimeType}) - ${artifact.totalSize} bytes`;
+    }
+    if (artifact.type === 'data') {
+      return 'Data';
+    }
+    return `Dataset - ${artifact.totalSize} rows`;
+  }
+
+  // Command handlers
+  const commandHandlers: Record<
+    string,
+    (input: string, rl: readline.Interface) => Promise<boolean>
+  > = {
+    async '/quit'(_input: string, rl: readline.Interface): Promise<boolean> {
       console.log('\n👋 Shutting down agent...');
       await agent.shutdown();
 
-      // Shutdown tracing if enabled
       if (process.env.OTEL_ENABLED === 'true') {
         console.log('Purging trace data...');
         await shutdownTracing();
-        // sleep for 2 seconds
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
       console.log('✅ Goodbye!');
       rl.close();
       return true;
-    }
+    },
 
-    if (input === '/history') {
+    async '/exit'(input: string, rl: readline.Interface): Promise<boolean> {
+      return commandHandlers['/quit'](input, rl);
+    },
+
+    async '/history'(): Promise<boolean> {
       console.log('\n📜 Conversation History:');
       const messages = await messageStore.getAll(contextId);
       for (const msg of messages) {
@@ -210,28 +240,37 @@ Be concise and helpful in your responses.`;
         console.log(`  [${msg.role}]: ${preview.slice(0, 100)}...`);
       }
       console.log('');
-      rl.prompt();
-      return true;
-    }
+      return false;
+    },
 
-    if (input === '/artifacts') {
+    async '/artifacts'(): Promise<boolean> {
       console.log('\n📦 Artifacts:');
-      console.log('  (Artifact listing would be shown here)');
-      console.log('');
-      rl.prompt();
-      return true;
-    }
+      const artifactIds = await artifactStore.queryArtifacts({ contextId });
+      if (artifactIds.length === 0) {
+        console.log('  No artifacts found.');
+      } else {
+        for (const artifactId of artifactIds) {
+          const artifact = await artifactStore.getArtifact(artifactId);
+          if (!artifact) continue;
 
-    if (input === '/clear') {
+          console.log(`  ${artifact.artifactId} - ${artifact.name || '(unnamed)'}`);
+          console.log(`    Type: ${getArtifactTypeInfo(artifact)}`);
+          console.log(`    Created: ${new Date(artifact.createdAt).toLocaleString()}`);
+        }
+      }
+      console.log('');
+      return false;
+    },
+
+    async '/clear'(): Promise<boolean> {
       console.log('\n🗑️  Clearing conversation...');
       await messageStore.clear(contextId);
       console.log('✅ Conversation cleared!');
       console.log('');
-      rl.prompt();
-      return true;
-    }
+      return false;
+    },
 
-    if (input === '/contexts') {
+    async '/contexts'(): Promise<boolean> {
       console.log('\n📂 Available Contexts:');
       const contexts = await contextStore.list({ agentId });
       if (contexts.length === 0) {
@@ -247,29 +286,10 @@ Be concise and helpful in your responses.`;
         }
       }
       console.log('');
-      rl.prompt();
-      return true;
-    }
+      return false;
+    },
 
-    if (input.startsWith('/title ')) {
-      const title = input.slice(7).trim();
-      await contextStore.update(contextId, { title });
-      console.log(`✅ Title set to: ${title}\n`);
-      rl.prompt();
-      return true;
-    }
-
-    if (input.startsWith('/tag ')) {
-      const tag = input.slice(5).trim();
-      const current = await contextStore.load(contextId);
-      const tags = [...(current?.tags || []), tag];
-      await contextStore.update(contextId, { tags });
-      console.log(`✅ Added tag: ${tag}\n`);
-      rl.prompt();
-      return true;
-    }
-
-    if (input === '/info') {
+    async '/info'(): Promise<boolean> {
       const current = await contextStore.load(contextId);
       if (current) {
         console.log('\n📊 Context Information:');
@@ -292,6 +312,36 @@ Be concise and helpful in your responses.`;
         }
       }
       console.log('');
+      return false;
+    },
+  };
+
+  // Handle commands
+  async function handleCommand(input: string, rl: readline.Interface): Promise<boolean> {
+    // Check exact command match
+    if (commandHandlers[input]) {
+      const shouldExit = await commandHandlers[input](input, rl);
+      if (!shouldExit) {
+        rl.prompt();
+      }
+      return true;
+    }
+
+    // Check prefixed commands
+    if (input.startsWith('/title ')) {
+      const title = input.slice(7).trim();
+      await contextStore.update(contextId, { title });
+      console.log(`✅ Title set to: ${title}\n`);
+      rl.prompt();
+      return true;
+    }
+
+    if (input.startsWith('/tag ')) {
+      const tag = input.slice(5).trim();
+      const current = await contextStore.load(contextId);
+      const tags = [...(current?.tags || []), tag];
+      await contextStore.update(contextId, { tags });
+      console.log(`✅ Added tag: ${tag}\n`);
       rl.prompt();
       return true;
     }
@@ -301,22 +351,22 @@ Be concise and helpful in your responses.`;
 
   // Handle agent events
   function handleAgentEvent(event: import('../src/core/types').AgentEvent) {
-    if (event.kind === 'status-update') {
-      handleStatusUpdate(event);
-    } else if (event.kind === 'artifact-update' && event.lastChunk) {
-      console.log(`📦 Artifact created: ${event.artifact.artifactId}`);
+    if (event.kind === 'task-status') {
+      handleTaskStatus(event);
+    } else if (event.kind === 'content-complete') {
+      console.log(`📦 Content completed`);
     }
   }
 
-  function handleStatusUpdate(event: import('../src/core/types').StatusUpdateEvent) {
-    const { state } = event.status;
+  function handleTaskStatus(event: { kind: 'task-status'; status: string; message?: string }) {
+    const { status } = event;
 
-    if (state === 'working') {
+    if (status === 'working') {
       process.stdout.write('🤔 ');
-    } else if (state === 'completed' && event.final && event.status.message?.content) {
-      console.log(`🤖 ${event.status.message.content}`);
-    } else if (state === 'failed') {
-      console.error('❌ Error:', event.metadata?.error || 'Unknown error');
+    } else if (status === 'completed' && event.message) {
+      console.log(`🤖 ${event.message}`);
+    } else if (status === 'failed') {
+      console.error('❌ Error:', event.message || 'Unknown error');
     }
   }
 
@@ -359,7 +409,11 @@ Be concise and helpful in your responses.`;
         },
         complete: async () => {
           // Update context state after turn
-          const updates: any = {
+          const updates: {
+            turnCount: number;
+            lastActivityAt: string;
+            title?: string;
+          } = {
             turnCount: (contextState?.turnCount || 0) + 1,
             lastActivityAt: new Date().toISOString(),
           };

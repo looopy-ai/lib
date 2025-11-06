@@ -1,12 +1,8 @@
 /**
- * Artifact Store Module
+ * Artifact Store Exports
  *
- * Exports all artifact store implementations and utilities.
+ * Implementation uses discriminated unions for type safety.
+ * See: ai-journal/DISCRIMINATED_UNIONS_REFACTOR.md
  */
 
-export {
-  ArtifactStoreWithEvents,
-  SubjectEventEmitter,
-  type A2AEventEmitter,
-} from './artifact-store-with-events';
 export { InMemoryArtifactStore } from './memory-artifact-store';
