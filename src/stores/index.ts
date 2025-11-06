@@ -2,19 +2,22 @@
  * Storage Implementations
  *
  * Exports all store interfaces and implementations:
- * - State stores (Redis, Memory)
- * - Artifact stores (Redis, Memory)
+ * - Artifact stores (Memory, Filesystem)
  * - Message stores (Memory, Bedrock, Mem0, Hybrid)
+ * - State stores (Memory)
  */
+
+// Interfaces
+export * from './interfaces';
 
 // Artifact stores
 export * from './artifacts';
-export * from './factory';
-export * from './interfaces';
 
-// Memory stores
-export * from './memory/memory-state-store';
 // Message stores
 export * from './messages';
-// Redis stores
-export * from './redis/redis-state-store';
+
+// State stores
+export * from './memory/memory-state-store';
+
+// Filesystem stores
+export * from './filesystem';

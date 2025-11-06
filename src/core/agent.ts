@@ -8,32 +8,33 @@
  */
 
 import { catchError, concat, Observable, of } from 'rxjs';
+import { createTaskStatusEvent } from '../events';
 import {
-    addMessagesCompactedEvent,
-    addMessagesLoadedEvent,
-    addMessagesSavedEvent,
-    completeAgentInitializeSpan,
-    completeAgentTurnSpan,
-    failAgentInitializeSpan,
-    failAgentTurnSpan,
-    setResumeAttributes,
-    setTurnCountAttribute,
-    setTurnOutputAttribute,
-    startAgentInitializeSpan,
-    startAgentTurnSpan,
+  addMessagesCompactedEvent,
+  addMessagesLoadedEvent,
+  addMessagesSavedEvent,
+  completeAgentInitializeSpan,
+  completeAgentTurnSpan,
+  failAgentInitializeSpan,
+  failAgentTurnSpan,
+  setResumeAttributes,
+  setTurnCountAttribute,
+  setTurnOutputAttribute,
+  startAgentInitializeSpan,
+  startAgentTurnSpan,
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
 import { AgentLoop } from './agent-loop';
 import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
 import type {
-    AgentEvent,
-    ArtifactStore,
-    LLMProvider,
-    Message,
-    PersistedLoopState,
-    TaskStateStore,
-    ToolProvider,
+  AgentEvent,
+  ArtifactStore,
+  LLMProvider,
+  Message,
+  PersistedLoopState,
+  TaskStateStore,
+  ToolProvider,
 } from './types';
 
 /**
@@ -299,17 +300,13 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of({
-          kind: 'status-update',
-          taskId,
+        return of(createTaskStatusEvent({
           contextId: this.config.contextId,
-          status: {
-            state: 'failed',
-            timestamp: new Date().toISOString(),
-          },
-          final: true,
+          taskId,
+          status: 'failed',
+          message: error.message,
           metadata: { error: error.message },
-        } as AgentEvent);
+        }));
       }
 
       if (this._state.status === 'error') {
@@ -320,17 +317,13 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of({
-          kind: 'status-update',
-          taskId,
+        return of(createTaskStatusEvent({
           contextId: this.config.contextId,
-          status: {
-            state: 'failed',
-            timestamp: new Date().toISOString(),
-          },
-          final: true,
+          taskId,
+          status: 'failed',
+          message: error.message,
           metadata: { error: error.message },
-        } as AgentEvent);
+        }));
       }
 
       if (this._state.status === 'busy') {
@@ -339,17 +332,13 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of({
-          kind: 'status-update',
-          taskId,
+        return of(createTaskStatusEvent({
           contextId: this.config.contextId,
-          status: {
-            state: 'failed',
-            timestamp: new Date().toISOString(),
-          },
-          final: true,
+          taskId,
+          status: 'failed',
+          message: error.message,
           metadata: { error: error.message },
-        } as AgentEvent);
+        }));
       }
 
       this.config.logger.info(
@@ -371,17 +360,13 @@ export class Agent {
 
       failAgentTurnSpan(span, err);
 
-      return of({
-        kind: 'status-update',
-        taskId,
+      return of(createTaskStatusEvent({
         contextId: this.config.contextId,
-        status: {
-          state: 'failed',
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
+        taskId,
+        status: 'failed',
+        message: err.message,
         metadata: { error: err.message },
-      } as AgentEvent);
+      }));
     }
   }
 
@@ -462,13 +447,8 @@ export class Agent {
                 // Forward events to observer
                 observer.next(event);
 
-                // Collect assistant messages
-                if (event.kind === 'status-update' && event.status.message) {
-                  const msg = event.status.message;
-                  if (msg.role === 'assistant' || msg.role === 'tool') {
-                    assistantMessages.push(msg);
-                  }
-                }
+                // Note: Message collection is handled by AgentLoop,
+                // not extracted from events
               },
               error: (error: Error) => {
                 this.config.logger.error(
@@ -564,17 +544,13 @@ export class Agent {
           // Fail the span for any errors caught in the pipeline
           failAgentTurnSpan(span, error);
 
-          return of({
-            kind: 'status-update',
-            taskId,
+          return of(createTaskStatusEvent({
             contextId: this.config.contextId,
-            status: {
-              state: 'failed',
-              timestamp: new Date().toISOString(),
-            },
-            final: true,
+            taskId,
+            status: 'failed',
+            message: error.message,
             metadata: { error: error.message },
-          } as AgentEvent);
+          }));
         })
       )
     );
