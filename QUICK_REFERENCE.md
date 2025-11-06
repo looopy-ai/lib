@@ -300,7 +300,7 @@ export function tapBeforeExecute(
 
 | Content Type            | Location                              | Example                        |
 | ----------------------- | ------------------------------------- | ------------------------------ |
-| Interface definition    | `design/*.md` + `src/*/interfaces.ts` | `interface StateStore`        |
+| Interface definition    | `design/*.md` + `src/*/interfaces.ts` | `interface TaskStateStore`        |
 | Conceptual flow         | `design/*.md`                         | Simplified RxJS pipeline       |
 | Complete implementation | `src/**/*.ts`                         | Full class with error handling |
 | Design decision         | `design/*.md`                         | "We chose Redis because..."    |

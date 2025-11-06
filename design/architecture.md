@@ -171,7 +171,7 @@ See [`src/core/agent-loop.ts`](../src/core/agent-loop.ts) and [`src/core/operato
 - **Event Emission**: Emit A2A-compliant events (TaskEvent, StatusUpdateEvent, etc.)
 - **Span Management**: Create nested OpenTelemetry spans via operator factories
 - **Error Handling**: Graceful error recovery at multiple pipeline stages
-- **Checkpointing**: Optional state persistence via StateStore
+- **Checkpointing**: Optional state persistence via TaskStateStore
 - **Resumption**: Resume from persisted state (static method)
 
 ### Tool Execution Layer
@@ -378,7 +378,7 @@ Unified interface for creating storage implementations:
 
 ```typescript
 // Create state store
-const stateStore = StoreFactory.createStateStore({
+const taskStateStore = StoreFactory.createStateStore({
   type: 'redis',
   redis: redisClient,
   ttl: 86400
@@ -406,7 +406,7 @@ Uniform interfaces for pluggable components:
 - Current: LocalToolProvider, ClientToolProvider
 - Future: MCPToolProvider
 
-**StateStore**: Abstracts state persistence
+**TaskStateStore**: Abstracts state persistence
 - Current: Redis, In-Memory
 - Future: PostgreSQL, DynamoDB, etc.
 
@@ -422,7 +422,7 @@ Uniform interfaces for pluggable components:
 - **Operator-based pipeline**: Modular RxJS operators
 - **Tool execution**: Local and client-provided tools (parallel with concurrency)
 - **LLM integration**: LiteLLM provider
-- **State persistence**: Redis and in-memory StateStore
+- **State persistence**: Redis and in-memory TaskStateStore
 - **OpenTelemetry tracing**: Complete span hierarchy
 - **A2A event types**: TaskEvent, StatusUpdateEvent, ArtifactUpdateEvent
 - **Checkpointing and resumption**: Save/restore execution state

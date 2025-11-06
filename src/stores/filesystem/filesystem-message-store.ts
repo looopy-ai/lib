@@ -9,14 +9,14 @@
  * Design: design/message-management.md
  */
 
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Message } from '../../core/types';
 import type {
-    CompactionOptions,
-    CompactionResult,
-    MessageStore,
-    StoredMessage,
+  CompactionOptions,
+  CompactionResult,
+  MessageStore,
+  StoredMessage,
 } from '../messages/interfaces';
 
 export interface FileSystemMessageStoreConfig {
@@ -126,10 +126,7 @@ export class FileSystemMessageStore implements MessageStore {
     return messages.map(this.toMessage);
   }
 
-  async compact(
-    contextId: string,
-    options?: CompactionOptions
-  ): Promise<CompactionResult> {
+  async compact(contextId: string, options?: CompactionOptions): Promise<CompactionResult> {
     // For filesystem implementation, we'll use sliding-window strategy
     // This is a simple implementation - production would need summarization
     const allMessages = await this.loadMessages(contextId);
@@ -214,12 +211,23 @@ export class FileSystemMessageStore implements MessageStore {
   private toMessage(stored: StoredMessage): Message {
     // Remove storage-specific fields
     // biome-ignore lint/correctness/noUnusedVariables: Destructuring to remove fields
-    const { id, contextId, index, timestamp, tokens, tags, compacted, summarizedRange, ...message } = stored;
+    const {
+      id,
+      contextId,
+      index,
+      timestamp,
+      tokens,
+      tags,
+      compacted,
+      summarizedRange,
+      ...message
+    } = stored;
     return message;
   }
 
   private estimateTokens(message: StoredMessage): number {
-    const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    const content =
+      typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
     return Math.ceil(content.length / 4);
   }
 

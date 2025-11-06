@@ -22,7 +22,7 @@ src/
 │   └── index.ts               # Exports
 │
 ├── stores/                    # State and artifact persistence
-│   ├── interfaces.ts          # StateStore, ArtifactStore interfaces
+│   ├── interfaces.ts          # TaskStateStore, ArtifactStore interfaces
 │   ├── factory.ts             # Store creation factory
 │   ├── redis/                 # Redis implementations
 │   │   └── redis-state-store.ts

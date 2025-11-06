@@ -66,7 +66,7 @@ Example reference comment:
 ```typescript
 // Implementation of state persistence strategy
 // Design: design/agent-loop.md#state-persistence-strategy
-export class RedisStateStore implements StateStore {
+export class RedisStateStore implements TaskStateStore {
   // ...
 }
 ```
@@ -92,7 +92,7 @@ looopy/
 ├── src/                    # Implementation code (NEW)
 │   ├── README.md           # Implementation guide
 │   ├── stores/             # State & artifact stores
-│   │   ├── interfaces.ts   # StateStore, ArtifactStore
+│   │   ├── interfaces.ts   # TaskStateStore, ArtifactStore
 │   │   ├── factory.ts      # StoreFactory
 │   │   ├── redis/          # Redis implementations
 │   │   └── memory/         # In-memory implementations
@@ -166,7 +166,7 @@ looopy/
 ### Redis State Store
 
 ```typescript
-class RedisStateStore implements StateStore {
+class RedisStateStore implements TaskStateStore {
   constructor(private redis: RedisClient, private ttl: number = 24 * 60 * 60) {}
 
   async save(taskId: string, state: PersistedLoopState): Promise<void> {
@@ -188,7 +188,7 @@ class RedisStateStore implements StateStore {
 ```markdown
 ### State Store Implementations
 
-The framework provides multiple `StateStore` implementations:
+The framework provides multiple `TaskStateStore` implementations:
 
 **RedisStateStore**
 - Production-ready storage using Redis
@@ -229,10 +229,10 @@ const restored = await store.load(taskId);
  * Design Reference: design/agent-loop.md#state-store-implementations
  */
 
-import { StateStore, PersistedLoopState } from '../interfaces';
+import { TaskStateStore, PersistedLoopState } from '../interfaces';
 import type { RedisClient } from '../../types';
 
-export class RedisStateStore implements StateStore {
+export class RedisStateStore implements TaskStateStore {
   constructor(
     private redis: RedisClient,
     private ttl: number = 24 * 60 * 60

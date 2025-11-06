@@ -9,11 +9,11 @@ export {
   getTracer,
   initializeTracing,
   injectTraceContext,
-  shutdownTracing,
   SpanAttributes,
   SpanNames,
+  shutdownTracing,
   startSpan,
-  withSpan,
   type TelemetryConfig,
   type TraceContext,
+  withSpan,
 } from './tracing';

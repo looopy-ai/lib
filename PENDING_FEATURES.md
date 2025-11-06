@@ -12,7 +12,7 @@ This document lists features that are **not yet implemented** and should be eval
 - Agent class (multi-turn conversation manager with lazy initialization)
 - AgentLoop class (single-turn execution engine)
 - Operator-based RxJS pipeline architecture
-- State persistence (Redis and in-memory StateStore)
+- State persistence (Redis and in-memory TaskStateStore)
 - Checkpointing and resumption
 - Comprehensive error handling with retry logic
 - OpenTelemetry distributed tracing with span hierarchy
@@ -237,7 +237,7 @@ This document lists features that are **not yet implemented** and should be eval
 
 **Features**:
 - `ToolExecutionRecord` tracking (pending/running/completed/failed)
-- Store records in StateStore
+- Store records in TaskStateStore
 - Check records before re-executing on resume
 - Audit trail of tool executions
 

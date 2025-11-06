@@ -71,7 +71,7 @@ async function main() {
     agentId: 'math-assistant',
     llmProvider,
     toolProviders: [toolProvider],
-    stateStore: new InMemoryStateStore(),
+    taskStateStore: new InMemoryStateStore(),
     artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     systemPrompt:

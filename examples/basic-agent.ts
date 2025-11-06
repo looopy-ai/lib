@@ -94,7 +94,7 @@ async function main() {
     agentId: 'weather-assistant',
     llmProvider: new SimpleLLMProvider(),
     toolProviders: [localTools([weatherTool])],
-    stateStore: new InMemoryStateStore(),
+    taskStateStore: new InMemoryStateStore(),
     artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     enableCheckpoints: true,

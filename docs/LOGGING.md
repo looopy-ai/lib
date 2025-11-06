@@ -44,7 +44,7 @@ const agent = new AgentLoop({
   agentId: 'my-agent',
   llmProvider,
   toolProviders: [toolProvider],
-  stateStore,
+  taskStateStore,
   artifactStore,
   logger, // Pass logger here
 });

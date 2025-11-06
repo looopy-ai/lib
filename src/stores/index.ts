@@ -14,12 +14,10 @@ export * from './artifacts';
 
 // Filesystem stores
 export * from './filesystem';
-
-// Message stores
-export * from './messages';
+// Filesystem stores
+export * from './filesystem';
 
 // State stores
 export * from './memory/memory-state-store';
-
-// Filesystem stores
-export * from './filesystem';
+// Message stores
+export * from './messages';

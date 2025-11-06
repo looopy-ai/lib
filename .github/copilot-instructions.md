@@ -97,7 +97,7 @@ When working in `design/*.md` files:
 1. **Define interfaces only**, don't implement them:
    ```typescript
    // ✅ Good - Interface definition
-   interface StateStore {
+   interface TaskStateStore {
      save(taskId: string, state: State): Promise<void>;
      load(taskId: string): Promise<State | null>;
    }
@@ -115,7 +115,7 @@ When working in `design/*.md` files:
 3. **Avoid complete implementations**:
    ```typescript
    // ❌ Bad - Don't do this in design docs
-   class RedisStateStore implements StateStore {
+   class RedisStateStore implements TaskStateStore {
      constructor(private redis: RedisClient) {}
 
      async save(taskId: string, state: State): Promise<void> {
@@ -135,7 +135,7 @@ When working in `design/*.md` files:
    ```markdown
    ### State Store Implementations
 
-   The framework provides multiple `StateStore` implementations:
+   The framework provides multiple `TaskStateStore` implementations:
    - **RedisStateStore** - Production Redis storage with TTL
    - **InMemoryStateStore** - Testing and development
 
@@ -155,7 +155,7 @@ When working in `src/**/*.ts` files:
     *
     * Design: design/agent-loop.md (State Persistence section)
     */
-   export class RedisStateStore implements StateStore {
+   export class RedisStateStore implements TaskStateStore {
    ```
 
 2. **Implement complete functionality**:
@@ -269,7 +269,7 @@ export function tapBeforeExecute(
 ```typescript
 // Interface definition only
 interface StoreFactory {
-  createStateStore(config: StateConfig): StateStore;
+  createStateStore(config: StateConfig): TaskStateStore;
   createArtifactStore(config: ArtifactConfig): ArtifactStore;
 }
 ```
@@ -278,7 +278,7 @@ interface StoreFactory {
 ```typescript
 // Design: design/agent-loop.md (State Persistence section)
 export class StoreFactory {
-  static createStateStore(config: StateConfig): StateStore {
+  static createStateStore(config: StateConfig): TaskStateStore {
     // Complete implementation with validation, error handling, etc.
   }
 }

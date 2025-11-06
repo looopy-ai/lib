@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import type { ArtifactStore, StateStore, ToolProvider } from '../core/types';
+import type { ArtifactStore, TaskStateStore, ToolProvider } from '../core/types';
 import { localTools, tool } from './local-tools';
 
 /**
@@ -17,16 +17,16 @@ import { localTools, tool } from './local-tools';
 async function trackArtifactInState(
   taskId: string,
   artifactId: string,
-  stateStore: StateStore
+  taskStateStore: TaskStateStore
 ): Promise<void> {
   // Load current state
-  const state = await stateStore.load(taskId);
+  const state = await taskStateStore.load(taskId);
   if (!state) return;
 
   // Add artifact ID if not already present
   if (!state.artifactIds.includes(artifactId)) {
     state.artifactIds.push(artifactId);
-    await stateStore.save(taskId, state);
+    await taskStateStore.save(taskId, state);
   }
 }
 
@@ -36,7 +36,7 @@ async function trackArtifactInState(
  * Provides type-specific tools for file, data, and dataset artifacts.
  *
  * @example
- * const artifactTools = createArtifactTools(artifactStore, stateStore);
+ * const artifactTools = createArtifactTools(artifactStore, taskStateStore);
  * const agent = new Agent({
  *   toolProviders: [artifactTools, ...otherTools],
  *   // ...
@@ -44,7 +44,7 @@ async function trackArtifactInState(
  */
 export function createArtifactTools(
   artifactStore: ArtifactStore,
-  stateStore: StateStore
+  taskStateStore: TaskStateStore
 ): ToolProvider {
   return localTools([
     // ============================================================================
@@ -89,7 +89,7 @@ export function createArtifactTools(
         });
 
         // Track in state
-        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
+        await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
           artifactId: params.artifactId,
@@ -176,7 +176,7 @@ export function createArtifactTools(
         await artifactStore.writeData(params.artifactId, params.data);
 
         // Track in state
-        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
+        await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
           artifactId: params.artifactId,
@@ -258,7 +258,7 @@ export function createArtifactTools(
         });
 
         // Track in state
-        await trackArtifactInState(context.taskId, params.artifactId, stateStore);
+        await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
           artifactId: params.artifactId,
@@ -341,9 +341,7 @@ export function createArtifactTools(
           taskId: params.taskId,
         });
 
-        const artifacts = await Promise.all(
-          artifactIds.map((id) => artifactStore.getArtifact(id))
-        );
+        const artifacts = await Promise.all(artifactIds.map((id) => artifactStore.getArtifact(id)));
 
         return {
           artifacts: artifacts

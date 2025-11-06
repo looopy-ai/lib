@@ -219,14 +219,16 @@ class MockArtifactStore implements ArtifactStore {
     // No-op for mock
   }
 
-  async getArtifactContent(): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
+  async getArtifactContent(): Promise<
+    string | Record<string, unknown> | Record<string, unknown>[]
+  > {
     return '';
   }
 }
 
 describe('AgentLoop', () => {
   let config: AgentLoopConfig;
-  let stateStore: MockStateStore;
+  let taskStateStore: MockStateStore;
 
   // Helper to create test context
   const createTestContext = (
@@ -240,13 +242,13 @@ describe('AgentLoop', () => {
   });
 
   beforeEach(() => {
-    stateStore = new MockStateStore();
+    taskStateStore = new MockStateStore();
 
     config = {
       agentId: 'test-agent',
       llmProvider: new MockLLMProvider([]),
       toolProviders: [new MockToolProvider()],
-      stateStore,
+      taskStateStore,
       artifactStore: new MockArtifactStore(),
       maxIterations: 10,
       enableCheckpoints: true,
@@ -277,7 +279,7 @@ describe('AgentLoop', () => {
       expect(events[0].kind).toBe('task-created');
 
       // Find working status event (may have internal events mixed in)
-      const workingEvent = events.find(e => e.kind === 'task-status' && e.status === 'working');
+      const workingEvent = events.find((e) => e.kind === 'task-status' && e.status === 'working');
       expect(workingEvent).toBeDefined();
 
       const finalEvent = events[events.length - 1];
@@ -302,7 +304,7 @@ describe('AgentLoop', () => {
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Verify all events use internal event protocol
-      const externalEvents = events.filter(e => !e.kind.startsWith('internal:'));
+      const externalEvents = events.filter((e) => !e.kind.startsWith('internal:'));
       expect(externalEvents.length).toBeGreaterThan(0);
 
       // First event should be task-created
@@ -494,10 +496,10 @@ describe('AgentLoop', () => {
       await lastValueFrom(events$.pipe(toArray()));
 
       // Should have checkpointed
-      const tasks = await stateStore.listTasks();
+      const tasks = await taskStateStore.listTasks();
       expect(tasks.length).toBe(1);
 
-      const state = await stateStore.load(tasks[0]);
+      const state = await taskStateStore.load(tasks[0]);
       expect(state).not.toBeNull();
       expect(state?.completed).toBe(true);
     });
@@ -526,7 +528,7 @@ describe('AgentLoop', () => {
         resumeFrom: 'llm-call',
       };
 
-      await stateStore.save(taskId, checkpointedState);
+      await taskStateStore.save(taskId, checkpointedState);
 
       // Resume execution
       const llmProvider = new MockLLMProvider([
@@ -569,7 +571,7 @@ describe('AgentLoop', () => {
         resumeFrom: 'completed',
       };
 
-      await stateStore.save(taskId, completedState);
+      await taskStateStore.save(taskId, completedState);
 
       const events$ = await AgentLoop.resume(taskId, config);
       const event = await firstValueFrom(events$);
@@ -596,9 +598,9 @@ describe('AgentLoop', () => {
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should have error in events - check for task-status with failed status
-      const statusEvents = events.filter(e => e.kind === 'task-status');
-      const hasFailedStatus = statusEvents.some(e =>
-        e.kind === 'task-status' && e.status === 'failed'
+      const statusEvents = events.filter((e) => e.kind === 'task-status');
+      const hasFailedStatus = statusEvents.some(
+        (e) => e.kind === 'task-status' && e.status === 'failed'
       );
       expect(hasFailedStatus || events.length === 0).toBe(true);
     });
@@ -622,7 +624,7 @@ describe('AgentLoop', () => {
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       // Should stop after max iterations - find the last non-internal event
-      const externalEvents = events.filter(e => !e.kind.startsWith('internal:'));
+      const externalEvents = events.filter((e) => !e.kind.startsWith('internal:'));
       const finalEvent = externalEvents[externalEvents.length - 1];
       // When max iterations hit, may end with task-status or task-complete
       expect(['task-status', 'task-complete']).toContain(finalEvent.kind);

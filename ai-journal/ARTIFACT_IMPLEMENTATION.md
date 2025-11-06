@@ -261,7 +261,7 @@ await store.appendPart(...);         // → artifact-update event
 import { createArtifactTools } from 'looopy/tools';
 import { AgentLoop } from 'looopy';
 
-const artifactTools = createArtifactTools(artifactStore, stateStore);
+const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
 const agent = new AgentLoop({
   toolProviders: [artifactTools],

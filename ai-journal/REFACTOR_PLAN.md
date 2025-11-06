@@ -21,7 +21,7 @@ For each design document, we will:
 - RxJS pipeline concept with simplified operators
 - Interface definitions:
   - `PersistedLoopState`
-  - `StateStore`
+  - `TaskStateStore`
   - `ArtifactStore`
   - `ToolExecutionRecord`
 - Flow diagrams and sequence diagrams
@@ -171,7 +171,7 @@ For each document:
 ### Redis State Store
 
 ```typescript
-class RedisStateStore implements StateStore {
+class RedisStateStore implements TaskStateStore {
   constructor(private redis: RedisClient, private ttl: number = 24 * 60 * 60) {}
 
   async save(taskId: string, state: PersistedLoopState): Promise<void> {
@@ -193,7 +193,7 @@ class RedisStateStore implements StateStore {
 ```markdown
 ### State Store Implementations
 
-The framework provides multiple implementations of `StateStore`:
+The framework provides multiple implementations of `TaskStateStore`:
 
 - **RedisStateStore** - Production-ready storage using Redis with TTL support
 - **InMemoryStateStore** - Lightweight storage for testing and development

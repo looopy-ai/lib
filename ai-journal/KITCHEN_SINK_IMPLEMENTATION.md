@@ -95,7 +95,7 @@ Extracted helper functions to meet lint complexity limits:
 ### Type Safety
 
 All stores properly implement their respective interfaces:
-- `StateStore` from `core/types.ts`
+- `TaskStateStore` from `core/types.ts`
 - `MessageStore` from `stores/messages/interfaces.ts`
 - `ArtifactStore` from `stores/interfaces.ts`
 
@@ -146,7 +146,7 @@ const contextId = 'user-session-123';
 // Create filesystem stores
 const messageStore = new FileSystemMessageStore({ agentId });
 const artifactStore = new FileSystemArtifactStore({ agentId });
-const stateStore = new FileSystemStateStore();
+const taskStateStore = new FileSystemStateStore();
 
 // Create agent
 const agent = new Agent({

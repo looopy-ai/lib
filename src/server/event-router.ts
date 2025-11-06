@@ -123,10 +123,7 @@ export class EventRouter {
           sentCount++;
         } catch (error) {
           // Log error but don't throw (one bad subscriber shouldn't break others)
-          console.error(
-            `Failed to send event to subscriber ${subscriber.id}:`,
-            error
-          );
+          console.error(`Failed to send event to subscriber ${subscriber.id}:`, error);
         }
       }
     }
@@ -141,10 +138,7 @@ export class EventRouter {
    * @param event - Event to check
    * @returns true if event should be sent
    */
-  private shouldSendToSubscriber(
-    subscriber: Subscriber,
-    event: InternalEvent
-  ): boolean {
+  private shouldSendToSubscriber(subscriber: Subscriber, event: InternalEvent): boolean {
     const { config } = subscriber;
 
     // Filter by task ID if specified
@@ -214,8 +208,7 @@ export class EventRouter {
     return {
       totalContexts: contexts,
       totalSubscribers,
-      averageSubscribersPerContext:
-        contexts > 0 ? totalSubscribers / contexts : 0,
+      averageSubscribersPerContext: contexts > 0 ? totalSubscribers / contexts : 0,
     };
   }
 

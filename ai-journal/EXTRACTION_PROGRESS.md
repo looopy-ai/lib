@@ -31,7 +31,7 @@ This file has ~2500 lines with significant implementation code that needs extrac
 - [ ] Resumption logic → `src/core/resumption.ts`
 
 **After Extraction, Keep in Design:**
-- Interface definitions (`PersistedLoopState`, `StateStore`, `ArtifactStore`)
+- Interface definitions (`PersistedLoopState`, `TaskStateStore`, `ArtifactStore`)
 - Conceptual RxJS pipeline flows
 - Architecture diagrams
 - Design decisions and rationale

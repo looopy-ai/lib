@@ -17,7 +17,7 @@ See `src/core/agent-loop.ts` for:
 - shareReplay() for hot observables
 
 See `src/stores/` for:
-- `StateStore` interface and implementations (Redis, Memory)
+- `TaskStateStore` interface and implementations (Redis, Memory)
 - `StoreFactory` for creating store instances
 - State cleanup service
 

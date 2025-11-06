@@ -4,7 +4,7 @@
 
 Successfully renamed interfaces to follow TypeScript best practices by removing the "I" prefix:
 - `IArtifactStore` → `ArtifactStore`
-- `IStateStore` → `StateStore`
+- `IStateStore` → `TaskStateStore`
 
 ## Files Changed
 
@@ -17,8 +17,8 @@ Successfully renamed interfaces to follow TypeScript best practices by removing 
 ### Store Implementations
 - ✅ `src/stores/interfaces.ts` - Interface exports updated
 - ✅ `src/stores/factory.ts` - Return types and references updated
-- ✅ `src/stores/memory/memory-state-store.ts` - Implements StateStore
-- ✅ `src/stores/redis/redis-state-store.ts` - Implements StateStore, import path fixed
+- ✅ `src/stores/memory/memory-state-store.ts` - Implements TaskStateStore
+- ✅ `src/stores/redis/redis-state-store.ts` - Implements TaskStateStore, import path fixed
 - ✅ `src/stores/artifacts/memory-artifact-store.ts` - Implements ArtifactStore
 - ✅ `src/stores/artifacts/artifact-store-with-events.ts` - Type references updated
 
@@ -72,7 +72,7 @@ All 81 tests passing:
 
    // After
    export interface ArtifactStore { ... }
-   export interface StateStore { ... }
+   export interface TaskStateStore { ... }
    ```
 
 2. **Implementations**
@@ -83,16 +83,16 @@ All 81 tests passing:
 
    // After
    class InMemoryArtifactStore implements ArtifactStore { ... }
-   class RedisStateStore implements StateStore { ... }
+   class RedisStateStore implements TaskStateStore { ... }
    ```
 
 3. **Type References**
    ```typescript
    // Before
-   constructor(private stateStore: IStateStore) { ... }
+   constructor(private taskStateStore: IStateStore) { ... }
 
    // After
-   constructor(private stateStore: StateStore) { ... }
+   constructor(private taskStateStore: TaskStateStore) { ... }
    ```
 
 4. **Mock Implementations**

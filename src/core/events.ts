@@ -64,11 +64,7 @@ export const createCompletedEvent = (
 /**
  * Create failed status event
  */
-export const createFailedEvent = (
-  taskId: string,
-  contextId: string,
-  error: string
-): AgentEvent => {
+export const createFailedEvent = (taskId: string, contextId: string, error: string): AgentEvent => {
   return createTaskStatusEvent({
     contextId,
     taskId,

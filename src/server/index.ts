@@ -8,19 +8,24 @@
 
 // Event buffer exports
 export {
-  EventBuffer,
   type BufferedEvent,
-  type EventBufferConfig
+  EventBuffer,
+  type EventBufferConfig,
 } from './event-buffer';
 
 // Event router exports
 export {
+  type EventFilter,
   EventRouter,
-  type EventFilter, type Subscriber, type SubscriptionConfig
+  type Subscriber,
+  type SubscriptionConfig,
 } from './event-router';
 
 // SSE server exports
 export {
-  SSEConnection, SSEServer, type SSEConnectionConfig, type SSEResponse, type SSEServerConfig
+  SSEConnection,
+  type SSEConnectionConfig,
+  type SSEResponse,
+  SSEServer,
+  type SSEServerConfig,
 } from './sse';
-

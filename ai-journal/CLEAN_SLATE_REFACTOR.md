@@ -178,7 +178,7 @@ const store = new ArtifactStoreWithEvents(delegate, eventEmitter);
 ### Artifact Tools
 ```typescript
 // Old
-const tools = createArtifactTools(artifactStore, stateStore);
+const tools = createArtifactTools(artifactStore, taskStateStore);
 
 // If needed: Re-implement tools using V3 type-specific methods
 // See: design/tool-integration.md#artifact-tools

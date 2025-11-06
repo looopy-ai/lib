@@ -163,7 +163,7 @@ export class Agent {
       agentId: this.config.agentId,
       llmProvider: this.config.llmProvider,
       toolProviders: this.config.toolProviders,
-      stateStore: new NoopStateStore(), // Agent handles state, not AgentLoop
+      taskStateStore: new NoopStateStore(), // Agent handles state, not AgentLoop
       artifactStore: this.config.artifactStore,
       systemPrompt: this.config.systemPrompt,
       logger: this.config.logger,
@@ -300,13 +300,15 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of(createTaskStatusEvent({
-          contextId: this.config.contextId,
-          taskId,
-          status: 'failed',
-          message: error.message,
-          metadata: { error: error.message },
-        }));
+        return of(
+          createTaskStatusEvent({
+            contextId: this.config.contextId,
+            taskId,
+            status: 'failed',
+            message: error.message,
+            metadata: { error: error.message },
+          })
+        );
       }
 
       if (this._state.status === 'error') {
@@ -317,13 +319,15 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of(createTaskStatusEvent({
-          contextId: this.config.contextId,
-          taskId,
-          status: 'failed',
-          message: error.message,
-          metadata: { error: error.message },
-        }));
+        return of(
+          createTaskStatusEvent({
+            contextId: this.config.contextId,
+            taskId,
+            status: 'failed',
+            message: error.message,
+            metadata: { error: error.message },
+          })
+        );
       }
 
       if (this._state.status === 'busy') {
@@ -332,13 +336,15 @@ export class Agent {
 
         failAgentTurnSpan(span, error);
 
-        return of(createTaskStatusEvent({
-          contextId: this.config.contextId,
-          taskId,
-          status: 'failed',
-          message: error.message,
-          metadata: { error: error.message },
-        }));
+        return of(
+          createTaskStatusEvent({
+            contextId: this.config.contextId,
+            taskId,
+            status: 'failed',
+            message: error.message,
+            metadata: { error: error.message },
+          })
+        );
       }
 
       this.config.logger.info(
@@ -360,13 +366,15 @@ export class Agent {
 
       failAgentTurnSpan(span, err);
 
-      return of(createTaskStatusEvent({
-        contextId: this.config.contextId,
-        taskId,
-        status: 'failed',
-        message: err.message,
-        metadata: { error: err.message },
-      }));
+      return of(
+        createTaskStatusEvent({
+          contextId: this.config.contextId,
+          taskId,
+          status: 'failed',
+          message: err.message,
+          metadata: { error: err.message },
+        })
+      );
     }
   }
 
@@ -544,13 +552,15 @@ export class Agent {
           // Fail the span for any errors caught in the pipeline
           failAgentTurnSpan(span, error);
 
-          return of(createTaskStatusEvent({
-            contextId: this.config.contextId,
-            taskId,
-            status: 'failed',
-            message: error.message,
-            metadata: { error: error.message },
-          }));
+          return of(
+            createTaskStatusEvent({
+              contextId: this.config.contextId,
+              taskId,
+              status: 'failed',
+              message: error.message,
+              metadata: { error: error.message },
+            })
+          );
         })
       )
     );

@@ -105,7 +105,7 @@ Demonstrates:
 const loop = new AgentLoop({
   llmProvider,
   toolProviders,
-  stateStore,      // Manual checkpoint management
+  taskStateStore,      // Manual checkpoint management
   artifactStore
 });
 

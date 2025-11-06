@@ -6,13 +6,13 @@
  * Design Reference: design/agent-loop.md#state-cleanup-and-expiration
  */
 
-import type { ArtifactStore, StateStore } from './types';
+import type { ArtifactStore, TaskStateStore } from './types';
 
 export class StateCleanupService {
   private intervalHandle?: NodeJS.Timeout;
 
   constructor(
-    private stateStore: StateStore,
+    private taskStateStore: TaskStateStore,
     private artifactStore: ArtifactStore,
     private intervalMs: number = 60 * 60 * 1000 // 1 hour
   ) {}
@@ -35,13 +35,13 @@ export class StateCleanupService {
   async cleanupExpiredTasks(): Promise<void> {
     // Get all tasks completed more than 24 hours ago
     const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const taskIds = await this.stateStore.listTasks({
+    const taskIds = await this.taskStateStore.listTasks({
       completedAfter: cutoffDate,
     });
 
     for (const taskId of taskIds) {
       try {
-        const state = await this.stateStore.load(taskId);
+        const state = await this.taskStateStore.load(taskId);
         if (!state) continue;
 
         // Delete artifacts first
@@ -52,7 +52,7 @@ export class StateCleanupService {
         }
 
         // Then delete state
-        await this.stateStore.delete(taskId);
+        await this.taskStateStore.delete(taskId);
       } catch (error) {
         console.error(`Failed to cleanup task ${taskId}:`, error);
       }

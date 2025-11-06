@@ -16,14 +16,14 @@ import { createArtifactTools } from '../src/tools/artifact-tools';
 
 describe('Artifact Tools', () => {
   let artifactStore: InMemoryArtifactStore;
-  let stateStore: InMemoryStateStore;
+  let taskStateStore: InMemoryStateStore;
   let toolProvider: ReturnType<typeof createArtifactTools>;
   let context: ToolExecutionContext;
 
   beforeEach(async () => {
     artifactStore = new InMemoryArtifactStore();
-    stateStore = new InMemoryStateStore();
-    toolProvider = createArtifactTools(artifactStore, stateStore);
+    taskStateStore = new InMemoryStateStore();
+    toolProvider = createArtifactTools(artifactStore, taskStateStore);
 
     context = {
       taskId: 'test-task-123',
@@ -32,7 +32,7 @@ describe('Artifact Tools', () => {
     };
 
     // Create initial state for the task
-    await stateStore.save('test-task-123', {
+    await taskStateStore.save('test-task-123', {
       taskId: 'test-task-123',
       agentId: 'test-agent',
       contextId: 'test-context-456',

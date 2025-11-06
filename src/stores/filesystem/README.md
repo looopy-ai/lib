@@ -76,7 +76,7 @@ const acquired = await contextStore.acquireLock(contextId, processId);
 
 Stores per-task checkpoint state for AgentLoop crash recovery.
 
-**Note:** StateStore has been renamed to TaskStateStore for clarity. This store is for per-task crash recovery, not session management (use ContextStore for that).
+**Note:** TaskStateStore has been renamed to TaskStateStore for clarity. This store is for per-task crash recovery, not session management (use ContextStore for that).
 
 **Features:**
 - JSON dump of complete per-turn state
@@ -338,7 +338,7 @@ Understanding the different stores:
   - Lifetime: Days/weeks (user-managed)
   - Granularity: per contextId
 
-- **TaskStateStore** (formerly StateStore) - Per-task checkpoint state
+- **TaskStateStore** (formerly TaskStateStore) - Per-task checkpoint state
   - Purpose: AgentLoop crash recovery (resume mid-turn)
   - Lifetime: Hours (auto-expires)
   - Granularity: per taskId
@@ -415,19 +415,19 @@ await contextStore.update(contextId, {
 
 See [`examples/kitchen-sink.ts`](../../../examples/kitchen-sink.ts) for a full interactive CLI example using all filesystem stores.
 
-## Migration from StateStore to TaskStateStore
+## Migration from TaskStateStore to TaskStateStore
 
 If you're upgrading from an older version:
 
 ```typescript
 // Old (still works - deprecated)
-import type { StateStore } from '../src/core/types';
+import type { TaskStateStore } from '../src/core/types';
 
 // New (recommended)
 import type { TaskStateStore } from '../src/core/types';
 ```
 
-The `StateStore` type is now an alias for `TaskStateStore` and will be removed in v2.0.
+The `TaskStateStore` type is now an alias for `TaskStateStore` and will be removed in v2.0.
 
 ## Design References
 

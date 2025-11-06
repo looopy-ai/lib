@@ -264,10 +264,13 @@ export class InMemoryMessageStore implements MessageStore {
    * Create LLM-based summary
    */
   private async createLLMSummary(messages: Message[], customPrompt?: string): Promise<string> {
-    const summaryPrompt = customPrompt || this.config.defaultSummaryPrompt ||
+    const summaryPrompt =
+      customPrompt ||
+      this.config.defaultSummaryPrompt ||
       'Please provide a concise summary of the following conversation, capturing the key points and context:';
 
-    const conversationText = messages.filter((m) => ['user', 'assistant'].includes(m.role))
+    const conversationText = messages
+      .filter((m) => ['user', 'assistant'].includes(m.role))
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
       .join('\n');
 

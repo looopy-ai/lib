@@ -90,9 +90,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'file') {
-      throw new Error(
-        `Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`);
     }
 
     const now = new Date().toISOString();
@@ -135,9 +133,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'file') {
-      throw new Error(
-        `Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a file artifact (type: ${artifact.type})`);
     }
 
     return artifact.chunks.map((chunk) => chunk.data).join('');
@@ -194,9 +190,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'data') {
-      throw new Error(
-        `Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`);
     }
 
     const now = new Date().toISOString();
@@ -225,9 +219,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'data') {
-      throw new Error(
-        `Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a data artifact (type: ${artifact.type})`);
     }
 
     return artifact.data;
@@ -292,9 +284,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'dataset') {
-      throw new Error(
-        `Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`);
     }
 
     const now = new Date().toISOString();
@@ -329,9 +319,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     if (artifact.type !== 'dataset') {
-      throw new Error(
-        `Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`
-      );
+      throw new Error(`Artifact ${artifactId} is not a dataset artifact (type: ${artifact.type})`);
     }
 
     return artifact.rows;

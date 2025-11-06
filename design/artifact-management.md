@@ -598,7 +598,7 @@ app.post('/api/a2a', async (req, res) => {
     // Create agent loop with artifact store
     const agentLoop = new AgentLoop({
       artifactStore,
-      stateStore,
+      taskStateStore,
       // ...
     });
 
@@ -647,16 +647,16 @@ When artifacts are created, they must be added to task state:
 const trackArtifactInState = async (
   taskId: string,
   artifactId: string,
-  stateStore: StateStore
+  taskStateStore: TaskStateStore
 ): Promise<void> => {
   // Load current state
-  const state = await stateStore.load(taskId);
+  const state = await taskStateStore.load(taskId);
   if (!state) return;
 
   // Add artifact ID if not already present
   if (!state.artifactIds.includes(artifactId)) {
     state.artifactIds.push(artifactId);
-    await stateStore.save(taskId, state);
+    await taskStateStore.save(taskId, state);
   }
 };
 ```
@@ -672,14 +672,14 @@ const createArtifactWithTracking$ = (
     description?: string;
   },
   artifactStore: ArtifactStore,
-  stateStore: StateStore
+  taskStateStore: TaskStateStore
 ): Observable<string> => {
   return defer(async () => {
     // Create artifact (automatically emits A2A event)
     const artifactId = await artifactStore.createArtifact(params);
 
     // Track in state
-    await trackArtifactInState(params.taskId, artifactId, stateStore);
+    await trackArtifactInState(params.taskId, artifactId, taskStateStore);
 
     return artifactId;
   });
@@ -781,7 +781,7 @@ const A2AArtifactSchema = z.object({
  */
 function createArtifactTools(
   artifactStore: ArtifactStore,
-  stateStore: StateStore
+  taskStateStore: TaskStateStore
 ): ToolProvider {
   return localTools([
     tool(
@@ -812,7 +812,7 @@ function createArtifactTools(
           });
 
           // Track in state
-          await trackArtifactInState(context.taskId, artifactId, stateStore);
+          await trackArtifactInState(context.taskId, artifactId, taskStateStore);
         }
 
         // Convert A2A parts to internal format and append
@@ -979,11 +979,11 @@ When a task is resumed, all artifacts must be included:
 ```typescript
 const resumeTask$ = async (
   taskId: string,
-  stateStore: StateStore,
+  taskStateStore: TaskStateStore,
   artifactStore: ArtifactStore
 ): Promise<Observable<AgentEvent>> => {
   // Load persisted state
-  const state = await stateStore.load(taskId);
+  const state = await taskStateStore.load(taskId);
   if (!state) throw new Error('Task not found');
 
   // Load all artifacts
@@ -1044,7 +1044,7 @@ app.post('/api/a2a/tasks/resubscribe', async (req, res) => {
 
   try {
     // Load task state
-    const state = await stateStore.load(taskId);
+    const state = await taskStateStore.load(taskId);
     if (!state) {
       res.write(`data: ${JSON.stringify({
         jsonrpc: '2.0',
@@ -1102,7 +1102,7 @@ app.post('/api/a2a/tasks/resubscribe', async (req, res) => {
       res.end();
     } else {
       // Continue streaming live updates
-      const resume$ = await resumeTask$(taskId, stateStore, artifactStore);
+      const resume$ = await resumeTask$(taskId, taskStateStore, artifactStore);
 
       resume$.subscribe({
         next: (event) => {

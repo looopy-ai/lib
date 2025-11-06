@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Kitchen Sink Example - Complete Interactive CLI Agent
  *
@@ -33,8 +34,8 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
-import dotenv from 'dotenv';
 import * as readline from 'node:readline';
+import dotenv from 'dotenv';
 import * as pino from 'pino';
 import { Agent } from '../src/core/agent';
 import type { StoredArtifact } from '../src/core/types';
@@ -106,7 +107,7 @@ async function main() {
 
   // Initialize stores
   console.log('📁 Initializing filesystem stores...');
-  const stateStore = new FileSystemStateStore({ basePath: BASE_PATH });
+  const taskStateStore = new FileSystemStateStore({ basePath: BASE_PATH });
   const messageStore = new FileSystemMessageStore({ basePath: BASE_PATH, agentId });
   const artifactStore = new FileSystemArtifactStore({ basePath: BASE_PATH, agentId });
   const contextStore = new FileSystemContextStore({ basePath: BASE_PATH });
@@ -122,7 +123,7 @@ async function main() {
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
   // Artifact tools provider (NEW: uses discriminated union types)
-  const artifactToolProvider = createArtifactTools(artifactStore, stateStore);
+  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
 
   // System prompt
   const systemPrompt = `You are a helpful AI assistant with access to various tools.

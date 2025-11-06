@@ -136,7 +136,7 @@ export interface LoopState {
   lastLLMResponse?: LLMResponse;
 
   // Injected dependencies
-  stateStore: TaskStateStore;
+  taskStateStore: TaskStateStore;
   artifactStore: ArtifactStore;
 }
 
@@ -356,11 +356,6 @@ export interface TaskStateStore {
   }): Promise<string[]>;
   setTTL(taskId: string, ttlSeconds: number): Promise<void>;
 }
-
-/**
- * @deprecated Use TaskStateStore instead. StateStore will be removed in v2.0.
- */
-export type StateStore = TaskStateStore;
 
 /**
  * Persisted loop state for resumption
@@ -783,11 +778,7 @@ export interface ContextStore {
    * Acquire lock on context (for concurrency control)
    * Returns true if lock acquired, false if already locked
    */
-  acquireLock(
-    contextId: string,
-    lockOwnerId: string,
-    ttlSeconds?: number,
-  ): Promise<boolean>;
+  acquireLock(contextId: string, lockOwnerId: string, ttlSeconds?: number): Promise<boolean>;
 
   /**
    * Release lock on context
@@ -809,6 +800,6 @@ export interface ContextStore {
    */
   update(
     contextId: string,
-    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>,
+    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>
   ): Promise<void>;
 }

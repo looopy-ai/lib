@@ -12,8 +12,8 @@ import {
   SpanKind,
   type SpanOptions,
   SpanStatusCode,
-  trace,
   type Tracer,
+  trace,
 } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';

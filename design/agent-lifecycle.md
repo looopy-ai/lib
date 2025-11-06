@@ -24,7 +24,7 @@ This design separates the stateful **Agent** (lifecycle and persistence manageme
 │  - contextId / sessionId                                   │
 │  - MessageStore (conversation history)                     │
 │  - ArtifactStore (generated artifacts)                     │
-│  - StateStore (agent metadata)                             │
+│  - TaskStateStore (agent metadata)                             │
 │  - Lifecycle: start, pause, resume, shutdown               │
 │                                                            │
 │  ┌────────────────────────────────────────────────────┐    │
@@ -216,7 +216,7 @@ interface AgentLoopConfig {
   toolProviders: ToolProvider[];
 
   /** State store (not used by Agent, uses NoopStateStore) */
-  stateStore: StateStore;
+  taskStateStore: TaskStateStore;
 
   /** Artifact store for generated content */
   artifactStore: ArtifactStore;
@@ -352,7 +352,7 @@ Agent Session 1:
 │ // Pause                                 │
 │ await agent.pause()                      │
 │ → Saves to messageStore                  │
-│ → Saves to stateStore                    │
+│ → Saves to taskStateStore                    │
 │   { turnCount: 2, ... }                  │
 └──────────────────────────────────────────┘
 
@@ -367,7 +367,7 @@ Agent Session 2 (same contextId):
 │ await agent.start()                      │
 │ → Loads from messageStore                │
 │   [user, asst, user, asst]               │
-│ → Loads from stateStore                  │
+│ → Loads from taskStateStore                  │
 │   { turnCount: 2, ... }                  │
 │                                          │
 │ state.status = 'ready'                   │
@@ -439,7 +439,7 @@ A turn completes when ANY of these occur:
 
 ## State Persistence
 
-### Agent Metadata (StateStore)
+### Agent Metadata (TaskStateStore)
 
 ```typescript
 interface AgentMetadata {
@@ -785,7 +785,7 @@ For existing code using `AgentLoop.execute()`:
 const loop = new AgentLoop({
   llmProvider,
   toolProvider,
-  stateStore,
+  taskStateStore,
   artifactStore
 });
 
@@ -809,7 +809,7 @@ const events$ = await agent.startTurn('Do something');
 **Breaking Changes**:
 - `AgentLoop.execute()` → `Agent.startTurn()`
 - `toolProvider` → `toolProviders` (now an array)
-- No separate `stateStore` - Agent uses NoopStateStore internally
+- No separate `taskStateStore` - Agent uses NoopStateStore internally
 - Context is now part of agent config, not per-execution
 - `startTurn()` returns `Promise<Observable>` instead of `Observable`
 - Must manage agent lifecycle (call `shutdown()` when done)

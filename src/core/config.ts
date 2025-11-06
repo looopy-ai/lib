@@ -5,7 +5,7 @@
  */
 
 import type pino from 'pino';
-import type { ArtifactStore, LLMProvider, StateStore, ToolProvider } from './types';
+import type { ArtifactStore, LLMProvider, TaskStateStore, ToolProvider } from './types';
 
 export interface AgentLoopConfig {
   /**
@@ -26,7 +26,7 @@ export interface AgentLoopConfig {
   /**
    * State store for persistence
    */
-  stateStore: StateStore;
+  taskStateStore: TaskStateStore;
 
   /**
    * Artifact store for multi-part artifacts

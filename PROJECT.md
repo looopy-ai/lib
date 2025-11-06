@@ -177,7 +177,7 @@ When code examples are necessary in design docs:
 
 **✅ Good - Interface definitions:**
 ```typescript
-interface StateStore {
+interface TaskStateStore {
   save(taskId: string, state: State): Promise<void>;
   load(taskId: string): Promise<State | null>;
 }

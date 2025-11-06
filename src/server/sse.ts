@@ -9,11 +9,7 @@
 
 import type { InternalEvent } from '../events';
 import { EventBuffer, type EventBufferConfig } from './event-buffer';
-import {
-  EventRouter,
-  type Subscriber,
-  type SubscriptionConfig,
-} from './event-router';
+import { EventRouter, type Subscriber, type SubscriptionConfig } from './event-router';
 
 /**
  * HTTP Response interface (framework-agnostic)
@@ -236,9 +232,7 @@ export class SSEServer {
     this.heartbeatInterval = config.heartbeatInterval ?? 30000;
 
     // Create buffer if enabled
-    this.buffer = this.enableBuffering
-      ? new EventBuffer(config.eventBuffer)
-      : null;
+    this.buffer = this.enableBuffering ? new EventBuffer(config.eventBuffer) : null;
   }
 
   /**
@@ -270,10 +264,7 @@ export class SSEServer {
 
     // Replay buffered events if reconnecting
     if (lastEventId && this.buffer) {
-      const bufferedEvents = this.buffer.getEventsSince(
-        config.contextId,
-        lastEventId
-      );
+      const bufferedEvents = this.buffer.getEventsSince(config.contextId, lastEventId);
 
       for (const buffered of bufferedEvents) {
         connection.send(buffered.event, buffered.id);

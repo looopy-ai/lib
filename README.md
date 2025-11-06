@@ -55,7 +55,7 @@ Looopy provides a reactive, extensible architecture for building AI agent system
 - See [docs/OBSERVABILITY.md](./docs/OBSERVABILITY.md) for details
 
 ### 💾 State Persistence
-- **StateStore**: Save/restore execution state for resumption
+- **TaskStateStore**: Save/restore execution state for resumption
 - **ArtifactStore**: Manage conversation artifacts
 - **MessageStore**: Persist conversation history across sessions
 - Redis, in-memory, and filesystem implementations
@@ -220,7 +220,7 @@ Looopy supports multiple storage backends for state, messages, and artifacts:
 ```typescript
 import { InMemoryStateStore, InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
 
-const stateStore = new InMemoryStateStore();
+const taskStateStore = new InMemoryStateStore();
 const messageStore = new InMemoryMessageStore();
 const artifactStore = new InMemoryArtifactStore();
 ```
@@ -229,7 +229,7 @@ const artifactStore = new InMemoryArtifactStore();
 ```typescript
 import { StoreFactory } from 'looopy';
 
-const stateStore = StoreFactory.createStateStore({
+const taskStateStore = StoreFactory.createStateStore({
   type: 'redis',
   redis: redisClient,
   ttl: 86400 // 24 hours
@@ -246,7 +246,7 @@ import {
 
 const basePath = './_agent_store';
 
-const stateStore = new FileSystemStateStore({ basePath, ttl: 86400 });
+const taskStateStore = new FileSystemStateStore({ basePath, ttl: 86400 });
 const messageStore = new FileSystemMessageStore({ basePath });
 const artifactStore = new FileSystemArtifactStore({ basePath });
 ```
@@ -277,7 +277,7 @@ const agent = new Agent({
   toolProviders,
   messageStore,   // For conversation history
   artifactStore,  // For created artifacts
-  stateStore      // For loop state (used internally by AgentLoop)
+  taskStateStore      // For loop state (used internally by AgentLoop)
 });
 
 // Agent automatically loads existing messages on first turn

@@ -275,7 +275,7 @@ async function main() {
       localToolsProvider, // Server-side tools
       clientTools, // Client-side tools
     ],
-    stateStore: new InMemoryStateStore(),
+    taskStateStore: new InMemoryStateStore(),
     artifactStore: new InMemoryArtifactStore(),
     maxIterations: 10,
     logger,

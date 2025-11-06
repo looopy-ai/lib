@@ -154,10 +154,7 @@ export class AgentLoop {
     );
 
     // Merge execution events with internal protocol events
-    return merge(
-      execution$,
-      this.eventEmitter.events$
-    ).pipe(
+    return merge(execution$, this.eventEmitter.events$).pipe(
       // Share the execution to prevent duplicate executions on multiple subscriptions
       // shareReplay(1) ensures:
       // - Only one execution happens regardless of subscriber count
@@ -178,7 +175,7 @@ export class AgentLoop {
     const logger = config.logger || getLogger({ component: 'AgentLoop' });
     logger.info({ taskId }, 'Resuming agent execution');
 
-    const state = await config.stateStore.load(taskId);
+    const state = await config.taskStateStore.load(taskId);
 
     if (!state) {
       logger.warn({ taskId }, 'Task not found or expired');
@@ -235,7 +232,7 @@ export class AgentLoop {
       context,
       traceContext: context.traceContext,
       authContext: context.authContext,
-      stateStore: this.config.stateStore,
+      taskStateStore: this.config.taskStateStore,
       artifactStore: this.config.artifactStore,
     };
   }
@@ -259,7 +256,7 @@ export class AgentLoop {
         taskId: persisted.taskId,
         ...context,
       },
-      stateStore: this.config.stateStore,
+      taskStateStore: this.config.taskStateStore,
       artifactStore: this.config.artifactStore,
     };
   }
@@ -621,7 +618,7 @@ export class AgentLoop {
 
     return defer(async () => {
       const persisted = this.serializeState(state);
-      await this.config.stateStore.save(state.taskId, persisted);
+      await this.config.taskStateStore.save(state.taskId, persisted);
       this.config.logger.trace({ taskId: state.taskId }, 'State checkpoint saved');
 
       // Emit internal checkpoint event

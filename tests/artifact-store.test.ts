@@ -324,11 +324,7 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendDatasetBatch(
-        artifactId,
-        [{ final: true }],
-        { isLastBatch: true }
-      );
+      await store.appendDatasetBatch(artifactId, [{ final: true }], { isLastBatch: true });
 
       const artifact = await store.getArtifact(artifactId);
       expect(artifact?.status).toBe('complete');

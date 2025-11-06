@@ -14,7 +14,7 @@
 - **Iteration control**: Loop until LLM finishes or max iterations reached
 - **Event streaming**: Emit A2A-compliant events for client observation
 - **Observability**: Create distributed tracing spans for all operations
-- **State persistence**: Optional checkpointing via StateStore
+- **State persistence**: Optional checkpointing via TaskStateStore
 - **Error handling**: Graceful error recovery with proper span recording
 
 ### What AgentLoop Does NOT Do
@@ -55,7 +55,7 @@
 - RxJS operator-based pipeline architecture
 - LLM integration via provider interface
 - Tool execution (parallel with concurrency)
-- Checkpointing and state persistence (via StateStore)
+- Checkpointing and state persistence (via TaskStateStore)
 - Session resumption from persisted state
 - Error handling with proper span recording
 - OpenTelemetry distributed tracing
@@ -136,7 +136,7 @@ Benefits:
 
 ### Checkpointing
 
-State is automatically persisted (if StateStore configured):
+State is automatically persisted (if TaskStateStore configured):
 - Before each iteration
 - After LLM calls
 - On completion or error
@@ -166,7 +166,7 @@ interface AgentLoopConfig {
   agentId: string;
   llmProvider: LLMProvider;
   toolProviders: ToolProvider[];      // Array of tool sources
-  stateStore?: StateStore;             // Optional state persistence
+  taskStateStore?: TaskStateStore;             // Optional state persistence
   artifactStore?: ArtifactStore;       // Optional artifact storage
   maxIterations?: number;              // Default: 10
   systemPrompt?: string;               // Injected at LLM call time
@@ -534,10 +534,10 @@ Prevents infinite loops from LLM misbehavior or circular tool dependencies.
 
 ## State Persistence
 
-### StateStore Interface
+### TaskStateStore Interface
 
 ```typescript
-interface StateStore {
+interface TaskStateStore {
   save(taskId: string, state: PersistedLoopState): Promise<void>;
   load(taskId: string): Promise<PersistedLoopState | null>;
   delete(taskId: string): Promise<void>;
@@ -550,7 +550,7 @@ interface StateStore {
 
 **Factory Pattern**:
 ```typescript
-const stateStore = StoreFactory.createStateStore({
+const taskStateStore = StoreFactory.createStateStore({
   type: 'redis',
   redis: redisClient,
   ttl: 86400
@@ -620,7 +620,7 @@ For complete implementation details, see:
 - [`src/core/operators/llm-operators.ts`](../src/core/operators/llm-operators.ts) - LLM call and response processing
 
 **Storage**:
-- [`src/stores/interfaces.ts`](../src/stores/interfaces.ts) - StateStore and ArtifactStore interfaces
+- [`src/stores/interfaces.ts`](../src/stores/interfaces.ts) - TaskStateStore and ArtifactStore interfaces
 - [`src/stores/factory.ts`](../src/stores/factory.ts) - Store creation factory
 - [`src/stores/redis/`](../src/stores/redis/) - Redis implementations
 - [`src/stores/memory/`](../src/stores/memory/) - In-memory implementations

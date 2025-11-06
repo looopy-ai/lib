@@ -90,7 +90,10 @@ async function exampleInMemoryWithLLM() {
       role: 'assistant',
       content: 'I can help with that. What are your requirements for storage and retention?',
     },
-    { role: 'user', content: 'We need to store messages for 30 days and support conversation summarization.' },
+    {
+      role: 'user',
+      content: 'We need to store messages for 30 days and support conversation summarization.',
+    },
     {
       role: 'assistant',
       content:
@@ -379,5 +382,11 @@ main().catch((error) => {
   process.exit(1);
 });
 
-export { exampleBedrock, exampleCompaction, exampleHybrid, exampleInMemory, exampleInMemoryWithLLM, exampleMem0 };
-
+export {
+  exampleBedrock,
+  exampleCompaction,
+  exampleHybrid,
+  exampleInMemory,
+  exampleInMemoryWithLLM,
+  exampleMem0,
+};

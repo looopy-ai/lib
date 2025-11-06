@@ -39,7 +39,7 @@ Complete TypeScript type definitions for the entire agent framework:
 **Provider Interfaces:**
 - `LLMProvider` - Language model abstraction
 - `ToolProvider` - Tool execution abstraction
-- `StateStore` - State persistence abstraction
+- `TaskStateStore` - State persistence abstraction
 - `ArtifactStore` - Artifact storage abstraction
 
 ### Configuration Interface (`src/core/config.ts`)
@@ -47,7 +47,7 @@ Complete TypeScript type definitions for the entire agent framework:
 `AgentLoopConfig` interface defines all agent configuration:
 - Agent identity (`agentId`)
 - Provider dependencies (`llmProvider`, `toolProviders`)
-- Storage backends (`stateStore`, `artifactStore`)
+- Storage backends (`taskStateStore`, `artifactStore`)
 - Execution limits (`maxIterations`)
 - System prompts
 - Checkpoint configuration (`enableCheckpoints`, `checkpointInterval`)
@@ -87,7 +87,7 @@ execute()
 ### Store Implementations
 
 **In-Memory State Store (`src/stores/memory/memory-state-store.ts`)**
-- Full `StateStore` implementation
+- Full `TaskStateStore` implementation
 - Automatic expiration with TTL
 - Task filtering (by agent, context, completion date)
 - Periodic cleanup of expired entries
@@ -114,7 +114,7 @@ Clean barrel export for the core module:
 All external dependencies use interfaces:
 - `LLMProvider` - Swap OpenAI, Anthropic, local models
 - `ToolProvider` - Support local tools, MCP, remote APIs
-- `StateStore` - Redis, memory, S3, etc.
+- `TaskStateStore` - Redis, memory, S3, etc.
 - `ArtifactStore` - Multiple storage backends
 
 **Benefits:**

@@ -70,16 +70,19 @@ export const tapAfterExecuteEvents = () => {
       const span = (event as WithTraceContext)._rootSpan;
       if (span) {
         // Determine if this is final based on event type and status
-        const isFinal = event.kind === 'task-complete' ||
-          (event.kind === 'task-status' && (
-            event.status === 'completed' ||
-            event.status === 'failed' ||
-            event.status === 'canceled'
-          ));
+        const isFinal =
+          event.kind === 'task-complete' ||
+          (event.kind === 'task-status' &&
+            (event.status === 'completed' ||
+              event.status === 'failed' ||
+              event.status === 'canceled'));
 
         if (isFinal) {
           completeAgentExecuteSpan(span, {
-            state: event.kind === 'task-complete' ? 'completed' : event.status as 'completed' | 'failed',
+            state:
+              event.kind === 'task-complete'
+                ? 'completed'
+                : (event.status as 'completed' | 'failed'),
             output: event.kind === 'task-complete' ? event.content : event.message,
             error: event.metadata?.error as string | undefined,
           });

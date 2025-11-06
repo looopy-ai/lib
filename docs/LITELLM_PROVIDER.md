@@ -54,7 +54,7 @@ const agent = new AgentLoop({
   agentId: 'my-agent',
   llmProvider,
   toolProviders: [],
-  stateStore: new InMemoryStateStore(),
+  taskStateStore: new InMemoryStateStore(),
   artifactStore: myArtifactStore,
 });
 
