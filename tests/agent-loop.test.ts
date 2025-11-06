@@ -11,18 +11,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { AgentLoopConfig } from '../src/core/config';
 import type {
-  ArtifactPart,
-  ArtifactStore,
-  ExecutionContext,
-  LLMProvider,
-  LLMResponse,
-  PersistedLoopState,
-  StoredArtifact,
-  TaskStateStore,
-  ToolCall,
-  ToolDefinition,
-  ToolProvider,
-  ToolResult,
+    ArtifactPart,
+    ArtifactStore,
+    ExecutionContext,
+    LLMProvider,
+    LLMResponse,
+    PersistedLoopState,
+    StoredArtifact,
+    TaskStateStore,
+    ToolCall,
+    ToolDefinition,
+    ToolProvider,
+    ToolResult,
 } from '../src/core/types';
 
 // Mock LLM Provider
@@ -626,8 +626,8 @@ describe('AgentLoop', () => {
       // Should stop after max iterations - find the last non-internal event
       const externalEvents = events.filter((e) => !e.kind.startsWith('internal:'));
       const finalEvent = externalEvents[externalEvents.length - 1];
-      // When max iterations hit, may end with task-status or task-complete
-      expect(['task-status', 'task-complete']).toContain(finalEvent.kind);
+      // When max iterations hit, may end with task-status, task-complete, or content-complete
+      expect(['task-status', 'task-complete', 'content-complete']).toContain(finalEvent.kind);
     });
   });
 

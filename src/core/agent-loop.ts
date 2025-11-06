@@ -16,6 +16,7 @@ import {
   failToolExecutionSpanWithException,
   startToolExecutionSpan,
 } from '../observability/spans';
+import { thoughtTools } from '../tools/thought-tools';
 import type { AgentLoopConfig } from './config';
 import { createCompletedEvent, createTaskEvent, createWorkingEvent, stateToEvents } from './events';
 import { getLogger } from './logger';
@@ -32,6 +33,7 @@ import {
   tapLLMResponse,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
+import { sanitizeLLMResponse } from './sanitize';
 import type {
   AgentEvent,
   Context,
@@ -65,6 +67,7 @@ export class AgentLoop {
     logger: import('pino').Logger;
   };
   private eventEmitter: LoopEventEmitter | null = null;
+  private thoughtToolProvider: import('../tools/interfaces').ToolProvider | null = null;
 
   constructor(config: AgentLoopConfig) {
     this.config = {
@@ -206,8 +209,22 @@ export class AgentLoop {
     const taskId = context.taskId || generateTaskId();
     const contextId = context.contextId;
 
-    // Gather tools from all providers
-    const toolPromises = this.config.toolProviders.map((p) => p.getTools());
+    // Create thought tools provider for this execution
+    this.thoughtToolProvider = this.eventEmitter
+      ? thoughtTools({
+          eventEmitter: this.eventEmitter,
+          taskId,
+          contextId,
+          enabled: true,
+        })
+      : null;
+
+    // Gather tools from all providers (including thought tools)
+    const allProviders = this.thoughtToolProvider
+      ? [...this.config.toolProviders, this.thoughtToolProvider]
+      : this.config.toolProviders;
+
+    const toolPromises = allProviders.map((p) => p.getTools());
     const toolArrays = await Promise.all(toolPromises);
     const availableTools = toolArrays.flat();
 
@@ -371,7 +388,27 @@ export class AgentLoop {
         sessionId: preparedState.taskId,
       })
       .pipe(
+        map(sanitizeLLMResponse),
         tap(tapLLMResponse(spanRef, messages, this.config.logger)),
+        tap((response) => {
+          // Emit content streaming events for LLM response
+          if (this.eventEmitter && response.message.content) {
+            // For now, emit the full content as a single chunk
+            // TODO: When LLM provider supports streaming, emit actual chunks
+            this.eventEmitter.emitContentDelta(
+              state.taskId,
+              state.contextId,
+              response.message.content,
+              0
+            );
+
+            this.eventEmitter.emitContentComplete(
+              state.taskId,
+              state.contextId,
+              response.message.content
+            );
+          }
+        }),
         map(mapLLMResponseToState(preparedState)),
         catchError(catchLLMError(spanRef))
       );
@@ -505,8 +542,10 @@ export class AgentLoop {
         'Executing tool'
       );
 
-      // Find provider that can handle this tool
-      const provider = this.config.toolProviders.find((p) => p.canHandle(toolCall.function.name));
+      // Find provider that can handle this tool (check thought tools first, then regular providers)
+      let provider = this.thoughtToolProvider?.canHandle(toolCall.function.name)
+        ? this.thoughtToolProvider
+        : this.config.toolProviders.find((p) => p.canHandle(toolCall.function.name));
 
       if (!provider) {
         this.config.logger.warn(

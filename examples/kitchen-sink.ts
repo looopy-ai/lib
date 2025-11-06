@@ -34,8 +34,10 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
-import * as readline from 'node:readline';
 import dotenv from 'dotenv';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import * as readline from 'node:readline';
 import * as pino from 'pino';
 import { Agent } from '../src/core/agent';
 import type { StoredArtifact } from '../src/core/types';
@@ -132,7 +134,8 @@ Available capabilities:
 - Mathematical calculations (calculate)
 - Random number generation (get_random_number)
 - Weather information (get_weather)
-- Artifact creation and management (NEW discriminated union API):
+- Thought streaming (think_aloud): Share your reasoning process with users
+- Artifact creation and management:
   - create_file_artifact: Create text/file artifacts with streaming chunks
   - append_file_chunk: Append content to file artifacts
   - create_data_artifact: Create structured data artifacts
@@ -142,6 +145,33 @@ Available capabilities:
   - append_dataset_rows: Add multiple rows to a dataset
   - list_artifacts: List all artifacts
   - get_artifact: Retrieve artifact details
+
+Thinking Out Loud:
+Use the think_aloud tool to share your reasoning process, especially when:
+- Planning your approach to a complex task (thought_type: "planning")
+- Working through a multi-step problem (thought_type: "reasoning")
+- Making decisions between alternatives (thought_type: "decision", include alternatives array)
+- Reflecting on what you've done (thought_type: "reflection")
+- Noticing important details in the user's request (thought_type: "observation")
+
+Important: Provide a thought_id (like "initial_plan", "step1", "weather_check") so you can reference
+thoughts later using related_to. This helps create chains of reasoning.
+
+Example: Before calling multiple tools, use think_aloud to explain your plan:
+  think_aloud({
+    thought_id: "initial_plan",
+    thought: "I'll first get the weather, then calculate if temperature conversion is needed",
+    thought_type: "planning",
+    confidence: 0.9
+  })
+
+Then later you can reference it:
+  think_aloud({
+    thought_id: "weather_retrieved",
+    thought: "Got the weather data, now I see it's in Celsius",
+    thought_type: "observation",
+    related_to: "initial_plan"
+  })
 
 When creating artifacts:
 - File artifacts: Use create_file_artifact, then append_file_chunk (set isLastChunk=true on final chunk)
@@ -159,7 +189,7 @@ Be concise and helpful in your responses.`;
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider],
+    toolProviders: [localToolProvider], // HACK: artifact tool calls have been removed
     messageStore,
     artifactStore,
     systemPrompt,
@@ -196,7 +226,82 @@ Be concise and helpful in your responses.`;
 
   console.log('✅ Agent ready! Type your messages below.');
   console.log('   Commands: /quit, /exit, /history, /artifacts, /clear');
-  console.log('            /contexts, /title <title>, /tag <tag>, /info\n');
+  console.log('            /contexts, /title <title>, /tag <tag>, /info');
+  console.log('            /sse-log [lines], /clear-sse-log\n');
+
+    console.log('');
+
+  // SSE Log File Path
+  const sseLogPath = path.join(
+    BASE_PATH,
+    `agent=${agentId}`,
+    `context=${contextId}`,
+    'sse-log.txt'
+  );
+
+  // Ensure directory exists for SSE log
+  await fs.mkdir(path.dirname(sseLogPath), { recursive: true });
+
+  // Helper to log events in SSE format
+  async function logSSEEvent(event: import('../src/core/types').AgentEvent): Promise<void> {
+    try {
+      const timestamp = new Date().toISOString();
+
+      // Create a safe JSON string using the replacer function
+      const seen = new WeakSet();
+
+      const {kind, contextId, taskId, ...data} = Object.fromEntries(Object.entries(event).filter(([key]) => !key.startsWith('_')));
+
+      const safeJSON = JSON.stringify(data, (_key: string, value: any): any => {
+        // Handle null/undefined
+        if (value === null || value === undefined) {
+          return value;
+        }
+
+        // Handle primitives
+        if (typeof value !== 'object') {
+          return value;
+        }
+
+        // Detect circular references
+        if (seen.has(value)) {
+          return '[Circular]';
+        }
+
+        // Skip known non-serializable objects by checking constructor names
+        const constructorName = value.constructor?.name;
+        if (
+          constructorName === 'SpanImpl' ||
+          constructorName === 'Span' ||
+          constructorName === 'MultiSpanProcessor' ||
+          constructorName === 'BatchSpanProcessor' ||
+          constructorName === 'SimpleSpanProcessor' ||
+          constructorName?.includes('SpanProcessor') ||
+          constructorName?.includes('Tracer')
+        ) {
+          return '[OpenTelemetry Object]';
+        }
+
+        // Mark object as seen
+        seen.add(value);
+
+        return value;
+      });
+
+      const lines = [
+        'event: ' + kind,
+        'task_id: ' + taskId,
+        'data: ' + safeJSON,
+        'when: ' + timestamp,
+        '',
+        ''
+      ];
+
+      await fs.appendFile(sseLogPath, lines.join('\n'), 'utf-8');
+    } catch (error) {
+      console.error('Failed to log SSE event:', error);
+    }
+  }
 
   // Helper to display artifact info
   function getArtifactTypeInfo(artifact: StoredArtifact): string {
@@ -315,6 +420,18 @@ Be concise and helpful in your responses.`;
       console.log('');
       return false;
     },
+
+    async '/clear-sse-log'(): Promise<boolean> {
+      console.log('\n🗑️  Clearing SSE log...');
+      try {
+        await fs.writeFile(sseLogPath, '', 'utf-8');
+        console.log('✅ SSE log cleared!');
+      } catch (error) {
+        console.error('❌ Failed to clear SSE log:', (error as Error).message);
+      }
+      console.log('');
+      return false;
+    },
   };
 
   // Handle commands
@@ -347,11 +464,44 @@ Be concise and helpful in your responses.`;
       return true;
     }
 
+    if (input.startsWith('/sse-log')) {
+      const args = input.split(' ');
+      const lineCount = args[1] ? Number.parseInt(args[1], 10) : 50;
+
+      console.log(`\n📡 SSE Event Log (last ${lineCount} lines):`);
+      try {
+        const content = await fs.readFile(sseLogPath, 'utf-8');
+        const lines = content.split('\n').filter(l => l.trim());
+        const lastLines = lines.slice(-lineCount);
+
+        if (lastLines.length === 0) {
+          console.log('  (empty)');
+        } else {
+          for (const line of lastLines) {
+            console.log(`  ${line}`);
+          }
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          console.log('  (no log file yet)');
+        } else {
+          console.error('❌ Failed to read SSE log:', (error as Error).message);
+        }
+      }
+      console.log('');
+      rl.prompt();
+      return true;
+    }
+
     return false;
   }
 
   // Handle agent events
-  function handleAgentEvent(event: import('../src/core/types').AgentEvent) {
+  async function handleAgentEvent(event: import('../src/core/types').AgentEvent) {
+    // Log all events to SSE log file
+    await logSSEEvent(event);
+
+    // Handle specific events for console output
     if (event.kind === 'task-status') {
       handleTaskStatus(event);
     } else if (event.kind === 'content-complete') {

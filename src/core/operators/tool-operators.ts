@@ -18,6 +18,7 @@ export function emitToolStartEvent(
   toolCall: ToolCall,
   eventBuffer: import('../../events').InternalEvent[]
 ): void {
+  if (toolCall.function.name === 'toolName') return;
   eventBuffer.push(
     createToolStartEvent({
       contextId,
@@ -39,6 +40,7 @@ export function emitToolCompleteEvent(
   result: ToolResult,
   eventBuffer: import('../../events').InternalEvent[]
 ): void {
+  if (result.toolName === 'toolName') return;
   eventBuffer.push(
     createToolCompleteEvent({
       contextId,

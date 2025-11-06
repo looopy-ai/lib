@@ -49,7 +49,12 @@ export function setLLMResponseAttributes(
 
   // Set input/output for Langfuse
   span.setAttribute(SpanAttributes.GEN_AI_PROMPT, JSON.stringify(messages));
-  span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, response.message.content || '');
+
+  // Only set completion if there's actual content (don't set empty string for tool calls)
+  const hasContent = response.message.content && response.message.content.trim().length > 0;
+  if (hasContent) {
+    span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, response.message.content);
+  }
 
   // Set model information
   if (response.model) {

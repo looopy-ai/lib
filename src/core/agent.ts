@@ -454,9 +454,6 @@ export class Agent {
               next: (event: AgentEvent) => {
                 // Forward events to observer
                 observer.next(event);
-
-                // Note: Message collection is handled by AgentLoop,
-                // not extracted from events
               },
               error: (error: Error) => {
                 this.config.logger.error(
@@ -469,9 +466,24 @@ export class Agent {
               },
               complete: async () => {
                 try {
-                  // 4. Save assistant messages if autoSave
+                  // TODO this is a bad way of getting the last message of the turn. We shouldn't need to read from the store here, but get the last event from the stream
+
+                  // 4. Get the latest messages from store to find assistant responses
+                  const latestMessages = await this.config.messageStore.getRecent(
+                    this.config.contextId,
+                    {
+                      maxMessages: 20, // Get recent messages to find the assistant response
+                    }
+                  );
+
+                  // Find assistant and tool messages from this turn (after the user message)
+                  const turnMessages = latestMessages.filter(
+                    (m: Message) => m.role === 'assistant' || m.role === 'tool'
+                  );
+                  assistantMessages.push(...turnMessages);
+
+                  // Note: Messages are already saved by AgentLoop if autoSave is enabled
                   if (this.config.autoSave && assistantMessages.length > 0) {
-                    await this.config.messageStore.append(this.config.contextId, assistantMessages);
                     addMessagesSavedEvent(span, assistantMessages.length);
 
                     this.config.logger.debug(
@@ -479,13 +491,13 @@ export class Agent {
                         contextId: this.config.contextId,
                         messageCount: assistantMessages.length,
                       },
-                      'Saved assistant messages'
+                      'Assistant messages already saved by AgentLoop'
                     );
                   }
 
                   // Add output to span (final assistant message)
                   const finalAssistantMessage = assistantMessages.find(
-                    (m) => m.role === 'assistant'
+                    (m: Message) => m.role === 'assistant'
                   );
                   if (finalAssistantMessage) {
                     const messageContent =
@@ -497,7 +509,7 @@ export class Agent {
 
                     this.config.logger.trace(
                       { messageContent },
-                      `Added assistant message output to agent.turn[${this.config.agentId}] span`
+                      `Added assistant message output to agent[${this.config.agentId}] span`
                     );
                   }
 

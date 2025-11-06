@@ -363,3 +363,7 @@ Future directories (planned):
 **The key principle**: Design documents explain the "what" and "why", implementation code shows the "how", and examples demonstrate the "how to use".
 
 Keep designs clean, conceptual, and stable. Put all the detailed implementation work in `src/`.
+
+## Shell Commands
+
+All shell commands must be in nushell. This computer does not run bash by default.

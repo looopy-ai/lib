@@ -7,7 +7,6 @@
 import type { Span } from '@opentelemetry/api';
 import type { Logger } from 'pino';
 import { completeLLMCallSpan, failLLMCallSpan, startLLMCallSpan } from '../../observability/spans';
-import { sanitizeLLMResponse } from '../sanitize';
 import type { LLMResponse, LoopState, Message } from '../types';
 
 /**
@@ -76,15 +75,10 @@ export const tapLLMResponse = (
  * Factory for sanitizing and mapping LLM response to state
  */
 export const mapLLMResponseToState = (state: LoopState) => {
-  return (response: LLMResponse): LoopState => {
-    // Sanitize response before storing
-    const sanitizedResponse = sanitizeLLMResponse(response);
-
-    return {
-      ...state,
-      lastLLMResponse: sanitizedResponse,
-    };
-  };
+  return (response: LLMResponse): LoopState => ({
+    ...state,
+    lastLLMResponse: response,
+  });
 };
 
 /**

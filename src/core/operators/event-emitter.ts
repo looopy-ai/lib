@@ -10,9 +10,11 @@
 import { Subject } from 'rxjs';
 import type { InternalEvent, TaskStatus } from '../../events';
 import {
+  createContentCompleteEvent,
   createContentDeltaEvent,
   createInternalCheckpointEvent,
   createTaskStatusEvent,
+  createThoughtStreamEvent,
 } from '../../events';
 import type { Message, ToolCall, ToolResult } from '../types';
 import { emitLLMCallEvent } from './llm-event-operators';
@@ -27,6 +29,7 @@ import { emitToolCompleteEvent, emitToolStartEvent } from './tool-operators';
 export class LoopEventEmitter {
   private eventSubject = new Subject<InternalEvent>();
   private eventBuffer: InternalEvent[] = [];
+  private thoughtIndex = 0;
 
   /**
    * Get the event stream
@@ -73,6 +76,54 @@ export class LoopEventEmitter {
       taskId,
       delta,
       index,
+    });
+    this.eventSubject.next(event);
+  }
+
+  /**
+   * Emit content streaming complete
+   */
+  emitContentComplete(taskId: string, contextId: string, content: string): void {
+    const event = createContentCompleteEvent({
+      contextId,
+      taskId,
+      content,
+    });
+    this.eventSubject.next(event);
+  }
+
+  /**
+   * Emit thought stream event
+   */
+  emitThought(
+    taskId: string,
+    contextId: string,
+    thoughtType: import('../../events/types').ThoughtType,
+    content: string,
+    options?: {
+      thoughtId?: string; // Optional: LLM-provided ID or will generate
+      verbosity?: import('../../events/types').ThoughtVerbosity;
+      confidence?: number;
+      relatedTo?: string;
+      alternatives?: string[];
+      metadata?: Record<string, unknown>;
+    }
+  ): void {
+    const event = createThoughtStreamEvent({
+      contextId,
+      taskId,
+      thoughtId:
+        options?.thoughtId || `thought-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      thoughtType,
+      verbosity: options?.verbosity || 'normal',
+      content,
+      index: this.thoughtIndex++,
+      metadata: {
+        confidence: options?.confidence,
+        relatedTo: options?.relatedTo,
+        alternatives: options?.alternatives,
+        ...options?.metadata,
+      },
     });
     this.eventSubject.next(event);
   }
