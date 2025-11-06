@@ -9,7 +9,7 @@
 
 import type { Span, Context as SpanContext } from '@opentelemetry/api';
 import { concat, defer, merge, type Observable, of } from 'rxjs';
-import { catchError, last, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { catchError, last, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import {
   completeToolExecutionSpan,
   failToolExecutionSpan,
@@ -33,11 +33,13 @@ import {
   tapLLMResponse,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
+import { extractThoughtsFromStream } from './operators/thought-stream';
 import { sanitizeLLMResponse } from './sanitize';
 import type {
   AgentEvent,
   Context,
   ExecutionContext,
+  LLMResponse,
   LoopState,
   Message,
   PersistedLoopState,
@@ -389,62 +391,35 @@ export class AgentLoop {
         stream: true, // Enable streaming for real-time content updates
       })
       .pipe(
-        // Track chunk index for delta events
-        scan(
-          (acc, response) => ({
-            response,
-            chunkIndex: acc.chunkIndex + 1,
-          }),
-          {
-            chunkIndex: -1,
-            response: null as unknown as import('./types').LLMResponse,
-          }
-        ),
-        tap(({ response, chunkIndex }) => {
-          if (!this.eventEmitter) return;
+        // Extract thoughts and emit content-delta/thought-stream events in real-time
+        // This operator handles buffering of partial <thinking> tags across chunks
+        extractThoughtsFromStream(state.taskId, state.contextId, this.eventEmitter!),
 
-          // Extract thoughts from content delta (if present)
-          let deltaContent = response.message.contentDelta;
-          if (deltaContent) {
-            // Don't trim deltas - preserve whitespace for streaming
-            deltaContent = this.extractAndEmitThoughts(
-              state.taskId,
-              state.contextId,
-              deltaContent,
-              false // Not final - preserve whitespace
-            );
-          }
-
-          // Emit content streaming events using the delta from the provider
-          if (deltaContent) {
-            // Intermediate chunk - emit the delta provided by the LLM provider
-            this.eventEmitter.emitContentDelta(
-              state.taskId,
-              state.contextId,
-              deltaContent, // The actual new content chunk (with thoughts removed)
-              chunkIndex
-            );
-          } else if (response.finished && response.message.content) {
-            // Extract thoughts from final content as well
-            const finalContent = this.extractAndEmitThoughts(
-              state.taskId,
-              state.contextId,
-              response.message.content,
-              true // Final content - can trim
-            );
-            // Final response - emit complete with full accumulated content
-            this.eventEmitter.emitContentComplete(
-              state.taskId,
-              state.contextId,
-              finalContent
-            );
-          }
-        }),
-        // Extract just the response for further processing
-        map(({ response }) => response),
         // Take only the last (finished) response for pipeline processing
         // This allows all chunks to emit events but only processes the final state
         last(),
+
+        // Sanitize only the final response (thoughts already extracted during streaming)
+        map((response: LLMResponse) => {
+          // Clean thinking tags from final content (they were already emitted as thoughts)
+          const cleanedContent = (response.message.content || '')
+            .replace(/<thinking>.*?<\/thinking>/gs, '')
+            .replace(/\n\s*\n\s*\n/g, '\n\n')
+            .trim();
+
+          // Emit final content-complete event
+          if (this.eventEmitter) {
+            this.eventEmitter.emitContentComplete(state.taskId, state.contextId, cleanedContent);
+          }
+
+          return {
+            ...response,
+            message: {
+              ...response.message,
+              content: cleanedContent,
+            },
+          };
+        }),
         // Sanitize only the final response to avoid stripping whitespace between chunks
         map(sanitizeLLMResponse),
         tap(tapLLMResponse(spanRef, messages, this.config.logger)),
@@ -730,57 +705,6 @@ export class AgentLoop {
       lastActivity: new Date().toISOString(),
       resumeFrom: state.completed ? 'completed' : 'llm-call',
     };
-  }
-
-  /**
-   * Extract thoughts from content and emit thought events
-   *
-   * Extracts content within <thinking>...</thinking> tags and emits them
-   * as thought-stream events, then returns the content with tags removed.
-   *
-   * @param taskId - Task identifier
-   * @param contextId - Context identifier
-   * @param content - Content to extract thoughts from
-   * @param isFinal - Whether this is the final content (allows trimming)
-   * @returns Content with thinking tags removed
-   */
-  private extractAndEmitThoughts(
-    taskId: string,
-    contextId: string,
-    content: string,
-    isFinal = false
-  ): string {
-    if (!this.eventEmitter) return content;
-
-    // Regex to match <thinking>...</thinking> tags (non-greedy, multiline)
-    const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs;
-    let match: RegExpExecArray | null;
-    let cleanedContent = content;
-
-    // Extract all thinking blocks
-    while ((match = thinkingRegex.exec(content)) !== null) {
-      const thoughtContent = match[1].trim();
-
-      if (thoughtContent) {
-        // Emit thought event (reasoning type by default)
-        this.eventEmitter.emitThought(taskId, contextId, 'reasoning', thoughtContent, {
-          verbosity: 'normal',
-        });
-      }
-
-      // Remove the entire thinking tag from content
-      cleanedContent = cleanedContent.replace(match[0], '');
-    }
-
-    // Clean up any extra whitespace left by tag removal
-    cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
-
-    // Only trim if this is the final content to preserve whitespace in deltas
-    if (isFinal) {
-      cleanedContent = cleanedContent.trim();
-    }
-
-    return cleanedContent;
   }
 
   /**
