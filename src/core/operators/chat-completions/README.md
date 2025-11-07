@@ -10,10 +10,110 @@ This module provides operators for working with streaming LLM responses followin
 - Extract and concatenate content chunks
 - Assemble fragmented tool calls
 - Parse inline XML tags from content streams
+- Compose multiple operations into reusable pipelines
+
+## Quick Start
+
+### High-Level Pipelines (Recommended)
+
+For most use cases, use the composed pipeline functions:
+
+```typescript
+import { createStreamPipeline } from 'looopy/operators/chat-completions';
+
+// Automatically splits stream into content, thoughts, tools, and final aggregation
+const pipeline = createStreamPipeline(streamingChoices$);
+
+pipeline.content.subscribe(chunk => console.log(chunk));
+pipeline.tags.subscribe(tag => console.log(tag));
+pipeline.toolCalls.subscribe(call => executeTool(call));
+await pipeline.aggregated.toPromise(); // Final result
+```
+
+### Low-Level Operators
+
+For fine-grained control, compose individual operators:
+
+```typescript
+import { aggregateChoice, getContent, splitInlineXml } from 'looopy/operators/chat-completions';
+
+// Custom pipeline
+const final$ = choices$.pipe(aggregateChoice());
+const content$ = choices$.pipe(getContent());
+const { content, tags } = splitInlineXml(content$);
+```
 
 ## Operators
 
-### `aggregateChoice<T extends Choice>()`
+### High-Level Pipelines
+
+#### `createStreamPipeline<T>(source: Observable<T>)`
+
+Creates a complete streaming pipeline that splits a Choice stream into multiple specialized outputs.
+
+**Returns**: `{ content, tags, toolCalls, aggregated }`
+
+```typescript
+const pipeline = createStreamPipeline(choices$);
+// Access: pipeline.content, pipeline.tags, pipeline.toolCalls, pipeline.aggregated
+```
+
+#### `streamContentWithThoughts<T>(source: Observable<T>)`
+
+Simplified pipeline for content-only responses with thought extraction.
+
+**Returns**: `{ content, thoughts, aggregated }`
+
+```typescript
+const { content, thoughts } = streamContentWithThoughts(choices$);
+```
+
+#### `streamToolCalls<T>(source: Observable<T>)`
+
+Simplified pipeline for tool-call only responses.
+
+**Returns**: `{ toolCalls, aggregated }`
+
+```typescript
+const { toolCalls, aggregated } = streamToolCalls(choices$);
+```
+
+#### `observeStreams<T>(source: Observable<T>, handlers)`
+
+Pipeline with side-effect callbacks for each stream type.
+
+**Parameters**:
+- `handlers.onContent?: (chunk: string) => void`
+- `handlers.onThought?: (thought: InlineXml) => void`
+- `handlers.onToolCall?: (toolCall: ToolCall) => void`
+
+**Returns**: `Observable<T>` (aggregated result)
+
+```typescript
+const final$ = observeStreams(choices$, {
+  onContent: (chunk) => updateUI(chunk),
+  onThought: (thought) => logDebug(thought),
+  onToolCall: (call) => executeTool(call),
+});
+```
+
+#### `collectStreams<T>(source: Observable<T>)`
+
+Collects all stream outputs into arrays for testing or batch processing.
+
+**Returns**: `Promise<{ contentChunks, thoughts, toolCalls, final }>`
+
+```typescript
+const result = await collectStreams(choices$);
+console.log(result.contentChunks); // ['chunk1', 'chunk2', ...]
+console.log(result.thoughts); // [{ name: 'thinking', content: '...' }]
+console.log(result.toolCalls); // [{ function: { name: '...' } }]
+console.log(result.final); // Final aggregated Choice
+```
+
+### Low-Level Operators
+
+#### `aggregateChoice<T extends Choice>()`
 
 Aggregates streaming Choice deltas into a single complete Choice object emitted at the end.
 
@@ -139,7 +239,67 @@ const choice$ = data$.pipe(choices());
 
 ## Common Patterns
 
-### Pattern 1: Aggregate complete response
+### Pattern 1: Full Streaming Pipeline
+
+```typescript
+import { createStreamPipeline } from 'looopy/operators/chat-completions';
+
+// Note: Use actual streaming sources, not from([]) for synchronous arrays
+const pipeline = createStreamPipeline(streamingChoices$);
+
+// Display content to user in real-time
+pipeline.content.subscribe(chunk => updateUI(chunk));
+
+// Extract and log thoughts
+pipeline.tags.pipe(
+  filter(tag => tag.name === 'thinking')
+).subscribe(thought => console.log(thought.content));
+
+// Execute tools as they arrive
+pipeline.toolCalls.subscribe(toolCall => executeTool(toolCall));
+
+// Get final complete response
+pipeline.aggregated.subscribe(final => saveFinalResponse(final));
+```
+
+### Pattern 2: Stream content with extracted thoughts
+
+```typescript
+import { streamContentWithThoughts } from 'looopy/operators/chat-completions';
+
+const { content, thoughts, aggregated } = streamContentWithThoughts(choices$);
+
+content.subscribe(chunk => display(chunk));
+thoughts.subscribe(thought => logThought(thought));
+aggregated.subscribe(final => saveFinal(final));
+```
+
+### Pattern 3: Observable callbacks pattern
+
+```typescript
+import { observeStreams } from 'looopy/operators/chat-completions';
+
+const result$ = observeStreams(choices$, {
+  onContent: (chunk) => updateUI(chunk),
+  onThought: (thought) => logThought(thought),
+  onToolCall: (call) => executeTool(call),
+});
+
+await lastValueFrom(result$); // Wait for completion
+```
+
+### Pattern 4: Testing with collected streams
+
+```typescript
+import { collectStreams } from 'looopy/operators/chat-completions';
+
+const result = await collectStreams(choices$);
+console.log('All content:', result.contentChunks.join(''));
+console.log('All thoughts:', result.thoughts);
+console.log('All tool calls:', result.toolCalls);
+```
+
+### Pattern 5: Aggregate complete response
 
 ```typescript
 import { choices, aggregateChoice } from 'looopy/operators/chat-completions';
@@ -154,7 +314,7 @@ streamingResponse$
   });
 ```
 
-### Pattern 2: Stream content with extracted thoughts
+### Pattern 6: Stream content with extracted thoughts
 
 ```typescript
 import { choices, getContent, splitInlineXml } from 'looopy/operators/chat-completions';
@@ -175,7 +335,7 @@ tags.pipe(
 ).subscribe(thought => console.log('Thought:', thought.content));
 ```
 
-### Pattern 3: Handle both content and tool calls
+### Pattern 7: Handle both content and tool calls
 
 ```typescript
 import { choices, aggregateChoice } from 'looopy/operators/chat-completions';
@@ -198,6 +358,12 @@ streamingResponse$
     }
   });
 ```
+
+## Important Notes
+
+**Streaming vs Synchronous Sources**: The pipeline operators are designed for true streaming observables (like SSE streams or HTTP responses). When using synchronous sources like `from([...])` for testing, you may need to subscribe to all output streams immediately after creating the pipeline, or use `defer()` to delay source execution.
+
+**Hot vs Cold Observables**: The pipelines use `share()` to multicast the source, but internal operators like `splitInlineXml` subscribe immediately. For production use with real streaming sources, this works correctly. For testing, use the `collect Streams()` helper or ensure subscriptions happen before the source completes.
 
 ## Type Definitions
 
