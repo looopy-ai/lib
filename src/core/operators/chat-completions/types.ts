@@ -1,11 +1,11 @@
 export type ToolCall = {
   index: number;
-  id: string | null;
-  function: {
-    name: string;
-    arguments: string; // streamed JSON string
+  id?: string | null;
+  function?: {
+    name?: string;
+    arguments?: string; // streamed JSON string
   };
-  type: 'function';
+  type?: 'function';
 };
 
 export type Choice = {

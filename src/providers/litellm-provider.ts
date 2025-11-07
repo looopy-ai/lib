@@ -10,7 +10,9 @@
  */
 
 import { from, Observable } from 'rxjs';
+import { filter, map } from 'rxjs/operators';
 import { getLogger } from '../core/logger';
+import { aggregateChoice, choices, getContent, splitInlineXml } from '../core/operators/chat-completions';
 import type { LLMProvider, LLMResponse, Message, ToolCall, ToolDefinition } from '../core/types';
 
 const logger = getLogger({ component: 'LiteLLMProvider' });
@@ -125,7 +127,7 @@ interface LiteLLMStreamChunk {
       tool_calls?: Array<{
         index: number;
         id?: string;
-        type?: string;
+        type?: 'function';
         function?: {
           name?: string;
           arguments?: string;
@@ -190,14 +192,65 @@ export class LiteLLMProvider implements LLMProvider {
   }
 
   /**
-   * Stream LLM responses via SSE
+   * Stream LLM responses via SSE using the new aggregation pipeline
    */
   private callStreaming(request: {
     messages: Message[];
     tools?: ToolDefinition[];
     sessionId?: string;
   }): Observable<LLMResponse> {
-    return new Observable<LLMResponse>((subscriber) => {
+    const stream$ = this.createSSEStream(request).pipe(choices());
+
+    const {content, tags} = splitInlineXml(stream$.pipe(
+      getContent(),
+    ));
+
+    const contentDelta = content.pipe(
+      map((text) => ({ delta: { content: text } })),
+    )
+
+    const throughts = tags.pipe(
+      filter((tag) => tag.name === 'thinking')
+    );
+
+    const finalContent = stream$.pipe(
+      aggregateChoice(),
+      map((event) => {
+        const toolCalls = event.delta?.tool_calls?.map((tc) => ({
+          id: tc.id || '',
+          type: 'function' as const,
+          function: {
+            name: tc.function?.name || 'unknown',
+            arguments: JSON.parse(tc.function?.arguments || '{}'),
+          },
+        }));
+
+        return ({
+          message: {
+            role: 'assistant' as const,
+            content: event.delta?.content || '',
+            toolCalls,
+          } satisfies Message,
+          toolCalls,
+          finished: true,
+          finishReason: (event.finish_reason as LLMResponse['finishReason']) || 'stop',
+          model: this.config.model, // TODO
+      } satisfies LLMResponse)})
+    );
+
+    // Create the SSE stream observable and convert to Choice stream
+    return finalContent;
+  }
+
+  /**
+   * Create the raw SSE stream from LiteLLM
+   */
+  private createSSEStream(request: {
+    messages: Message[];
+    tools?: ToolDefinition[];
+    sessionId?: string;
+  }): Observable<LiteLLMStreamChunk> {
+    return new Observable<LiteLLMStreamChunk>((subscriber) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
@@ -284,18 +337,10 @@ export class LiteLLMProvider implements LLMProvider {
             throw new Error('No response body');
           }
 
-          // Parse SSE stream
+          // Parse SSE stream and emit chunks
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
-          let contentAccumulator = '';
-          let currentRole = 'assistant';
-          const toolCallsAccumulator: Array<{
-            id: string;
-            type: 'function';
-            function: { name: string; arguments: string };
-          }> = [];
-          let finishReason: string | null = null;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -317,100 +362,12 @@ export class LiteLLMProvider implements LLMProvider {
 
               try {
                 const chunk: LiteLLMStreamChunk = JSON.parse(data);
-                const choice = chunk.choices[0];
-
-                if (!choice) continue;
-
-                // Update role if provided
-                if (choice.delta.role) {
-                  currentRole = choice.delta.role;
-                }
-
-                // Accumulate content and emit delta
-                if (choice.delta.content) {
-                  contentAccumulator += choice.delta.content;
-
-                  // Emit intermediate response with BOTH delta and accumulated content
-                  subscriber.next({
-                    message: {
-                      role: currentRole as 'assistant',
-                      content: contentAccumulator, // Full accumulated content
-                      contentDelta: choice.delta.content, // Just the new chunk
-                    },
-                    finished: false,
-                  });
-                }
-
-                // Accumulate tool calls
-                if (choice.delta.tool_calls) {
-                  for (const toolCallDelta of choice.delta.tool_calls) {
-                    const index = toolCallDelta.index;
-
-                    // Initialize tool call if it doesn't exist
-                    if (!toolCallsAccumulator[index]) {
-                      toolCallsAccumulator[index] = {
-                        id: toolCallDelta.id || '',
-                        type: 'function',
-                        function: {
-                          name: '',
-                          arguments: '',
-                        },
-                      };
-                    }
-
-                    // Update tool call fields
-                    if (toolCallDelta.id) {
-                      toolCallsAccumulator[index].id = toolCallDelta.id;
-                    }
-                    if (toolCallDelta.function?.name) {
-                      toolCallsAccumulator[index].function.name = toolCallDelta.function.name;
-                    }
-                    if (toolCallDelta.function?.arguments) {
-                      toolCallsAccumulator[index].function.arguments +=
-                        toolCallDelta.function.arguments;
-                    }
-                  }
-                }
-
-                // Capture finish reason
-                if (choice.finish_reason) {
-                  finishReason = choice.finish_reason;
-                }
+                subscriber.next(chunk);
               } catch (error) {
                 logger.warn({ error, line }, 'Failed to parse SSE chunk');
               }
             }
           }
-
-          // Emit final response
-          const finalMessage: Message = {
-            role: currentRole as 'assistant',
-            content: contentAccumulator,
-          };
-
-          const finalToolCalls =
-            toolCallsAccumulator.length > 0
-              ? toolCallsAccumulator.map((tc) => ({
-                  id: tc.id,
-                  type: 'function' as const,
-                  function: {
-                    name: tc.function.name,
-                    arguments: JSON.parse(tc.function.arguments),
-                  },
-                }))
-              : undefined;
-
-          if (finalToolCalls) {
-            finalMessage.toolCalls = finalToolCalls;
-          }
-
-          subscriber.next({
-            message: finalMessage,
-            toolCalls: finalToolCalls,
-            finished: true,
-            finishReason: (finishReason as LLMResponse['finishReason']) || 'stop',
-            model: this.config.model,
-          });
 
           subscriber.complete();
         } catch (error) {

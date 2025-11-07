@@ -3,7 +3,7 @@ import { Choice } from './types';
 
 type ChatCompletionStreamData = {
   id: string;
-  created: string;
+  created: number;
   model: string;
   object: string;
   choices: Array<Choice>
