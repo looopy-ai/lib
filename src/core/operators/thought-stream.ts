@@ -7,7 +7,6 @@
  */
 
 import type { Observable, OperatorFunction } from 'rxjs';
-import { defer } from 'rxjs';
 import { concatMap, scan } from 'rxjs/operators';
 import type { LLMResponse } from '../types';
 import type { LoopEventEmitter } from './event-emitter';
@@ -57,25 +56,23 @@ export function extractThoughtsFromStream(
       ),
 
       concatMap(({ response, chunkIndex }) => {
-        return defer(() => {
-          // Process this chunk and extract events
-          const events = processChunk(response, chunkIndex, buffer);
+        // Process this chunk and extract events synchronously
+        const events = processChunk(response, chunkIndex, buffer);
 
-          // Emit all events
-          for (const event of events) {
-            if (event.kind === 'content-delta') {
-              eventEmitter?.emitContentDelta(taskId, contextId, event.content, event.chunkIndex);
-            } else if (event.kind === 'thought') {
-              eventEmitter?.emitThought(taskId, contextId, 'reasoning', event.content, {
-                verbosity: 'normal',
-                metadata: event.metadata,
-              });
-            }
+        // Emit all events in order BEFORE returning the response
+        for (const event of events) {
+          if (event.kind === 'content-delta') {
+            eventEmitter?.emitContentDelta(taskId, contextId, event.content, event.chunkIndex);
+          } else if (event.kind === 'thought') {
+            eventEmitter?.emitThought(taskId, contextId, 'reasoning', event.content, {
+              verbosity: 'normal',
+              metadata: event.metadata,
+            });
           }
+        }
 
-          // Return the original response unchanged
-          return [response];
-        });
+        // Return the original response unchanged
+        return [response];
       })
     );
 }
