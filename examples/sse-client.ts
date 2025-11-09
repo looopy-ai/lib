@@ -12,10 +12,11 @@
  */
 
 import { EventSource } from 'eventsource';
-import type { InternalEvent } from '../src/events';
+import type { AnyEvent } from '../src/events';
 
 // Example 1: Basic SSE Client
 // ============================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function basicSSEClient() {
   console.log('=== Example 1: Basic SSE Client ===\n');
 
@@ -26,7 +27,7 @@ async function basicSSEClient() {
 
   // Handle specific event types
   eventSource.addEventListener('task-created', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log('Task Created:', {
       taskId: data.taskId,
       contextId: data.contextId,
@@ -34,7 +35,7 @@ async function basicSSEClient() {
   });
 
   eventSource.addEventListener('task-status', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log('Status Update:', {
       taskId: data.taskId,
       status: data.kind === 'task-status' ? data.status : 'unknown',
@@ -42,7 +43,7 @@ async function basicSSEClient() {
   });
 
   eventSource.addEventListener('file-write', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log('File Write Event:', {
       taskId: data.taskId,
       artifactId: data.kind === 'file-write' ? data.artifactId : 'unknown',
@@ -69,6 +70,7 @@ async function basicSSEClient() {
 
 // Example 2: Filtered SSE Client (Task-Specific)
 // ===============================================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function filteredSSEClient() {
   console.log('=== Example 2: Filtered SSE Client (Task-Specific) ===\n');
 
@@ -82,7 +84,7 @@ async function filteredSSEClient() {
 
   // All events will be from the specified task
   eventSource.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log(`Event (${data.kind}):`, data);
   };
 
@@ -97,6 +99,7 @@ async function filteredSSEClient() {
 
 // Example 3: Reconnection with Last-Event-ID
 // ===========================================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function reconnectionExample() {
   console.log('=== Example 3: Reconnection with Last-Event-ID ===\n');
 
@@ -109,7 +112,7 @@ async function reconnectionExample() {
 
   eventSource1.onmessage = (event: MessageEvent) => {
     lastEventId = event.lastEventId;
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log(`Event ${event.lastEventId} (${data.kind})`);
   };
 
@@ -129,7 +132,7 @@ async function reconnectionExample() {
   console.log('Replaying missed events...\n');
 
   eventSource2.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     console.log(`Replayed event ${event.lastEventId} (${data.kind})`);
   };
 
@@ -140,6 +143,7 @@ async function reconnectionExample() {
 
 // Example 4: Progress Tracking
 // =============================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function progressTrackingExample() {
   console.log('=== Example 4: Progress Tracking ===\n');
 
@@ -158,7 +162,7 @@ async function progressTrackingExample() {
   const tasks = new Map<string, TaskProgress>();
 
   eventSource.addEventListener('task-created', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     if (data.kind === 'task-created') {
       tasks.set(data.taskId, {
         taskId: data.taskId,
@@ -171,7 +175,7 @@ async function progressTrackingExample() {
   });
 
   eventSource.addEventListener('task-status', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     if (data.kind === 'task-status') {
       const progress = tasks.get(data.taskId);
       if (progress) {
@@ -183,7 +187,7 @@ async function progressTrackingExample() {
   });
 
   eventSource.addEventListener('tool-complete', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
     if (data.kind === 'tool-complete') {
       const progress = tasks.get(data.taskId);
       if (progress) {
@@ -202,7 +206,7 @@ async function progressTrackingExample() {
   // Summary after 30 seconds
   setTimeout(() => {
     console.log('\n=== Summary ===');
-    for (const [taskId, progress] of tasks.entries()) {
+    for (const [taskId, progress] of Array.from(tasks.entries())) {
       console.log(`Task ${taskId}: ${progress.status}, ${progress.toolCalls} tool calls`);
     }
     eventSource.close();
@@ -211,6 +215,7 @@ async function progressTrackingExample() {
 
 // Example 5: Multiple Event Types
 // ================================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function multipleEventTypesExample() {
   console.log('=== Example 5: Multiple Event Types ===\n');
 
@@ -224,7 +229,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of taskEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as InternalEvent;
+      const data = JSON.parse(event.data) as AnyEvent;
       console.log(`[TASK] ${data.kind}:`, data);
     });
   }
@@ -234,7 +239,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of artifactEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as InternalEvent;
+      const data = JSON.parse(event.data) as AnyEvent;
       console.log(`[ARTIFACT] ${data.kind}:`, data);
     });
   }
@@ -244,7 +249,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of toolEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as InternalEvent;
+      const data = JSON.parse(event.data) as AnyEvent;
       console.log(`[TOOL] ${data.kind}:`, data);
     });
   }
@@ -254,7 +259,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of internalEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as InternalEvent;
+      const data = JSON.parse(event.data) as AnyEvent;
       console.log(`[INTERNAL] ${data.kind}:`, data);
     });
   }
@@ -270,6 +275,7 @@ async function multipleEventTypesExample() {
 
 // Example 6: Error Handling
 // ==========================
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function errorHandlingExample() {
   console.log('=== Example 6: Error Handling ===\n');
 
@@ -288,7 +294,7 @@ async function errorHandlingExample() {
     };
 
     eventSource.onmessage = (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as InternalEvent;
+      const data = JSON.parse(event.data) as AnyEvent;
       console.log(`Event: ${data.kind}`);
     };
 
@@ -323,7 +329,8 @@ async function errorHandlingExample() {
 
 // Example 7: Filtering Internal Events (Client-Side)
 // ===================================================
-async function filterInternalEventsExample() {
+// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
+async function filterAnyEventsExample() {
   console.log('=== Example 7: Filtering Internal Events (Client-Side) ===\n');
 
   const contextId = 'ctx-user-123';
@@ -334,7 +341,7 @@ async function filterInternalEventsExample() {
   console.log('Receiving ALL events (including internal debug events)...\n');
 
   eventSource.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as InternalEvent;
+    const data = JSON.parse(event.data) as AnyEvent;
 
     // Client-side filtering
     if (data.kind.startsWith('internal:')) {
@@ -370,7 +377,7 @@ async function main() {
   // await progressTrackingExample();
   // await multipleEventTypesExample();
   // await errorHandlingExample();
-  // await filterInternalEventsExample();
+  // await filterAnyEventsExample();
 
   console.log('\nDone! Uncomment an example in main() to run it.\n');
 }

@@ -19,7 +19,7 @@ export function emitLLMCallEvent(
   model: string,
   messages: Message[],
   toolCount: number,
-  eventBuffer: import('../../events').InternalEvent[]
+  eventBuffer: import('../../events').AnyEvent[]
 ): void {
   eventBuffer.push(
     createInternalLLMCallEvent({

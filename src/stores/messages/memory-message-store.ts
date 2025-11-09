@@ -4,8 +4,9 @@
  * Design: design/message-management.md#in-memory-message-store
  */
 
-import { firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom } from 'rxjs';
 import type { LLMProvider, Message } from '../../core/types';
+import type { ContentCompleteEvent, LLMEvent } from '../../events/types';
 import type {
   CompactionOptions,
   CompactionResult,
@@ -286,10 +287,17 @@ export class InMemoryMessageStore implements MessageStore {
       stream: false,
     });
 
-    const response = await firstValueFrom(response$);
+    // Filter for content-complete event and extract content
+    const completeEvent = await firstValueFrom(
+      response$.pipe(
+        filter(
+          (event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete'
+        )
+      )
+    );
 
-    if (response.message?.content) {
-      return response.message.content;
+    if (completeEvent.content) {
+      return completeEvent.content;
     }
 
     throw new Error('Failed to get summary from LLM');

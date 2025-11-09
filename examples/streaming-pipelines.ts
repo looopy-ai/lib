@@ -99,7 +99,7 @@ async function fullPipelineExample() {
 
   console.log('\n🔧 Tool calls assembled:');
   pipeline.toolCalls.subscribe((call) => {
-    console.log(`  ${call.function.name}(${call.function.arguments})`);
+    console.log(`  ${call.function?.name}(${call.function?.arguments})`);
   });
 
   console.log('\n✅ Final aggregated response:');
@@ -204,7 +204,7 @@ async function toolCallsOnlyExample() {
 
   console.log('\n🔧 Tool calls as they arrive:');
   toolCalls.subscribe((call) => {
-    console.log(`  [${call.id}] ${call.function.name}(${call.function.arguments})`);
+    console.log(`  [${call.id}] ${call.function?.name}(${call.function?.arguments})`);
   });
 
   const final = await aggregated.toPromise();
@@ -245,7 +245,8 @@ async function observableCallbacksExample() {
   const result$ = observeStreams(from(streamingChunks), {
     onContent: (chunk) => console.log(`  [CONTENT] "${chunk}"`),
     onThought: (thought) => console.log(`  [THOUGHT] ${thought.content}`),
-    onToolCall: (call) => console.log(`  [TOOL] ${call.function.name}()`),
+    onToolCall: (call) =>
+      console.log(`  [TOOL] ${call.function?.name}(${call.function?.arguments})`),
   });
 
   const final = await result$.toPromise();
@@ -291,7 +292,7 @@ async function collectStreamsExample() {
   );
   console.log(
     '  Tool calls:',
-    collected.toolCalls.map((t) => t.function.name)
+    collected.toolCalls.map((t) => t.function?.name)
   );
   console.log('  Final state:', collected.final.finish_reason);
 }
@@ -354,7 +355,7 @@ async function realTimeUIExample() {
 
   // Execute tools as they arrive
   pipeline.toolCalls.subscribe((call) => {
-    console.log(`  [TOOL EXECUTOR] Running ${call.function.name}...`);
+    console.log(`  [TOOL EXECUTOR] Running ${call.function?.name}...`);
   });
 
   // Handle completion

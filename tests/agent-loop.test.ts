@@ -11,19 +11,40 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { AgentLoopConfig } from '../src/core/config';
 import type {
-    ArtifactPart,
-    ArtifactStore,
-    ExecutionContext,
-    LLMProvider,
-    LLMResponse,
-    PersistedLoopState,
-    StoredArtifact,
-    TaskStateStore,
-    ToolCall,
-    ToolDefinition,
-    ToolProvider,
-    ToolResult,
+  ArtifactPart,
+  ArtifactStore,
+  ExecutionContext,
+  LLMProvider,
+  LLMResponse,
+  PersistedLoopState,
+  StoredArtifact,
+  TaskStateStore,
+  ToolCall,
+  ToolDefinition,
+  ToolProvider,
+  ToolResult,
 } from '../src/core/types';
+import type { AnyEvent, ContentCompleteEvent, LLMEvent } from '../src/events/types';
+
+// Helper to convert LLMResponse to LLM events
+function createMockLLMEvents(response: LLMResponse): LLMEvent<ContentCompleteEvent> {
+  return {
+    kind: 'content-complete',
+    content: response.message.content || '',
+    toolCalls: response.toolCalls?.map((tc) => ({
+      id: tc.id,
+      type: 'function' as const,
+      function: {
+        name: tc.function.name,
+        arguments:
+          typeof tc.function.arguments === 'string'
+            ? tc.function.arguments
+            : JSON.stringify(tc.function.arguments),
+      },
+    })),
+    timestamp: new Date().toISOString(),
+  };
+}
 
 // Mock LLM Provider
 class MockLLMProvider implements LLMProvider {
@@ -34,10 +55,11 @@ class MockLLMProvider implements LLMProvider {
     this.responses = responses;
   }
 
-  call(): Observable<LLMResponse> {
+  call(): Observable<LLMEvent<AnyEvent>> {
     const response = this.responses[this.currentIndex];
     this.currentIndex++;
-    return of(response).pipe(delay(10));
+    const event = createMockLLMEvents(response);
+    return of(event).pipe(delay(10));
   }
 }
 
@@ -584,7 +606,7 @@ describe('AgentLoop', () => {
   describe('Error Handling', () => {
     it('should handle execution errors', async () => {
       const errorProvider = new (class implements LLMProvider {
-        call(): Observable<LLMResponse> {
+        call(): Observable<LLMEvent<AnyEvent>> {
           return throwError(() => new Error('LLM service unavailable'));
         }
       })();

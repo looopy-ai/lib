@@ -8,6 +8,8 @@
 
 // Export all types
 export type {
+  // Union Types
+  AnyEvent,
   ArtifactEvent,
   AuthCompletedEvent,
   AuthenticationEvent,
@@ -32,8 +34,6 @@ export type {
   InputType,
   InternalCheckpointEvent,
   InternalDebugEvent,
-  // Union Types
-  InternalEvent,
   InternalLLMCallEvent,
   // Internal Debug Events
   InternalThoughtProcessEvent,

@@ -8,8 +8,18 @@
  */
 
 import type { Span, Context as SpanContext } from '@opentelemetry/api';
-import { concat, defer, merge, type Observable, of } from 'rxjs';
-import { catchError, last, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { concat, defer, merge, type Observable, of, Subject } from 'rxjs';
+import {
+  catchError,
+  filter,
+  finalize,
+  last,
+  map,
+  shareReplay,
+  switchMap,
+  tap,
+} from 'rxjs/operators';
+import type { ContentCompleteEvent, LLMEvent } from '../events/types';
 import {
   completeToolExecutionSpan,
   failToolExecutionSpan,
@@ -33,7 +43,6 @@ import {
   tapLLMResponse,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
-import { extractThoughtsFromStream } from './operators/thought-stream';
 import { sanitizeLLMResponse } from './sanitize';
 import type {
   AgentEvent,
@@ -281,7 +290,8 @@ export class AgentLoop {
   }
 
   /**
-   * Run the main agent loop
+   * Run the main agent loop.
+   * Collects LLM events from all iterations and merges them with state events.
    */
   private runLoop(initialState: LoopState): Observable<AgentEvent> {
     // Emit initial events
@@ -292,146 +302,205 @@ export class AgentLoop {
     );
     const workingEvent = createWorkingEvent(initialState.taskId, initialState.contextId);
 
-    // Emit initial events, then start the loop
-    return concat(
-      of(taskEvent, workingEvent),
-      defer(() => {
-        this.config.logger.trace({ taskId: initialState.taskId }, 'Starting iteration recursion');
+    // Subject to collect LLM events from all iterations
+    const llmEventsCollector = new Subject<AgentEvent>();
 
-        // Create observable that recursively executes iterations
-        const iterate = (state: LoopState): Observable<LoopState> => {
+    // Create observable that recursively executes iterations
+    const iterate = (state: LoopState): Observable<LoopState> => {
+      this.config.logger.trace(
+        {
+          taskId: state.taskId,
+          iteration: state.iteration,
+          completed: state.completed,
+        },
+        'iterate() called'
+      );
+
+      // Check termination conditions
+      if (state.completed || state.iteration >= state.maxIterations) {
+        this.config.logger.debug(
+          {
+            taskId: state.taskId,
+            completed: state.completed,
+            iteration: state.iteration,
+            maxIterations: state.maxIterations,
+          },
+          'Loop done - terminating'
+        );
+        return of(state);
+      }
+
+      // Execute iteration (returns state$ and events$ which includes LLM + tool events)
+      const { state$, events$ } = this.executeIteration(state);
+
+      // Subscribe to iteration events (LLM + tool) and forward to collector
+      events$.subscribe({
+        next: (event: AgentEvent) => llmEventsCollector.next(event),
+        error: (err: Error) => llmEventsCollector.error(err),
+      });
+
+      // Continue iteration with state pipeline
+      return state$.pipe(
+        switchMap((nextState: LoopState) => {
           this.config.logger.trace(
             {
-              taskId: state.taskId,
-              iteration: state.iteration,
-              completed: state.completed,
+              taskId: nextState.taskId,
+              iteration: nextState.iteration,
+              completed: nextState.completed,
             },
-            'iterate() called'
+            'Continuing to next iteration'
           );
+          return iterate(nextState);
+        })
+      );
+    };
 
-          // Check termination conditions
-          if (state.completed || state.iteration >= state.maxIterations) {
-            this.config.logger.debug(
-              {
-                taskId: state.taskId,
-                completed: state.completed,
-                iteration: state.iteration,
-                maxIterations: state.maxIterations,
-              },
-              'Loop done - terminating'
-            );
-            return of(state);
-          }
-
-          // Execute iteration and continue
-          return this.executeIteration(state).pipe(
-            switchMap((nextState) => {
-              this.config.logger.trace(
-                {
-                  taskId: nextState.taskId,
-                  iteration: nextState.iteration,
-                  completed: nextState.completed,
-                },
-                'Continuing to next iteration'
-              );
-              return iterate(nextState);
-            })
-          );
-        };
-
-        return iterate(initialState);
-      }).pipe(
-        // Filter to only emit events, not state
-        switchMap((state: LoopState) => this.stateToEvents(state))
-      )
+    const stateLoop$ = defer(() => {
+      this.config.logger.trace({ taskId: initialState.taskId }, 'Starting iteration recursion');
+      return iterate(initialState);
+    }).pipe(
+      // Convert final state to status events
+      switchMap((state: LoopState) => this.stateToEvents(state)),
+      // Complete the LLM events collector when state loop completes
+      finalize(() => llmEventsCollector.complete())
     );
+
+    // Merge initial events, LLM events from iterations, and final state events
+    return concat(of(taskEvent, workingEvent), merge(stateLoop$, llmEventsCollector));
   }
 
   /**
-   * Execute a single iteration
+   * Execute a single iteration.
+   * Returns both state observable and events observables (LLM + tool + checkpoint).
    */
-  private executeIteration(state: LoopState): Observable<LoopState> {
+  private executeIteration(state: LoopState): {
+    state$: Observable<LoopState>;
+    events$: Observable<AgentEvent>;
+  } {
     const nextIteration = state.iteration + 1;
     const spanRef = { current: null as Span | null };
 
-    return of(state).pipe(
+    const { state$: llmState$, events$: llmEvents$ } = this.callLLMAndProcessEvents(
+      { ...state, iteration: nextIteration },
+      nextIteration,
+      spanRef
+    );
+
+    // Subject to collect tool and checkpoint events
+    const internalEventsCollector = new Subject<AgentEvent>();
+
+    // Apply iteration span and continue state pipeline
+    const state$ = of(state).pipe(
       map(startIterationSpan(spanRef, nextIteration, this.config.logger)),
-      switchMap((s: LoopState) => this.callLLM(s, nextIteration)),
-      switchMap((s: LoopState) => this.processLLMResponse(s)),
-      switchMap((s: LoopState) => this.checkpointIfNeeded(s)),
+      switchMap(() => llmState$),
+      switchMap((s: LoopState) => this.processLLMResponse(s, internalEventsCollector)),
+      switchMap((s: LoopState) => this.checkpointIfNeeded(s, internalEventsCollector)),
       map(completeIteration(spanRef, nextIteration, this.config.logger)),
+      tap({
+        complete: () => internalEventsCollector.complete(),
+        error: (err) => internalEventsCollector.error(err),
+      }),
       catchError(catchIterationError(spanRef))
     );
+
+    // Merge LLM events with tool and checkpoint events
+    const events$ = merge(llmEvents$, internalEventsCollector.asObservable());
+
+    return { state$, events$ };
   }
 
   /**
-   * Call the LLM provider
+   * Call LLM and return both state observable and events observable.
+   * Events stream should be merged at execute() level, not copied via tap.
    */
-  private callLLM(state: LoopState, iteration: number): Observable<LoopState> {
-    const spanRef = { current: null as Span | null };
+  private callLLMAndProcessEvents(
+    state: LoopState,
+    iteration: number,
+    spanRef: { current: Span | null }
+  ): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
     const { state: preparedState, messages } = prepareLLMCall(spanRef, this.config.logger)(state);
 
-    // Emit internal LLM call event
-    if (this.eventEmitter) {
-      this.eventEmitter.emitLLMCall(
-        state.taskId,
-        state.contextId,
-        iteration,
-        'llm', // Model name - could be made configurable
-        messages,
-        preparedState.availableTools.length
-      );
-    }
-
-    return this.config.llmProvider
+    // Get LLM event stream from provider (without contextId/taskId)
+    const llmEvents$ = this.config.llmProvider
       .call({
         messages,
         tools: preparedState.availableTools.length > 0 ? preparedState.availableTools : undefined,
         sessionId: preparedState.taskId,
-        stream: true, // Enable streaming for real-time content updates
+        stream: true,
       })
-      .pipe(
-        // Extract thoughts and emit content-delta/thought-stream events in real-time
-        // This operator handles buffering of partial <thinking> tags across chunks
-        extractThoughtsFromStream(state.taskId, state.contextId, this.eventEmitter!),
+      .pipe(shareReplay());
 
-        // Take only the last (finished) response for pipeline processing
-        // This allows all chunks to emit events but only processes the final state
-        last(),
+    // Create internal LLM call event
+    const llmCallEvent: AgentEvent = {
+      kind: 'internal:llm-call',
+      contextId: state.contextId,
+      taskId: state.taskId,
+      iteration,
+      model: 'llm', // TODO: Get actual model name from provider
+      messageCount: messages.length,
+      toolCount: preparedState.availableTools.length,
+      timestamp: new Date().toISOString(),
+    };
 
-        // Sanitize only the final response (thoughts already extracted during streaming)
-        map((response: LLMResponse) => {
-          // Clean thinking tags from final content (they were already emitted as thoughts)
-          const cleanedContent = (response.message.content || '')
-            .replace(/<thinking>.*?<\/thinking>/gs, '')
-            .replace(/\n\s*\n\s*\n/g, '\n\n')
-            .trim();
+    // Convert LLM events to AgentEvents by stamping with contextId/taskId
+    // Merge with the initial LLM call event
+    const events$ = merge(
+      of(llmCallEvent),
+      llmEvents$.pipe(
+        map(
+          (event): AgentEvent =>
+            ({
+              ...event,
+              contextId: state.contextId,
+              taskId: state.taskId,
+            }) as AgentEvent
+        )
+      )
+    );
 
-          // Emit final content-complete event
-          if (this.eventEmitter) {
-            this.eventEmitter.emitContentComplete(state.taskId, state.contextId, cleanedContent);
-          }
+    // Extract final response and build LoopState
+    const state$ = llmEvents$.pipe(
+      filter((event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete'),
+      last(),
+      map((event): LLMResponse => {
+        const toolCalls = event.toolCalls?.map((tc) => ({
+          ...tc,
+          function: {
+            ...tc.function,
+            arguments:
+              typeof tc.function.arguments === 'string'
+                ? JSON.parse(tc.function.arguments)
+                : tc.function.arguments,
+          },
+        }));
 
-          return {
-            ...response,
-            message: {
-              ...response.message,
-              content: cleanedContent,
-            },
-          };
-        }),
-        // Sanitize only the final response to avoid stripping whitespace between chunks
-        map(sanitizeLLMResponse),
-        tap(tapLLMResponse(spanRef, messages, this.config.logger)),
-        map(mapLLMResponseToState(preparedState)),
-        catchError(catchLLMError(spanRef))
-      );
+        return {
+          message: {
+            role: 'assistant',
+            content: event.content,
+            toolCalls,
+          },
+          toolCalls,
+          finished: true,
+          finishReason: 'stop',
+        };
+      }),
+      map(sanitizeLLMResponse),
+      tap(tapLLMResponse(spanRef, messages, this.config.logger)),
+      map(mapLLMResponseToState(preparedState)),
+      catchError(catchLLMError(spanRef))
+    );
+
+    return { state$, events$ };
   }
 
   /**
    * Process LLM response - execute tools or complete
    */
-  private processLLMResponse(state: LoopState): Observable<LoopState> {
+  private processLLMResponse(
+    state: LoopState,
+    toolEventsCollector: Subject<AgentEvent>
+  ): Observable<LoopState> {
     const response = state.lastLLMResponse;
 
     if (!response) {
@@ -450,7 +519,15 @@ export class AgentLoop {
         'Executing tool calls'
       );
 
-      return this.executeTools(response.toolCalls, state).pipe(
+      const { results$, events$ } = this.executeToolsAndProcessEvents(response.toolCalls, state);
+
+      // Subscribe to tool events and forward to collector
+      events$.subscribe({
+        next: (event: AgentEvent) => toolEventsCollector.next(event),
+        error: (err: Error) => toolEventsCollector.error(err),
+      });
+
+      return results$.pipe(
         tap((toolResults: ToolResult[]) => {
           this.config.logger.trace(
             {
@@ -522,9 +599,12 @@ export class AgentLoop {
   }
 
   /**
-   * Execute tool calls
+   * Execute tool calls and return both results and events
    */
-  private executeTools(toolCalls: ToolCall[], state: LoopState): Observable<ToolResult[]> {
+  private executeToolsAndProcessEvents(
+    toolCalls: ToolCall[],
+    state: LoopState
+  ): { results$: Observable<ToolResult[]>; events$: Observable<AgentEvent> } {
     const execContext: ExecutionContext = {
       taskId: state.taskId,
       contextId: state.contextId,
@@ -533,121 +613,145 @@ export class AgentLoop {
       authContext: state.authContext,
     };
 
-    const resultPromises = toolCalls.map(async (toolCall) => {
-      // Emit tool-start event
-      if (this.eventEmitter) {
-        this.eventEmitter.emitToolStart(state.taskId, state.contextId, toolCall);
-      }
-
-      // Start tool execution span
-      const span = startToolExecutionSpan({
-        agentId: state.agentId,
+    // Create observables for each tool execution
+    const toolExecutions = toolCalls.map((toolCall) => {
+      // Create tool-start event
+      const toolStartEvent: AgentEvent = {
+        kind: 'internal:tool-start',
+        contextId: state.contextId,
         taskId: state.taskId,
-        toolCall,
-        traceContext: state.traceContext,
-      });
+        toolCallId: toolCall.id,
+        toolName: toolCall.function.name,
+        timestamp: new Date().toISOString(),
+      };
 
-      this.config.logger.trace(
-        {
+      // Execute tool and create events
+      const execution$ = defer(async () => {
+        // Start tool execution span
+        const span = startToolExecutionSpan({
+          agentId: state.agentId,
           taskId: state.taskId,
-          toolName: toolCall.function.name,
-          toolCallId: toolCall.id,
-        },
-        'Executing tool'
-      );
+          toolCall,
+          traceContext: state.traceContext,
+        });
 
-      // Find provider that can handle this tool (check thought tools first, then regular providers)
-      let provider = this.thoughtToolProvider?.canHandle(toolCall.function.name)
-        ? this.thoughtToolProvider
-        : this.config.toolProviders.find((p) => p.canHandle(toolCall.function.name));
-
-      if (!provider) {
-        this.config.logger.warn(
-          {
-            taskId: state.taskId,
-            toolName: toolCall.function.name,
-          },
-          'No provider found for tool'
-        );
-
-        const errorMessage = `No provider found for tool: ${toolCall.function.name}`;
-        failToolExecutionSpan(span, errorMessage);
-
-        const result = {
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: false,
-          result: null,
-          error: errorMessage,
-        };
-
-        // Emit tool-complete event
-        if (this.eventEmitter) {
-          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
-        }
-
-        return result;
-      }
-
-      try {
-        const result = await provider.execute(toolCall, execContext);
         this.config.logger.trace(
           {
             taskId: state.taskId,
             toolName: toolCall.function.name,
-            success: result.success,
+            toolCallId: toolCall.id,
           },
-          'Tool execution complete'
+          'Executing tool'
         );
 
-        // Complete span with result
-        completeToolExecutionSpan(span, result);
+        // Find provider that can handle this tool (check thought tools first, then regular providers)
+        const provider = this.thoughtToolProvider?.canHandle(toolCall.function.name)
+          ? this.thoughtToolProvider
+          : this.config.toolProviders.find((p) => p.canHandle(toolCall.function.name));
 
-        // Emit tool-complete event
-        if (this.eventEmitter) {
-          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
-        }
+        if (!provider) {
+          this.config.logger.warn(
+            {
+              taskId: state.taskId,
+              toolName: toolCall.function.name,
+            },
+            'No provider found for tool'
+          );
 
-        return result;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        this.config.logger.error(
-          {
-            taskId: state.taskId,
+          const errorMessage = `No provider found for tool: ${toolCall.function.name}`;
+          failToolExecutionSpan(span, errorMessage);
+
+          return {
+            toolCallId: toolCall.id,
             toolName: toolCall.function.name,
-            error: err.message,
-            stack: err.stack,
-          },
-          'Tool execution failed'
-        );
-
-        // Fail span with exception
-        failToolExecutionSpanWithException(span, err);
-
-        const result = {
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: false,
-          result: null,
-          error: err.message,
-        };
-
-        // Emit tool-complete event
-        if (this.eventEmitter) {
-          this.eventEmitter.emitToolComplete(state.taskId, state.contextId, result);
+            success: false,
+            result: null,
+            error: errorMessage,
+          };
         }
 
-        return result;
-      }
+        try {
+          const result = await provider.execute(toolCall, execContext);
+          this.config.logger.trace(
+            {
+              taskId: state.taskId,
+              toolName: toolCall.function.name,
+              success: result.success,
+            },
+            'Tool execution complete'
+          );
+
+          // Complete span with result
+          completeToolExecutionSpan(span, result);
+
+          return result;
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          this.config.logger.error(
+            {
+              taskId: state.taskId,
+              toolName: toolCall.function.name,
+              error: err.message,
+              stack: err.stack,
+            },
+            'Tool execution failed'
+          );
+
+          // Fail span with exception
+          failToolExecutionSpanWithException(span, err);
+
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: false,
+            result: null,
+            error: err.message,
+          };
+        }
+      }).pipe(shareReplay());
+
+      // Create tool-complete event from result
+      const toolCompleteEvent$ = execution$.pipe(
+        map(
+          (result): AgentEvent => ({
+            kind: 'internal:tool-complete',
+            contextId: state.contextId,
+            taskId: state.taskId,
+            toolCallId: result.toolCallId,
+            toolName: result.toolName,
+            success: result.success,
+            error: result.error,
+            timestamp: new Date().toISOString(),
+          })
+        )
+      );
+
+      // Merge start and complete events for this tool
+      const toolEvents$ = merge(of(toolStartEvent), toolCompleteEvent$);
+
+      return { result$: execution$, events$: toolEvents$ };
     });
 
-    return defer(() => Promise.all(resultPromises));
+    // Collect all results
+    const results$ = defer(async () => {
+      const results = await Promise.all(toolExecutions.map((t) => t.result$.toPromise()));
+      // Filter out undefined values (shouldn't happen, but for type safety)
+      return results.filter((r): r is ToolResult => r !== undefined);
+    });
+
+    // Merge all tool events
+    const events$ = merge(...toolExecutions.map((t) => t.events$));
+
+    return { results$, events$ };
   }
 
   /**
-   * Checkpoint state if needed
+   * Checkpoint state if needed and return both state and checkpoint event
    */
-  private checkpointIfNeeded(state: LoopState): Observable<LoopState> {
+  private checkpointIfNeeded(
+    state: LoopState,
+    checkpointEventsCollector: Subject<AgentEvent>
+  ): Observable<LoopState> {
     if (!this.config.enableCheckpoints) {
       return of(state);
     }
@@ -674,10 +778,15 @@ export class AgentLoop {
       await this.config.taskStateStore.save(state.taskId, persisted);
       this.config.logger.trace({ taskId: state.taskId }, 'State checkpoint saved');
 
-      // Emit internal checkpoint event
-      if (this.eventEmitter) {
-        this.eventEmitter.emitCheckpoint(state.taskId, state.contextId, state.iteration);
-      }
+      // Create checkpoint event as observable and emit to collector
+      const checkpointEvent: AgentEvent = {
+        kind: 'internal:checkpoint',
+        contextId: state.contextId,
+        taskId: state.taskId,
+        iteration: state.iteration,
+        timestamp: new Date().toISOString(),
+      };
+      checkpointEventsCollector.next(checkpointEvent);
 
       return state;
     });

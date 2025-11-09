@@ -6,27 +6,17 @@
  * To run: tsx examples/artifacts-agent.ts
  */
 
-import { type Observable, of, Subject } from 'rxjs';
+import { type Observable, of } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
-import type {
-  AgentEvent,
-  ArtifactUpdateEvent,
-  LLMProvider,
-  LLMResponse,
-  Message,
-  ToolDefinition,
-} from '../src/core/types';
-import {
-  ArtifactStoreWithEvents,
-  SubjectEventEmitter,
-} from '../src/stores/artifacts/artifact-store-with-events';
+import type { LLMProvider, Message, ToolDefinition } from '../src/core/types';
+import type { AnyEvent, LLMEvent } from '../src/events/types';
 import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-store';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { createArtifactTools } from '../src/tools/artifact-tools';
 
 // Simple LLM Provider that creates artifacts
 class ArtifactLLMProvider implements LLMProvider {
-  call(request: { messages: Message[]; tools?: ToolDefinition[] }): Observable<LLMResponse> {
+  call(request: { messages: Message[]; tools?: ToolDefinition[] }): Observable<LLMEvent<AnyEvent>> {
     const lastMessage = request.messages[request.messages.length - 1];
 
     console.log('\n🤖 LLM Thinking...');
@@ -35,17 +25,15 @@ class ArtifactLLMProvider implements LLMProvider {
     // Simulate LLM deciding to create an artifact
     if (lastMessage.role === 'user' && lastMessage.content.toLowerCase().includes('create')) {
       return of({
-        message: {
-          role: 'assistant',
-          content: 'I will create an artifact for you.',
-        },
+        kind: 'content-complete',
+        content: 'I will create an artifact for you.',
         toolCalls: [
           {
             id: `call_${Date.now()}`,
             type: 'function',
             function: {
               name: 'artifact_update',
-              arguments: {
+              arguments: JSON.stringify({
                 artifact: {
                   artifactId: 'report-1',
                   name: 'Sample Report',
@@ -59,13 +47,12 @@ class ArtifactLLMProvider implements LLMProvider {
                 },
                 append: false,
                 lastChunk: false,
-              },
+              }),
             },
           },
         ],
-        finished: false,
-        finishReason: 'tool_calls',
-      });
+        timestamp: new Date().toISOString(),
+      } as LLMEvent<AnyEvent>);
     }
 
     // After creating, check for the artifact tool result (but only on first call)
@@ -78,17 +65,15 @@ class ArtifactLLMProvider implements LLMProvider {
       const actualArtifactId = toolResult.artifactId;
 
       return of({
-        message: {
-          role: 'assistant',
-          content: 'Adding more content to the artifact.',
-        },
+        kind: 'content-complete',
+        content: 'Adding more content to the artifact.',
         toolCalls: [
           {
             id: `call_${Date.now()}_2`,
             type: 'function',
             function: {
               name: 'artifact_update',
-              arguments: {
+              arguments: JSON.stringify({
                 artifact: {
                   artifactId: actualArtifactId,
                   parts: [
@@ -100,24 +85,20 @@ class ArtifactLLMProvider implements LLMProvider {
                 },
                 append: true,
                 lastChunk: true,
-              },
+              }),
             },
           },
         ],
-        finished: false,
-        finishReason: 'tool_calls',
-      });
+        timestamp: new Date().toISOString(),
+      } as LLMEvent<AnyEvent>);
     }
 
     // Final response
     return of({
-      message: {
-        role: 'assistant',
-        content: 'I have created the report artifact with sample content.',
-      },
-      finished: true,
-      finishReason: 'stop',
-    });
+      kind: 'content-complete',
+      content: 'I have created the report artifact with sample content.',
+      timestamp: new Date().toISOString(),
+    } as LLMEvent<AnyEvent>);
   }
 }
 
@@ -126,37 +107,7 @@ async function main() {
 
   // Create stores
   const taskStateStore = new InMemoryStateStore();
-  const baseArtifactStore = new InMemoryArtifactStore();
-
-  // Create event emitter for A2A events
-  const eventSubject = new Subject<ArtifactUpdateEvent>();
-  const artifactStore = new ArtifactStoreWithEvents(
-    baseArtifactStore,
-    new SubjectEventEmitter(eventSubject)
-  );
-
-  // Subscribe to artifact events
-  console.log('📡 Listening for artifact-update events...\n');
-  eventSubject.subscribe((event) => {
-    console.log('\n✨ A2A Event Received:');
-    console.log('   Kind:', event.kind);
-    console.log('   Task ID:', event.taskId);
-    console.log('   Artifact ID:', event.artifact.artifactId);
-    console.log('   Artifact Name:', event.artifact.name || '(unnamed)');
-    console.log('   Append:', event.append);
-    console.log('   Last Chunk:', event.lastChunk);
-    console.log('   Parts:', event.artifact.parts.length);
-
-    // Show part content
-    for (const part of event.artifact.parts) {
-      if (part.kind === 'text') {
-        console.log(
-          `   Text: "${part.text.substring(0, 50)}${part.text.length > 50 ? '...' : ''}"`
-        );
-      }
-    }
-    console.log();
-  });
+  const artifactStore = new InMemoryArtifactStore();
 
   // Create artifact tools
   const artifactTools = createArtifactTools(artifactStore, taskStateStore);
@@ -183,14 +134,17 @@ async function main() {
   // Subscribe to execution events
   return new Promise<void>((resolve, reject) => {
     result$.subscribe({
-      next: (event: AgentEvent) => {
-        if (event.kind === 'task') {
-          console.log('✅ Task started:', event.id);
-        } else if (event.kind === 'status-update') {
-          console.log('📊 Status:', event.status.state);
-          if (event.final) {
-            console.log('✅ Task completed!');
-          }
+      next: (event: AnyEvent) => {
+        if (event.kind === 'task-created') {
+          console.log('✅ Task started:', event.taskId);
+        } else if (event.kind === 'task-status') {
+          console.log('📊 Status:', event.status);
+        } else if (event.kind === 'task-complete') {
+          console.log('✅ Task completed!');
+        } else if (event.kind === 'content-complete') {
+          console.log('📝 Content:', `${event.content.substring(0, 60)}...`);
+        } else if (event.kind === 'tool-complete') {
+          console.log(`🔧 Tool "${event.toolName}" completed:`, event.success ? '✓' : '✗');
         } else if (event.kind.startsWith('internal:')) {
           // Log internal events
           console.log(`🔍 ${event.kind}`);
@@ -201,23 +155,9 @@ async function main() {
         reject(err);
       },
       complete: () => {
-        console.log('\n🎉 Agent execution complete!\n');
-
-        // Show final artifacts
-        console.log('📦 Final Artifacts:');
-        const allArtifacts = baseArtifactStore.getAll();
-        for (const artifact of allArtifacts) {
-          console.log(`\n   Artifact: ${artifact.name || artifact.artifactId}`);
-          console.log(`   Status: ${artifact.status}`);
-          console.log(`   Parts: ${artifact.totalParts}`);
-          console.log(`   Version: ${artifact.version}`);
-
-          // Show content
-          baseArtifactStore.getArtifactContent(artifact.artifactId).then((content) => {
-            console.log(`   Content:\n${content}\n`);
-          });
-        }
-
+        console.log('\n🎉 Agent execution complete!');
+        console.log('\n📦 Artifacts created during execution');
+        console.log('   (Use artifact store methods to retrieve artifacts)');
         setTimeout(resolve, 100); // Wait for async logs
       },
     });

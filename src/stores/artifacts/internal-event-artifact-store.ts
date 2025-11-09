@@ -19,13 +19,13 @@ import {
   createDataWriteEvent,
   createFileWriteEvent,
 } from '../../events';
-import type { InternalEvent } from '../../events/types';
+import type { AnyEvent } from '../../events/types';
 
 /**
  * Event emitter interface
  */
 export interface InternalEventEmitter {
-  emit(event: InternalEvent): void;
+  emit(event: AnyEvent): void;
 }
 
 /**

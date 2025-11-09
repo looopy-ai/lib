@@ -8,7 +8,7 @@
  */
 
 import { Subject } from 'rxjs';
-import type { InternalEvent, TaskStatus } from '../../events';
+import type { AnyEvent, TaskStatus } from '../../events';
 import {
   createContentCompleteEvent,
   createContentDeltaEvent,
@@ -27,8 +27,8 @@ import { emitToolCompleteEvent, emitToolStartEvent } from './tool-operators';
  * methods to emit events at different stages of the loop.
  */
 export class LoopEventEmitter {
-  private eventSubject = new Subject<InternalEvent>();
-  private eventBuffer: InternalEvent[] = [];
+  private eventSubject = new Subject<AnyEvent>();
+  private eventBuffer: AnyEvent[] = [];
   private thoughtIndex = 0;
 
   /**

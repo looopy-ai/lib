@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { InternalEvent } from '../src/events';
+import type { AnyEvent } from '../src/events';
 import { createTaskCreatedEvent, createTaskStatusEvent } from '../src/events';
 import { EventBuffer } from '../src/server/event-buffer';
 import { EventRouter, type Subscriber } from '../src/server/event-router';
@@ -60,8 +60,8 @@ class MockSSEResponse implements SSEResponse {
     }
   }
 
-  getEvents(): Array<{ kind: string; data: InternalEvent }> {
-    const events: Array<{ kind: string; data: InternalEvent }> = [];
+  getEvents(): Array<{ kind: string; data: AnyEvent }> {
+    const events: Array<{ kind: string; data: AnyEvent }> = [];
     let currentEvent: { kind?: string; data?: string } = {};
 
     for (const chunk of this.chunks) {
@@ -306,7 +306,7 @@ describe('EventRouter', () => {
   it('should filter internal events by default', () => {
     router.subscribe(mockSubscriber);
 
-    const internalEvent: InternalEvent = {
+    const internalEvent: AnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',
@@ -333,7 +333,7 @@ describe('EventRouter', () => {
 
     router.subscribe(noFilterSubscriber);
 
-    const internalEvent: InternalEvent = {
+    const internalEvent: AnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',
@@ -643,7 +643,7 @@ describe('SSEServer', () => {
       taskId: 'task-1',
       initiator: 'user',
     });
-    const internalEvent: InternalEvent = {
+    const internalEvent: AnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',

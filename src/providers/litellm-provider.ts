@@ -1,3 +1,4 @@
+import type { LLMEvent } from './../events/types';
 /**
  * LiteLLM Provider
  *
@@ -9,13 +10,37 @@
  * @see https://docs.litellm.ai/
  */
 
-import { from, Observable } from 'rxjs';
+import { merge, Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 import { getLogger } from '../core/logger';
-import { aggregateChoice, choices, getContent, splitInlineXml } from '../core/operators/chat-completions';
-import type { LLMProvider, LLMResponse, Message, ToolCall, ToolDefinition } from '../core/types';
+import {
+  aggregateChoice,
+  type Choice,
+  choices,
+  getContent,
+  splitInlineXml,
+} from '../core/operators/chat-completions';
+import type { LLMProvider, Message, ToolDefinition } from '../core/types';
+import type {
+  AnyEvent,
+  ContentCompleteEvent,
+  ContentDeltaEvent,
+  ThoughtStreamEvent,
+  ThoughtType,
+  ThoughtVerbosity,
+} from '../events/types';
+import { generateEventId } from '../events/utils';
 
 const logger = getLogger({ component: 'LiteLLMProvider' });
+
+const singleString = (input: string | string[] | null | undefined): string | undefined => {
+  if (!input) return undefined;
+
+  if (Array.isArray(input)) {
+    return input.join('');
+  }
+  return input;
+};
 
 /**
  * LiteLLM configuration
@@ -81,37 +106,6 @@ interface LiteLLMRequest {
 }
 
 /**
- * LiteLLM API response format
- */
-interface LiteLLMResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    message: {
-      role: string;
-      content: string | null;
-      tool_calls?: Array<{
-        id: string;
-        type: string;
-        function: {
-          name: string;
-          arguments: string;
-        };
-      }>;
-    };
-    finish_reason: string;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-/**
  * LiteLLM streaming chunk format (SSE)
  */
 interface LiteLLMStreamChunk {
@@ -174,72 +168,106 @@ export class LiteLLMProvider implements LLMProvider {
   }
 
   /**
-   * Call LiteLLM to generate a response
+   * Call LiteLLM to generate a response (always streaming)
+   *
+   * Returns an Observable of LLMEvent (without contextId/taskId - those are added by agent-loop)
    */
   call(request: {
     messages: Message[];
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
-  }): Observable<LLMResponse> {
-    // If streaming is requested, use SSE streaming
-    if (request.stream) {
-      return this.callStreaming(request);
-    }
-
-    // Otherwise use non-streaming call
-    return from(this.callAsync(request));
+  }): Observable<LLMEvent<AnyEvent>> {
+    return this.streamEvents(request);
   }
 
   /**
-   * Stream LLM responses via SSE using the new aggregation pipeline
+   * Stream LLM events using the operator pipeline
+   *
+   * Emits three types of events (all without contextId/taskId):
+   * 1. ContentDeltaEvent - incremental text chunks
+   * 2. ThoughtStreamEvent - extracted <thinking> tags
+   * 3. ContentCompleteEvent - final complete message with tool calls
    */
-  private callStreaming(request: {
+  private streamEvents(request: {
     messages: Message[];
     tools?: ToolDefinition[];
     sessionId?: string;
-  }): Observable<LLMResponse> {
+  }): Observable<LLMEvent<AnyEvent>> {
     const stream$ = this.createSSEStream(request).pipe(choices());
 
-    const {content, tags} = splitInlineXml(stream$.pipe(
-      getContent(),
-    ));
+    // Split content into text and inline XML tags
+    const { content, tags } = splitInlineXml(stream$.pipe(getContent()));
 
-    const contentDelta = content.pipe(
-      map((text) => ({ delta: { content: text } })),
-    )
-
-    const throughts = tags.pipe(
-      filter((tag) => tag.name === 'thinking')
+    // Map content chunks to ContentDeltaEvent (without contextId/taskId)
+    let contentIndex = 0;
+    const contentDeltas$ = content.pipe(
+      map(
+        (delta): LLMEvent<ContentDeltaEvent> => ({
+          kind: 'content-delta',
+          delta,
+          index: contentIndex++,
+          timestamp: new Date().toISOString(),
+        })
+      )
     );
 
-    const finalContent = stream$.pipe(
-      aggregateChoice(),
-      map((event) => {
-        const toolCalls = event.delta?.tool_calls?.map((tc) => ({
-          id: tc.id || '',
-          type: 'function' as const,
-          function: {
-            name: tc.function?.name || 'unknown',
-            arguments: JSON.parse(tc.function?.arguments || '{}'),
-          },
-        }));
+    // Map <thinking> tags to ThoughtStreamEvent (without contextId/taskId)
+    let thoughtIndex = 0;
+    const thoughts$ = tags.pipe(
+      filter((tag) => tag.name === 'thinking'),
+      map((tag): LLMEvent<ThoughtStreamEvent> => {
+        const thoughtType =
+          (singleString(
+            tag.attributes.thoughtType || tag.attributes.thought_type
+          ) as ThoughtType) || 'reasoning';
 
-        return ({
-          message: {
-            role: 'assistant' as const,
-            content: event.delta?.content || '',
-            toolCalls,
-          } satisfies Message,
-          toolCalls,
-          finished: true,
-          finishReason: (event.finish_reason as LLMResponse['finishReason']) || 'stop',
-          model: this.config.model, // TODO
-      } satisfies LLMResponse)})
+        const verbosity = (singleString(tag.attributes.verbosity) as ThoughtVerbosity) || 'normal';
+
+        const content = singleString(tag.attributes.content || tag.content) || '';
+
+        return {
+          kind: 'thought-stream',
+          thoughtId: generateEventId(),
+          thoughtType,
+          verbosity,
+          content,
+          index: thoughtIndex++,
+          timestamp: new Date().toISOString(),
+        };
+      })
     );
 
-    // Create the SSE stream observable and convert to Choice stream
-    return finalContent;
+    // Aggregate final response with tool calls
+    const complete$ = stream$.pipe(
+      aggregateChoice<Choice>(),
+      map((aggregated): LLMEvent<ContentCompleteEvent> => {
+        // Assemble complete content
+        const content = aggregated.delta?.content || '';
+
+        // Transform tool calls to match ContentCompleteEvent format (only complete ones)
+        const toolCalls = aggregated.delta?.tool_calls
+          ?.filter((tc) => tc.id && tc.function?.name && tc.function?.arguments)
+          .map((tc) => ({
+            id: tc.id as string,
+            type: 'function' as const,
+            function: {
+              name: tc.function?.name as string,
+              arguments: tc.function?.arguments as string,
+            },
+          }));
+
+        return {
+          kind: 'content-complete',
+          content,
+          toolCalls: toolCalls?.length ? toolCalls : undefined,
+          timestamp: new Date().toISOString(),
+        };
+      })
+    );
+
+    // Merge all event streams
+    return merge(contentDeltas$, thoughts$, complete$);
   }
 
   /**
@@ -286,6 +314,7 @@ export class LiteLLMProvider implements LLMProvider {
         max_tokens: this.config.maxTokens,
         top_p: this.config.topP,
         stream: true,
+        stream_options: { include_usage: true },
         ...this.config.extraParams,
       };
 
@@ -385,268 +414,6 @@ export class LiteLLMProvider implements LLMProvider {
   }
 
   /**
-   * Async implementation of LLM call
-   */
-  private async callAsync(request: {
-    messages: Message[];
-    tools?: ToolDefinition[];
-    stream?: boolean;
-    sessionId?: string;
-  }): Promise<LLMResponse> {
-    const litellmRequest: LiteLLMRequest = {
-      model: this.config.model,
-      messages: request.messages.map((msg) => {
-        const baseMsg: {
-          role: string;
-          content: string;
-          name?: string;
-          tool_call_id?: string;
-          tool_calls?: Array<{
-            id: string;
-            type: string;
-            function: { name: string; arguments: string };
-          }>;
-        } = {
-          role: msg.role,
-          content: msg.content,
-          name: msg.name,
-          tool_call_id: msg.toolCallId,
-        };
-
-        // Include tool_calls for assistant messages
-        if (msg.toolCalls && msg.toolCalls.length > 0) {
-          baseMsg.tool_calls = msg.toolCalls.map((tc) => ({
-            id: tc.id,
-            type: tc.type,
-            function: {
-              name: tc.function.name,
-              // Always send arguments as a string to LiteLLM
-              arguments:
-                typeof tc.function.arguments === 'string'
-                  ? tc.function.arguments
-                  : JSON.stringify(tc.function.arguments),
-            },
-          }));
-        }
-
-        return baseMsg;
-      }),
-      temperature: this.config.temperature,
-      max_tokens: this.config.maxTokens,
-      top_p: this.config.topP,
-      stream: request.stream || false,
-      ...this.config.extraParams,
-    };
-
-    // Add session ID if provided (useful for tracking)
-    if (request.sessionId) {
-      litellmRequest.metadata = {
-        ...((litellmRequest.metadata as Record<string, unknown>) || {}),
-        session_id: request.sessionId,
-      };
-    }
-
-    // Add tools if provided (wrap in OpenAI format)
-    if (request.tools && request.tools.length > 0) {
-      litellmRequest.tools = request.tools.map((tool) => ({
-        type: 'function',
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters as Record<string, unknown>,
-        },
-      }));
-    }
-
-    // Make API request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
-
-    const url = `${this.config.baseUrl}/chat/completions`;
-
-    logger.trace(
-      {
-        url,
-        model: this.config.model,
-        messageCount: request.messages.length,
-        toolCount: request.tools?.length || 0,
-        sessionId: request.sessionId,
-      },
-      'Making LiteLLM API request'
-    );
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.config.apiKey && {
-            Authorization: `Bearer ${this.config.apiKey}`,
-          }),
-        },
-        body: JSON.stringify(litellmRequest),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorDetail: string;
-        try {
-          errorDetail = JSON.parse(errorText);
-        } catch {
-          errorDetail = errorText;
-        }
-
-        logger.error(
-          {
-            status: response.status,
-            statusText: response.statusText,
-            url,
-            model: this.config.model,
-            error: errorDetail,
-          },
-          'LiteLLM API error response'
-        );
-
-        throw new Error(
-          `LiteLLM API error: ${response.status} ${response.statusText} - ${errorText}`
-        );
-      }
-
-      const data = (await response.json()) as LiteLLMResponse;
-
-      logger.trace(
-        {
-          model: data.model,
-          finishReason: data.choices[0]?.finish_reason,
-          promptTokens: data.usage?.prompt_tokens,
-          completionTokens: data.usage?.completion_tokens,
-          totalTokens: data.usage?.total_tokens,
-        },
-        'LiteLLM API response received'
-      );
-
-      return this.transformResponse(data);
-    } catch (error) {
-      clearTimeout(timeoutId);
-
-      if (error instanceof Error) {
-        // Timeout error
-        if (error.name === 'AbortError') {
-          logger.error(
-            {
-              timeout: this.config.timeout,
-              url,
-              model: this.config.model,
-            },
-            'LiteLLM request timeout'
-          );
-          throw new Error(`LiteLLM request timeout after ${this.config.timeout}ms`);
-        }
-
-        // Network/connection errors
-        if (error.message.includes('fetch failed')) {
-          logger.error(
-            {
-              url,
-              model: this.config.model,
-              baseUrl: this.config.baseUrl,
-              error: error.message,
-              cause: (error as { cause?: { message: string } }).cause?.message,
-            },
-            'LiteLLM connection failed - is the server running?'
-          );
-
-          throw new Error(
-            `Failed to connect to LiteLLM at ${this.config.baseUrl}. ` +
-              `Is the server running? Error: ${error.message}. ` +
-              `Cause: ${(error as { cause?: { message: string } }).cause?.message || 'unknown'}`
-          );
-        }
-
-        // Re-throw if already handled above
-        if (error.message.startsWith('LiteLLM API error')) {
-          throw error;
-        }
-
-        // Other errors
-        logger.error(
-          {
-            url,
-            model: this.config.model,
-            error: error.message,
-            stack: error.stack,
-          },
-          'Unexpected error calling LiteLLM'
-        );
-        throw error;
-      }
-
-      logger.error(
-        {
-          url,
-          model: this.config.model,
-          error: String(error),
-        },
-        'Unknown error type calling LiteLLM'
-      );
-      throw new Error('Unknown error calling LiteLLM');
-    }
-  }
-
-  /**
-   * Transform LiteLLM response to our format
-   */
-  private transformResponse(response: LiteLLMResponse): LLMResponse {
-    const choice = response.choices[0];
-
-    if (!choice) {
-      throw new Error('LiteLLM returned no choices');
-    }
-
-    const toolCalls: ToolCall[] | undefined = choice.message.tool_calls?.map((tc) => ({
-      id: tc.id,
-      type: 'function' as const,
-      function: {
-        name: tc.function.name,
-        // Parse arguments string to object for compatibility with tool providers
-        arguments:
-          typeof tc.function.arguments === 'string'
-            ? JSON.parse(tc.function.arguments)
-            : tc.function.arguments,
-      },
-    }));
-
-    const message: Message = {
-      role: choice.message.role as 'assistant',
-      content: choice.message.content || '',
-      toolCalls, // Include tool calls in the message
-    };
-
-    const finished =
-      choice.finish_reason === 'stop' ||
-      choice.finish_reason === 'length' ||
-      choice.finish_reason === 'content_filter';
-
-    return {
-      message,
-      toolCalls,
-      finished,
-      finishReason: choice.finish_reason as 'stop' | 'length' | 'tool_calls' | 'content_filter',
-      model: response.model, // Include model name from response
-      usage: response.usage
-        ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          }
-        : undefined,
-    };
-  }
-
-  /**
    * Get the current model name
    */
   getModel(): string {
@@ -660,6 +427,14 @@ export class LiteLLMProvider implements LLMProvider {
     Object.assign(this.config, updates);
   }
 }
+
+// Note: callAsync and transformResponse methods removed as we now use streaming only
+// These can be added back if non-streaming support is needed in the future
+
+/**
+ * REMOVED METHODS (for reference if non-streaming is needed later):
+ *
+ */
 
 /**
  * Create a LiteLLM provider with common presets

@@ -9,6 +9,7 @@
 import { Observable } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { ArtifactStore, LLMProvider } from '../src/core/types';
+import type { AnyEvent, LLMEvent } from '../src/events/types';
 
 // Mock ArtifactStore
 class MockArtifactStore implements ArtifactStore {
@@ -58,65 +59,54 @@ const mockLLMProvider: LLMProvider = {
       setTimeout(() => {
         console.log('📤 LLM emits chunk 1: "<thinking>Let me think about"');
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>Let me think about',
-            contentDelta: '<thinking>Let me think about',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: '<thinking>Let me think about',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 100);
 
       // Chunk 2: Closing thinking tag
       setTimeout(() => {
         console.log('📤 LLM emits chunk 2: " this problem</thinking>"');
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>Let me think about this problem</thinking>',
-            contentDelta: ' this problem</thinking>',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' this problem</thinking>',
+          index: 1,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 200);
 
       // Chunk 3: Regular content
       setTimeout(() => {
         console.log('📤 LLM emits chunk 3: "The answer"');
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>Let me think about this problem</thinking>The answer',
-            contentDelta: 'The answer',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: 'The answer',
+          index: 2,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 300);
 
       // Chunk 4: More content
       setTimeout(() => {
         console.log('📤 LLM emits chunk 4: " is 42"');
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>Let me think about this problem</thinking>The answer is 42',
-            contentDelta: ' is 42',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' is 42',
+          index: 3,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 400);
 
       // Final
       setTimeout(() => {
         console.log('📤 LLM emits final response');
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>Let me think about this problem</thinking>The answer is 42',
-          },
-          finished: true,
-          finishReason: 'stop' as const,
-        });
+          kind: 'content-complete',
+          content: '<thinking>Let me think about this problem</thinking>The answer is 42',
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
         subscriber.complete();
       }, 500);
     });

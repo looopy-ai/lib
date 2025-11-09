@@ -127,11 +127,8 @@ export const splitInlineXml = (source: Observable<string>): SplitResult => {
       );
       if (!nameMatch) {
         // Not a valid tag name; treat it as text (fallback)
-        // Reconstruct and place back as text
-        // Since we already consumed up to '>', just pretend it wasn’t a tag.
-        const _faux = `<${tagHead}>`;
-        // Because we’re removing “tags”, this fallback will *not* reinsert angle brackets.
-        // But to keep simple, we drop it and trim boundary whitespace.
+        // Since we already consumed up to '>', just pretend it wasn't a tag.
+        // We drop the invalid tag and continue processing
         prevEmittedWasTag = true;
         continue;
       }

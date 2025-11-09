@@ -204,8 +204,8 @@ describe('LiteLLM Streaming Integration', () => {
     // Verify aggregation
     expect(result.delta?.tool_calls).toHaveLength(1);
     expect(result.delta?.tool_calls?.[0].id).toBe('call_123');
-    expect(result.delta?.tool_calls?.[0].function.name).toBe('get_weather');
-    expect(result.delta?.tool_calls?.[0].function.arguments).toBe('{"location":"SF"}');
+    expect(result.delta?.tool_calls?.[0].function?.name).toBe('get_weather');
+    expect(result.delta?.tool_calls?.[0].function?.arguments).toBe('{"location":"SF"}');
     expect(result.finish_reason).toBe('tool_calls');
   });
 });

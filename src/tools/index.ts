@@ -12,22 +12,22 @@
 export * from './client-tool-provider';
 export * from './interfaces';
 export {
-  FunctionParametersSchema,
-  // Schemas
-  JsonSchemaPropertySchema,
-  ToolCallSchema,
-  ToolDefinitionSchema,
-  safeValidateToolDefinitions,
-  // Validation
-  validateToolDefinitions,
   type ExecutionContext,
   type FunctionParameters,
+  FunctionParametersSchema,
   // Types
   type JsonSchemaProperty,
+  // Schemas
+  JsonSchemaPropertySchema,
+  safeValidateToolDefinitions,
   type ToolCall,
+  ToolCallSchema,
   type ToolDefinition,
+  ToolDefinitionSchema,
   type ToolProvider,
   type ToolResult,
+  // Validation
+  validateToolDefinitions,
 } from './interfaces';
 export * from './local-tools';
 export * from './thought-tools';

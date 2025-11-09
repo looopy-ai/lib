@@ -12,6 +12,7 @@
 import { Observable } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { ArtifactStore, LLMProvider } from '../src/core/types';
+import type { AnyEvent, LLMEvent } from '../src/events/types';
 
 // Mock ArtifactStore
 class MockArtifactStore implements ArtifactStore {
@@ -57,82 +58,65 @@ const multipleThoughtsProvider: LLMProvider = {
     return new Observable((subscriber) => {
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>First',
-            contentDelta: '<thinking>First',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: '<thinking>First',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 100);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>First thought</thinking>',
-            contentDelta: ' thought</thinking>',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' thought</thinking>',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 200);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>First thought</thinking>Answer: ',
-            contentDelta: 'Answer: ',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: 'Answer: ',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 300);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: '<thinking>First thought</thinking>Answer: <thinking>Second',
-            contentDelta: '<thinking>Second',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: '<thinking>Second',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 400);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content:
-              '<thinking>First thought</thinking>Answer: <thinking>Second thought</thinking>',
-            contentDelta: ' thought</thinking>',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' thought</thinking>',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 500);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content:
-              '<thinking>First thought</thinking>Answer: <thinking>Second thought</thinking>42',
-            contentDelta: '42',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: '42',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 600);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content:
-              '<thinking>First thought</thinking>Answer: <thinking>Second thought</thinking>42',
-          },
-          finished: true,
-          finishReason: 'stop' as const,
-        });
+          kind: 'content-complete',
+          content:
+            '<thinking>First thought</thinking>Answer: <thinking>Second thought</thinking>42',
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
         subscriber.complete();
       }, 700);
     });
@@ -145,70 +129,55 @@ const contentAroundThoughtProvider: LLMProvider = {
     return new Observable((subscriber) => {
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: 'Let me',
-            contentDelta: 'Let me',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: 'Let me',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 100);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: 'Let me analyze <think',
-            contentDelta: ' analyze <think',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' analyze <think',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 200);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: 'Let me analyze <thinking>this problem',
-            contentDelta: 'ing>this problem',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: 'ing>this problem',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 300);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content: 'Let me analyze <thinking>this problem carefully</thinking>',
-            contentDelta: ' carefully</thinking>',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: ' carefully</thinking>',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 400);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content:
-              'Let me analyze <thinking>this problem carefully</thinking>. The result is 100.',
-            contentDelta: '. The result is 100.',
-          },
-          finished: false,
-        });
+          kind: 'content-delta',
+          delta: '. The result is 100.',
+          index: 0,
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
       }, 500);
 
       setTimeout(() => {
         subscriber.next({
-          message: {
-            role: 'assistant',
-            content:
-              'Let me analyze <thinking>this problem carefully</thinking>. The result is 100.',
-          },
-          finished: true,
-          finishReason: 'stop' as const,
-        });
+          kind: 'content-complete',
+          content: 'Let me analyze <thinking>this problem carefully</thinking>. The result is 100.',
+          timestamp: new Date().toISOString(),
+        } as LLMEvent<AnyEvent>);
         subscriber.complete();
       }, 600);
     });

@@ -7,6 +7,7 @@
  */
 
 import type {
+  AnyEvent,
   AuthCompletedEvent,
   AuthRequiredEvent,
   AuthType,
@@ -20,7 +21,6 @@ import type {
   InputRequiredEvent,
   InputType,
   InternalCheckpointEvent,
-  InternalEvent,
   InternalLLMCallEvent,
   InternalThoughtProcessEvent,
   JSONSchema,
@@ -632,30 +632,30 @@ export function createInternalCheckpointEvent(
 /**
  * Filter out internal events that should not be sent to clients
  */
-export function filterExternalEvents(events: InternalEvent[]): InternalEvent[] {
+export function filterExternalEvents(events: AnyEvent[]): AnyEvent[] {
   return events.filter((event) => !event.kind.startsWith('internal:'));
 }
 
 /**
  * Filter events by task ID
  */
-export function filterByTaskId(events: InternalEvent[], taskId: string): InternalEvent[] {
+export function filterByTaskId(events: AnyEvent[], taskId: string): AnyEvent[] {
   return events.filter((event) => event.taskId === taskId);
 }
 
 /**
  * Filter events by context ID
  */
-export function filterByContextId(events: InternalEvent[], contextId: string): InternalEvent[] {
+export function filterByContextId(events: AnyEvent[], contextId: string): AnyEvent[] {
   return events.filter((event) => event.contextId === contextId);
 }
 
 /**
  * Filter events by kind
  */
-export function filterByKind<K extends InternalEvent['kind']>(
-  events: InternalEvent[],
+export function filterByKind<K extends AnyEvent['kind']>(
+  events: AnyEvent[],
   kind: K
-): Extract<InternalEvent, { kind: K }>[] {
-  return events.filter((event) => event.kind === kind) as Extract<InternalEvent, { kind: K }>[];
+): Extract<AnyEvent, { kind: K }>[] {
+  return events.filter((event) => event.kind === kind) as Extract<AnyEvent, { kind: K }>[];
 }

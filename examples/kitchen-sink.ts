@@ -34,11 +34,11 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import * as pino from 'pino';
+import pino from 'pino';
 import { Agent } from '../src/core/agent';
 import type { StoredArtifact } from '../src/core/types';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
@@ -68,7 +68,7 @@ if (process.env.OTEL_ENABLED === 'true') {
 const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
-const OTEL_ENABLED = process.env.OTEL_ENABLED === 'true';
+const _OTEL_ENABLED = process.env.OTEL_ENABLED === 'true';
 
 // Parse command line arguments
 function parseArgs(): { agentId: string; contextId: string | null } {
@@ -180,8 +180,8 @@ When creating artifacts:
 
 Be concise and helpful in your responses.`;
 
-  // Create logger (pino.default for CommonJS modules)
-  const logger = pino.default({ level: 'error' });
+  // Create logger
+  const logger = pino({ level: 'error' });
 
   // Create agent
   console.log('🎯 Creating agent...\n');
@@ -229,7 +229,7 @@ Be concise and helpful in your responses.`;
   console.log('            /contexts, /title <title>, /tag <tag>, /info');
   console.log('            /sse-log [lines], /clear-sse-log\n');
 
-    console.log('');
+  console.log('');
 
   // SSE Log File Path
   const sseLogPath = path.join(
@@ -250,9 +250,14 @@ Be concise and helpful in your responses.`;
       // Create a safe JSON string using the replacer function
       const seen = new WeakSet();
 
-      const {kind, contextId, taskId, ...data} = Object.fromEntries(Object.entries(event).filter(([key]) => !key.startsWith('_')));
+      const {
+        kind,
+        contextId: _contextId,
+        taskId,
+        ...data
+      } = Object.fromEntries(Object.entries(event).filter(([key]) => !key.startsWith('_')));
 
-      const safeJSON = JSON.stringify(data, (_key: string, value: any): any => {
+      const safeJSON = JSON.stringify(data, (_key: string, value: unknown): unknown => {
         // Handle null/undefined
         if (value === null || value === undefined) {
           return value;
@@ -289,12 +294,12 @@ Be concise and helpful in your responses.`;
       });
 
       const lines = [
-        'event: ' + kind,
-        'task_id: ' + taskId,
-        'data: ' + safeJSON,
-        'when: ' + timestamp,
+        `event: ${kind}`,
+        `task_id: ${taskId}`,
+        `data: ${safeJSON}`,
+        `when: ${timestamp}`,
         '',
-        ''
+        '',
       ];
 
       await fs.appendFile(sseLogPath, lines.join('\n'), 'utf-8');
@@ -471,7 +476,7 @@ Be concise and helpful in your responses.`;
       console.log(`\n📡 SSE Event Log (last ${lineCount} lines):`);
       try {
         const content = await fs.readFile(sseLogPath, 'utf-8');
-        const lines = content.split('\n').filter(l => l.trim());
+        const lines = content.split('\n').filter((l) => l.trim());
         const lastLines = lines.slice(-lineCount);
 
         if (lastLines.length === 0) {

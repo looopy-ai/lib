@@ -164,6 +164,11 @@ export interface ContentCompleteEvent {
   contextId: string;
   taskId: string;
   content: string; // Full assembled content
+  toolCalls?: Array<{
+    id: string;
+    type: 'function';
+    function: { name: string; arguments: string };
+  }>; // Tool calls from LLM (if any)
   timestamp: string;
 }
 
@@ -506,11 +511,39 @@ export interface InternalCheckpointEvent {
 }
 
 /**
+ * Tool execution started
+ */
+export interface InternalToolStartEvent {
+  kind: 'internal:tool-start';
+  contextId: string;
+  taskId: string;
+  toolCallId: string;
+  toolName: string;
+  timestamp: string;
+}
+
+/**
+ * Tool execution completed
+ */
+export interface InternalToolCompleteEvent {
+  kind: 'internal:tool-complete';
+  contextId: string;
+  taskId: string;
+  toolCallId: string;
+  toolName: string;
+  success: boolean;
+  error?: string;
+  timestamp: string;
+}
+
+/**
  * Union of all internal/debug events
  */
 export type InternalDebugEvent =
   | InternalLLMCallEvent
   | InternalCheckpointEvent
+  | InternalToolStartEvent
+  | InternalToolCompleteEvent
   | InternalThoughtProcessEvent;
 
 // ============================================================================
@@ -520,7 +553,7 @@ export type InternalDebugEvent =
 /**
  * All internal events (both external and internal)
  */
-export type InternalEvent =
+export type AnyEvent =
   | TaskLifecycleEvent
   | ContentStreamingEvent
   | ToolExecutionEvent
@@ -531,10 +564,12 @@ export type InternalEvent =
   | ThoughtStreamEvent
   | InternalDebugEvent;
 
+export type LLMEvent<T> = Omit<T, 'contextId' | 'taskId'>;
+
 /**
  * External events (sent to clients)
  */
-export type ExternalEvent = Exclude<InternalEvent, InternalDebugEvent>;
+export type ExternalEvent = Exclude<AnyEvent, InternalDebugEvent>;
 
 /**
  * Debug events (internal only)
@@ -548,21 +583,21 @@ export type DebugEvent = InternalDebugEvent;
 /**
  * Check if an event is external (should be sent to clients)
  */
-export function isExternalEvent(event: InternalEvent): event is ExternalEvent {
+export function isExternalEvent(event: AnyEvent): event is ExternalEvent {
   return !event.kind.startsWith('internal:');
 }
 
 /**
  * Check if an event is internal/debug only
  */
-export function isDebugEvent(event: InternalEvent): event is DebugEvent {
+export function isDebugEvent(event: AnyEvent): event is DebugEvent {
   return event.kind.startsWith('internal:');
 }
 
 /**
  * Check if an event is a task lifecycle event
  */
-export function isTaskLifecycleEvent(event: InternalEvent): event is TaskLifecycleEvent {
+export function isTaskLifecycleEvent(event: AnyEvent): event is TaskLifecycleEvent {
   return (
     event.kind === 'task-created' || event.kind === 'task-status' || event.kind === 'task-complete'
   );
@@ -571,14 +606,14 @@ export function isTaskLifecycleEvent(event: InternalEvent): event is TaskLifecyc
 /**
  * Check if an event is a content streaming event
  */
-export function isContentStreamingEvent(event: InternalEvent): event is ContentStreamingEvent {
+export function isContentStreamingEvent(event: AnyEvent): event is ContentStreamingEvent {
   return event.kind === 'content-delta' || event.kind === 'content-complete';
 }
 
 /**
  * Check if an event is a tool execution event
  */
-export function isToolExecutionEvent(event: InternalEvent): event is ToolExecutionEvent {
+export function isToolExecutionEvent(event: AnyEvent): event is ToolExecutionEvent {
   return (
     event.kind === 'tool-start' || event.kind === 'tool-progress' || event.kind === 'tool-complete'
   );
@@ -587,21 +622,21 @@ export function isToolExecutionEvent(event: InternalEvent): event is ToolExecuti
 /**
  * Check if an event is an input request event
  */
-export function isInputRequestEvent(event: InternalEvent): event is InputRequestEvent {
+export function isInputRequestEvent(event: AnyEvent): event is InputRequestEvent {
   return event.kind === 'input-required' || event.kind === 'input-received';
 }
 
 /**
  * Check if an event is an authentication event
  */
-export function isAuthenticationEvent(event: InternalEvent): event is AuthenticationEvent {
+export function isAuthenticationEvent(event: AnyEvent): event is AuthenticationEvent {
   return event.kind === 'auth-required' || event.kind === 'auth-completed';
 }
 
 /**
  * Check if an event is an artifact event
  */
-export function isArtifactEvent(event: InternalEvent): event is ArtifactEvent {
+export function isArtifactEvent(event: AnyEvent): event is ArtifactEvent {
   return (
     event.kind === 'file-write' || event.kind === 'data-write' || event.kind === 'dataset-write'
   );
@@ -610,13 +645,13 @@ export function isArtifactEvent(event: InternalEvent): event is ArtifactEvent {
 /**
  * Check if an event is a sub-agent event
  */
-export function isSubAgentEvent(event: InternalEvent): event is SubAgentEvent {
+export function isSubAgentEvent(event: AnyEvent): event is SubAgentEvent {
   return event.kind === 'subtask-created';
 }
 
 /**
  * Check if an event is a thought streaming event
  */
-export function isThoughtStreamEvent(event: InternalEvent): event is ThoughtStreamEvent {
+export function isThoughtStreamEvent(event: AnyEvent): event is ThoughtStreamEvent {
   return event.kind === 'thought-stream';
 }

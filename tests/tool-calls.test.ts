@@ -51,7 +51,7 @@ describe('assembleToolCalls', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBeNull();
-      expect(result[0].function.name).toBe('search');
+      expect(result[0].function?.name).toBe('search');
     });
 
     it('should handle single fragment with all data', async () => {
@@ -69,7 +69,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      expect(result[0].function.arguments).toBe('{"operation": "add", "numbers": [1, 2, 3]}');
+      expect(result[0].function?.arguments).toBe('{"operation": "add", "numbers": [1, 2, 3]}');
     });
   });
 
@@ -89,11 +89,11 @@ describe('assembleToolCalls', () => {
       const call0 = result.find((r) => r.index === 0);
       const call1 = result.find((r) => r.index === 1);
 
-      expect(call0?.function.name).toBe('get_weather');
-      expect(call0?.function.arguments).toBe('{"location": "NYC"}');
+      expect(call0?.function?.name).toBe('get_weather');
+      expect(call0?.function?.arguments).toBe('{"location": "NYC"}');
 
-      expect(call1?.function.name).toBe('search');
-      expect(call1?.function.arguments).toBe('{"query": "test"}');
+      expect(call1?.function?.name).toBe('search');
+      expect(call1?.function?.arguments).toBe('{"query": "test"}');
     });
 
     it('should handle interleaved fragments from multiple tool calls', async () => {
@@ -115,8 +115,8 @@ describe('assembleToolCalls', () => {
       const call0 = result.find((r) => r.index === 0);
       const call1 = result.find((r) => r.index === 1);
 
-      expect(call0?.function.arguments).toBe('{"key": "a"}');
-      expect(call1?.function.arguments).toBe('{"value": "b"}');
+      expect(call0?.function?.arguments).toBe('{"key": "a"}');
+      expect(call1?.function?.arguments).toBe('{"value": "b"}');
     });
   });
 
@@ -143,7 +143,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      expect(result[0].function.arguments).toBe('{"key": "value"}');
+      expect(result[0].function?.arguments).toBe('{"key": "value"}');
     });
 
     it('should handle array arguments', async () => {
@@ -156,8 +156,8 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      expect(result[0].function.arguments).toBe('[1, 2, 3]');
-      expect(() => JSON.parse(result[0].function.arguments)).not.toThrow();
+      expect(result[0].function?.arguments).toBe('[1, 2, 3]');
+      expect(() => JSON.parse(result[0].function?.arguments ?? '')).not.toThrow();
     });
 
     it('should handle empty object arguments', async () => {
@@ -169,7 +169,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      expect(result[0].function.arguments).toBe('{}');
+      expect(result[0].function?.arguments).toBe('{}');
     });
 
     it('should handle whitespace in JSON', async () => {
@@ -181,7 +181,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      expect(() => JSON.parse(result[0].function.arguments.trim())).not.toThrow();
+      expect(() => JSON.parse(result[0].function?.arguments?.trim() ?? '')).not.toThrow();
     });
   });
 
@@ -302,7 +302,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      const parsed = JSON.parse(result[0].function.arguments);
+      const parsed = JSON.parse(result[0].function?.arguments ?? '{}');
       expect(parsed.nested.deep.value).toBe(42);
     });
 
@@ -316,7 +316,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      const parsed = JSON.parse(result[0].function.arguments);
+      const parsed = JSON.parse(result[0].function?.arguments ?? '[]');
       expect(parsed).toHaveLength(2);
       expect(parsed[0].id).toBe(1);
       expect(parsed[1].id).toBe(2);
@@ -332,7 +332,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      const parsed = JSON.parse(result[0].function.arguments);
+      const parsed = JSON.parse(result[0].function?.arguments ?? '{}');
       // After parsing, escape sequences are converted to actual characters
       expect(parsed.text).toContain('\n');
       expect(parsed.text).toContain('"');
@@ -363,7 +363,7 @@ describe('assembleToolCalls', () => {
 
       // Should get the first emitted tool call
       expect(result.index).toBe(0);
-      expect(result.function.name).toBe('test');
+      expect(result.function?.name).toBe('test');
     });
   });
 
@@ -387,7 +387,7 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(1);
-      const parsed = JSON.parse(result[0].function.arguments);
+      const parsed = JSON.parse(result[0].function?.arguments ?? '{}');
       expect(parsed.location).toBe('San Francisco, CA');
     });
 
@@ -404,9 +404,9 @@ describe('assembleToolCalls', () => {
       const result = await lastValueFrom(from(fragments).pipe(assembleToolCalls(), toArray()));
 
       expect(result).toHaveLength(3);
-      expect(result.map((r) => r.function.name)).toContain('get_weather');
-      expect(result.map((r) => r.function.name)).toContain('get_time');
-      expect(result.map((r) => r.function.name)).toContain('search');
+      expect(result.map((r) => r.function?.name)).toContain('get_weather');
+      expect(result.map((r) => r.function?.name)).toContain('get_time');
+      expect(result.map((r) => r.function?.name)).toContain('search');
     });
   });
 });

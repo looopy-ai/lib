@@ -222,7 +222,7 @@ export interface A2AArtifact {
  * AgentEvent is a union of all internal events from the event protocol.
  * This includes both external events (sent to clients) and internal events (debug/observability).
  */
-export type AgentEvent = import('../events').InternalEvent;
+export type AgentEvent = import('../events').AnyEvent;
 
 /**
  * @deprecated Legacy A2A protocol types - kept for backward compatibility
@@ -311,7 +311,7 @@ export interface LLMProvider {
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
-  }): Observable<LLMResponse>;
+  }): Observable<import('../events/types').LLMEvent<import('../events/types').AnyEvent>>;
 }
 
 /**

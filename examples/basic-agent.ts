@@ -8,7 +8,8 @@
 
 import { type Observable, of } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
-import type { LLMProvider, LLMResponse, Message, ToolDefinition } from '../src/core/types';
+import type { LLMProvider, Message, ToolDefinition } from '../src/core/types';
+import type { AnyEvent, LLMEvent } from '../src/events/types';
 import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-store';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { localTools } from '../src/tools/local-tools';
@@ -16,7 +17,7 @@ import { weatherTool } from './tools';
 
 // Simple LLM Provider that simulates OpenAI-style responses
 class SimpleLLMProvider implements LLMProvider {
-  call(request: { messages: Message[]; tools?: ToolDefinition[] }): Observable<LLMResponse> {
+  call(request: { messages: Message[]; tools?: ToolDefinition[] }): Observable<LLMEvent<AnyEvent>> {
     const lastMessage = request.messages[request.messages.length - 1];
 
     console.log('\n🤖 LLM Thinking...');
@@ -29,23 +30,20 @@ class SimpleLLMProvider implements LLMProvider {
       const location = locationMatch ? locationMatch[1].trim() : 'San Francisco';
 
       return of({
-        message: {
-          role: 'assistant',
-          content: `Let me check the weather in ${location}.`,
-        },
+        kind: 'content-complete',
+        content: `Let me check the weather in ${location}.`,
         toolCalls: [
           {
             id: `call_${Date.now()}`,
             type: 'function',
             function: {
               name: 'get_weather',
-              arguments: { location },
+              arguments: JSON.stringify({ location }),
             },
           },
         ],
-        finished: false,
-        finishReason: 'tool_calls',
-      });
+        timestamp: new Date().toISOString(),
+      } as LLMEvent<AnyEvent>);
     }
 
     // Check if this is after a tool call
@@ -53,18 +51,15 @@ class SimpleLLMProvider implements LLMProvider {
     if (hasToolResults) {
       const toolMessage = request.messages.filter((m) => m.role === 'tool').pop();
 
-      if (toolMessage && toolMessage.content) {
+      if (toolMessage?.content) {
         try {
           const result = JSON.parse(toolMessage.content);
-          if (result && result.location) {
+          if (result?.location) {
             return of({
-              message: {
-                role: 'assistant',
-                content: `The weather in ${result.location} is ${result.temperature}°F and ${result.condition}. ${result.condition === 'sunny' ? '☀️' : result.condition === 'rainy' ? '🌧️' : '☁️'}`,
-              },
-              finished: true,
-              finishReason: 'stop',
-            });
+              kind: 'content-complete',
+              content: `The weather in ${result.location} is ${result.temperature}°F and ${result.condition}. ${result.condition === 'sunny' ? '☀️' : result.condition === 'rainy' ? '🌧️' : '☁️'}`,
+              timestamp: new Date().toISOString(),
+            } as LLMEvent<AnyEvent>);
           }
         } catch (error) {
           console.error('Failed to parse tool result:', error);
@@ -74,13 +69,10 @@ class SimpleLLMProvider implements LLMProvider {
 
     // Default response
     return of({
-      message: {
-        role: 'assistant',
-        content: "I'm a weather assistant. Ask me about the weather in any city!",
-      },
-      finished: true,
-      finishReason: 'stop',
-    });
+      kind: 'content-complete',
+      content: "I'm a weather assistant. Ask me about the weather in any city!",
+      timestamp: new Date().toISOString(),
+    } as LLMEvent<AnyEvent>);
   }
 }
 
@@ -119,33 +111,56 @@ async function main() {
       console.log('\n📡 Event:', event.kind);
 
       switch (event.kind) {
-        case 'task':
-          console.log('   Task ID:', event.id);
-          console.log('   Context ID:', event.contextId);
-          console.log('   Status:', event.status.state);
-          break;
-
-        case 'status-update':
+        case 'task-created':
           console.log('   Task ID:', event.taskId);
-          console.log('   Status:', event.status.state);
-          if (event.status.message) {
-            console.log('   Message:', event.status.message.content);
+          console.log('   Context ID:', event.contextId);
+          console.log('   Initiator:', event.initiator);
+          break;
+
+        case 'task-status':
+          console.log('   Task ID:', event.taskId);
+          console.log('   Status:', event.status);
+          break;
+
+        case 'task-complete':
+          console.log('   Task ID:', event.taskId);
+          if (event.content) {
+            console.log('   Final Content:', event.content);
           }
-          if (event.final) {
-            console.log('   ✅ FINAL EVENT');
+          if (event.artifacts && event.artifacts.length > 0) {
+            console.log('   Artifacts:', event.artifacts.length);
+          }
+          console.log('   ✅ TASK COMPLETE');
+          break;
+
+        case 'content-delta':
+          console.log('   Delta:', event.delta);
+          console.log('   Index:', event.index);
+          break;
+
+        case 'content-complete':
+          console.log('   Content:', event.content);
+          if (event.toolCalls && event.toolCalls.length > 0) {
+            console.log('   Tool Calls:', event.toolCalls.length);
           }
           break;
 
-        case 'artifact-update':
-          console.log('   Artifact ID:', event.artifact.artifactId);
-          console.log('   Parts:', event.artifact.parts.length);
-          console.log('   Append:', event.append);
-          console.log('   Last Chunk:', event.lastChunk);
+        case 'tool-start':
+          console.log('   Tool:', event.toolName);
+          console.log('   Call ID:', event.toolCallId);
+          break;
+
+        case 'tool-complete':
+          console.log('   Tool:', event.toolName);
+          console.log('   Success:', event.success);
+          if (event.result) {
+            console.log('   Result:', JSON.stringify(event.result));
+          }
           break;
 
         default:
           if (event.kind.startsWith('internal:')) {
-            console.log('   [Internal event - not sent over A2A]', JSON.stringify(event));
+            console.log('   [Internal observability event]');
           }
       }
     },
