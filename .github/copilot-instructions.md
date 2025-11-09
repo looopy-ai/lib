@@ -303,6 +303,158 @@ class AgentLoop {
 - `src/core/agent.ts` - Multi-turn manager with MessageStore
 - `src/core/agent-loop.ts` - Single-turn execution with operator pipeline
 
+### Pattern: RxJS Observable Composition (NOT Side-Channel Emission)
+
+**Core Principle**: Events should flow through observable composition, not be copied through side channels.
+
+#### ❌ Anti-Pattern: Side-Channel Event Emission
+
+**DO NOT** use `tap()` to copy events into a separate event emitter:
+
+```typescript
+// ❌ BAD: Copying events through side channel
+const llmEvents$ = provider.call(...).pipe(
+  tap(event => eventEmitter.emit(event)),  // Side effect copying
+  shareReplay()
+);
+
+llmEvents$.subscribe();  // Activates the tap side effect
+
+// Problem: Events emitted imperatively through eventEmitter
+// instead of flowing through observable composition
+```
+
+**DO NOT** directly call event emitter methods for events that should be part of observable streams:
+
+```typescript
+// ❌ BAD: Direct imperative emission
+private processLLM(state: LoopState) {
+  this.eventEmitter.emitLLMCall({ ... });  // Imperative side effect
+
+  return this.provider.call(...);
+}
+
+// Problem: Event emitted as side effect, not part of observable flow
+```
+
+#### ✅ Good Pattern: Observable Composition with merge()
+
+**DO** return events as part of observable chains and merge at appropriate levels:
+
+```typescript
+// ✅ GOOD: Events are part of the observable stream
+private callLLMAndProcessEvents(
+  state: LoopState
+): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
+  // Get events from provider
+  const llmEvents$ = this.config.llmProvider.call({...}).pipe(
+    shareReplay()  // Multicast for dual use
+  );
+
+  // Create internal event as observable
+  const llmCallEvent: AgentEvent = {
+    kind: 'internal:llm-call',
+    contextId: state.contextId,
+    taskId: state.taskId,
+    iteration: state.iteration,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Merge internal event with stamped LLM events
+  const events$ = merge(
+    of(llmCallEvent),  // Internal event as observable
+    llmEvents$.pipe(
+      map((event): AgentEvent => ({
+        ...event,
+        contextId: state.contextId,
+        taskId: state.taskId,
+      }))
+    )
+  );
+
+  // Extract state from events
+  const state$ = llmEvents$.pipe(
+    filter((event): event is LLMEvent<ContentCompleteEvent> =>
+      event.kind === 'content-complete'
+    ),
+    last(),
+    map(event => ({ ...state, response: event }))
+  );
+
+  return { state$, events$ };
+}
+```
+
+**Why this is better**:
+- ✅ Events flow through observable composition
+- ✅ No imperative side effects
+- ✅ Easy to test (pure observable streams)
+- ✅ Composable and reusable
+- ✅ Clear data flow (input → observable → output)
+
+#### ✅ Good Pattern: Collecting Events with Subject
+
+**DO** use `Subject` to collect events from multiple iterations for composition:
+
+```typescript
+// ✅ GOOD: Subject used for collection/composition
+private runLoop(initialState: LoopState): Observable<AgentEvent> {
+  const llmEventsCollector = new Subject<AgentEvent>();
+
+  const stateLoop$ = ... // State iteration logic
+
+  const { state$, llmEvents$ } = this.executeIteration(currentState);
+
+  // Subscribe to collect events (composition, not copying)
+  llmEvents$.subscribe({
+    next: event => llmEventsCollector.next(event),
+    complete: () => {} // Don't complete yet
+  });
+
+  // Merge state events with collected LLM events
+  return merge(
+    stateLoop$,
+    llmEventsCollector.asObservable()
+  ).pipe(
+    finalize(() => llmEventsCollector.complete())
+  );
+}
+```
+
+**Why this is acceptable**:
+- ✅ Subject used for collection/aggregation, not side-channel copying
+- ✅ Events still flow through observable composition
+- ✅ Proper lifecycle management with finalize()
+- ✅ Maintains referential transparency at the level of runLoop()
+
+#### 🔄 When to Use Each Pattern
+
+**Use `merge(of(event), stream$)` when**:
+- Creating a single internal event to include in stream
+- Event is synchronous and doesn't depend on external state
+- Simple one-time event emission
+
+**Use `Subject` for collection when**:
+- Aggregating events from multiple async sources
+- Collecting events from recursive/iterative processes
+- Need to control when collection completes
+
+**Never use**:
+- `tap()` to copy events into event emitter
+- Direct `eventEmitter.emit()` calls for events that should be in observable streams
+- `subscribe()` purely for side effects that could be part of observable composition
+
+#### Migration Checklist
+
+When refactoring event emission code:
+
+1. **Identify** direct `eventEmitter.emit()` calls
+2. **Convert** event creation to observable (use `of(event)`)
+3. **Merge** event observable with other streams using `merge()`
+4. **Return** events as part of function's observable return value
+5. **Compose** at appropriate level (iteration, loop, or execution)
+6. **Remove** now-unused `eventEmitter` parameters
+
 ## Technology Stack
 
 - **TypeScript** (strict mode)
