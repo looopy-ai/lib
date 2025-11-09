@@ -243,6 +243,9 @@ export function thoughtTools(config: ThoughtToolsConfig): ToolProvider {
           confidence: validation.data.confidence,
           alternatives: validation.data.alternatives,
           relatedTo: validation.data.related_to,
+          metadata: {
+            source: 'tool-call', // Emitted via think_aloud tool
+          },
         }
       );
 

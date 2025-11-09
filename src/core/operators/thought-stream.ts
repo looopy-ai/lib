@@ -66,13 +66,10 @@ export function extractThoughtsFromStream(
             if (event.kind === 'content-delta') {
               eventEmitter?.emitContentDelta(taskId, contextId, event.content, event.chunkIndex);
             } else if (event.kind === 'thought') {
-              eventEmitter?.emitThought(
-                taskId,
-                contextId,
-                'reasoning',
-                event.content,
-                event.metadata || { verbosity: 'normal' }
-              );
+              eventEmitter?.emitThought(taskId, contextId, 'reasoning', event.content, {
+                verbosity: 'normal',
+                metadata: event.metadata,
+              });
             }
           }
 
@@ -129,6 +126,9 @@ function processChunk(
           kind: 'thought',
           content: trimmed,
           chunkIndex,
+          metadata: {
+            source: 'content', // Extracted from LLM content
+          },
         });
       }
 
@@ -165,7 +165,10 @@ function processChunk(
           kind: 'thought',
           content: thoughtContent,
           chunkIndex,
-          metadata,
+          metadata: {
+            ...metadata,
+            source: 'content', // Extracted from LLM content
+          },
         });
       }
     }
@@ -178,9 +181,7 @@ function processChunk(
       extractThoughtFromAttributes(attributes);
       return ''; // Remove the tag from content
     }
-  );
-
-  // Format 3: Self-closing tags with attributes
+  ); // Format 3: Self-closing tags with attributes
   cleanedContent = cleanedContent.replace(/<thinking\s+([^>]*?)\/>/gs, (_match, attributes) => {
     extractThoughtFromAttributes(attributes);
     return ''; // Remove the tag from content

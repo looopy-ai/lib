@@ -234,6 +234,9 @@ export class LiteLLMProvider implements LLMProvider {
           content,
           index: thoughtIndex++,
           timestamp: new Date().toISOString(),
+          metadata: {
+            source: 'content-delta'
+          }
         };
       })
     );

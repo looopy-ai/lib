@@ -460,6 +460,7 @@ export interface ThoughtStreamEvent {
   index: number; // Sequence number (0-based)
   timestamp: string;
   metadata?: {
+    source?: 'content' | 'content-delta' | 'tool-call'; // Where the thought was extracted from
     confidence?: number; // 0.0 to 1.0 - agent's confidence in this thought
     alternatives?: string[]; // Alternative thoughts considered
     relatedTo?: string; // Related thoughtId or toolCallId
