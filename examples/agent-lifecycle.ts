@@ -82,8 +82,8 @@ async function main() {
 
   turn1$.subscribe({
     next: (event) => {
-      if (event.kind === 'status-update' && event.status.state === 'completed') {
-        console.log('Assistant:', event.status.message?.content);
+      if (event.kind === 'task-complete') {
+        console.log('Assistant:', event.content);
       }
     },
     error: (err) => console.error('Error:', err),
@@ -100,8 +100,8 @@ async function main() {
 
       turn2$.subscribe({
         next: (event) => {
-          if (event.kind === 'status-update' && event.status.state === 'completed') {
-            console.log('Assistant:', event.status.message?.content);
+          if (event.kind === 'task-complete') {
+            console.log('Assistant:', event.content);
           }
         },
         error: (err) => console.error('Error:', err),
@@ -147,8 +147,8 @@ async function main() {
 
           turn3$.subscribe({
             next: (event) => {
-              if (event.kind === 'status-update' && event.status.state === 'completed') {
-                console.log('Assistant:', event.status.message?.content);
+              if (event.kind === 'task-complete') {
+                console.log('Assistant:', event.content);
               }
             },
             error: (err) => console.error('Error:', err),

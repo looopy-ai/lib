@@ -102,35 +102,22 @@ async function main() {
   let eventCount = 0;
 
   events$.subscribe({
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: for the sake of the example
     next: (event) => {
       eventCount++;
       console.log(`\n[${eventCount}] 📡 Event: ${event.kind}`);
 
       switch (event.kind) {
-        case 'task':
-          console.log(`    Task ID: ${event.id}`);
-          console.log(`    Status: ${event.status.state}`);
+        case 'task-created':
+          console.log(`    Task ID: ${event.taskId}`);
+          console.log(`    Status: created`);
           break;
-
-        case 'status-update':
-          console.log(`    Status: ${event.status.state}`);
-          if (event.status.message) {
-            console.log(`    Message: ${event.status.message.content}`);
-          }
-          if (event.final) {
-            console.log(`    ✅ FINAL EVENT`);
-          }
+        case 'task-status':
+          console.log(`    Task ID: ${event.taskId}`);
+          console.log(`    Status: ${event.status}`);
           break;
-
-        case 'artifact-update':
-          console.log(`    Artifact: ${event.artifact.artifactId}`);
-          if (event.artifact.parts.length > 0) {
-            const part = event.artifact.parts[0];
-            if (part.kind === 'text') {
-              console.log(`    Content: ${part.text}`);
-            }
-          }
+        case 'task-complete':
+          console.log(`    Task ID: ${event.taskId}`);
+          console.log(`    Content: ${event.content}`);
           break;
 
         default:

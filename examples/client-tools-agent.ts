@@ -134,7 +134,7 @@ async function simulateClientToolExecution(
   toolCall: ToolCall,
   _context: ExecutionContext
 ): Promise<ToolResult> {
-  const args = toolCall.function.arguments as Record<string, any>;
+  const args = toolCall.function.arguments as { query: string; limit?: number; userId?: number };
 
   console.log(`\n🌐 [CLIENT] Executing: ${toolCall.function.name}`);
   console.log(`   Arguments:`, args);
@@ -339,20 +339,18 @@ async function main() {
             events.push(event);
 
             // Log significant events
-            if (event.kind === 'status-update') {
-              if (event.status.state === 'working') {
-                console.log('\n⚙️  Agent is working...');
-              } else if (event.status.state === 'completed') {
-                console.log('\n✅ Task completed!');
-                if (event.status.message?.content) {
-                  console.log('\n📤 Final Response:');
-                  console.log('-'.repeat(80));
-                  console.log(event.status.message.content);
-                  console.log('-'.repeat(80));
-                }
-              } else if (event.status.state === 'failed') {
-                console.log('\n❌ Task failed');
+            if (event.kind === 'task-status') {
+              console.log('\n⚙️  Agent is working...');
+            } else if (event.kind === 'task-complete') {
+              console.log('\n✅ Task completed!');
+              if (event.content) {
+                console.log('\n📤 Final Response:');
+                console.log('-'.repeat(80));
+                console.log(event.content);
+                console.log('-'.repeat(80));
               }
+              // } else if (event.kind === 'task-failed') {
+              //   console.log('\n❌ Task failed');
             }
           },
           error: (err) => {

@@ -16,7 +16,6 @@ import type { AnyEvent } from '../src/events';
 
 // Example 1: Basic SSE Client
 // ============================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function basicSSEClient() {
   console.log('=== Example 1: Basic SSE Client ===\n');
 
@@ -70,7 +69,6 @@ async function basicSSEClient() {
 
 // Example 2: Filtered SSE Client (Task-Specific)
 // ===============================================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function filteredSSEClient() {
   console.log('=== Example 2: Filtered SSE Client (Task-Specific) ===\n');
 
@@ -99,7 +97,6 @@ async function filteredSSEClient() {
 
 // Example 3: Reconnection with Last-Event-ID
 // ===========================================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function reconnectionExample() {
   console.log('=== Example 3: Reconnection with Last-Event-ID ===\n');
 
@@ -143,7 +140,6 @@ async function reconnectionExample() {
 
 // Example 4: Progress Tracking
 // =============================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function progressTrackingExample() {
   console.log('=== Example 4: Progress Tracking ===\n');
 
@@ -215,7 +211,6 @@ async function progressTrackingExample() {
 
 // Example 5: Multiple Event Types
 // ================================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function multipleEventTypesExample() {
   console.log('=== Example 5: Multiple Event Types ===\n');
 
@@ -275,7 +270,6 @@ async function multipleEventTypesExample() {
 
 // Example 6: Error Handling
 // ==========================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function errorHandlingExample() {
   console.log('=== Example 6: Error Handling ===\n');
 
@@ -329,7 +323,6 @@ async function errorHandlingExample() {
 
 // Example 7: Filtering Internal Events (Client-Side)
 // ===================================================
-// biome-ignore lint/correctness/noUnusedVariables: it can be switched in and out
 async function filterAnyEventsExample() {
   console.log('=== Example 7: Filtering Internal Events (Client-Side) ===\n');
 
@@ -368,6 +361,19 @@ async function main() {
   console.log('Make sure the SSE server is running on http://localhost:3000\n');
   console.log('='.repeat(60));
   console.log('\n');
+
+  // HACK
+  if (
+    !basicSSEClient ||
+    !filteredSSEClient ||
+    !reconnectionExample ||
+    !progressTrackingExample ||
+    !multipleEventTypesExample ||
+    !errorHandlingExample ||
+    !filterAnyEventsExample
+  ) {
+    throw new Error('HACK to avoid unused function errors');
+  }
 
   // Uncomment the example you want to run:
 
