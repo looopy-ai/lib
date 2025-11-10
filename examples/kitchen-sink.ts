@@ -365,6 +365,14 @@ Be concise and helpful in your responses.`;
       return commandHandlers['/quit'](input, rl);
     },
 
+    async '/q'(input: string, rl: readline.Interface): Promise<boolean> {
+      return commandHandlers['/quit'](input, rl);
+    },
+
+    async q(input: string, rl: readline.Interface): Promise<boolean> {
+      return commandHandlers['/quit'](input, rl);
+    },
+
     async '/history'(): Promise<boolean> {
       console.log('\n📜 Conversation History:');
       const messages = await messageStore.getAll(contextId);
