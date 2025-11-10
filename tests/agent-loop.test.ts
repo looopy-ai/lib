@@ -37,9 +37,9 @@ function createMockLLMEvents(response: LLMResponse): LLMEvent<ContentCompleteEve
       function: {
         name: tc.function.name,
         arguments:
-          typeof tc.function.arguments === 'string'
-            ? tc.function.arguments
-            : JSON.stringify(tc.function.arguments),
+          (typeof tc.function.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function.arguments) || {},
       },
     })),
     timestamp: new Date().toISOString(),
