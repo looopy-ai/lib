@@ -12,9 +12,9 @@ import type { LLMEvent } from './../events/types';
 
 import { appendFileSync, promises as fs, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import pino from 'pino';
 import { merge, Observable } from 'rxjs';
 import { filter, map, shareReplay, tap } from 'rxjs/operators';
-import { getLogger } from '../core/logger';
 import {
   aggregateChoice,
   type Choice,
@@ -32,8 +32,6 @@ import type {
   ThoughtVerbosity,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
-
-const logger = getLogger({ component: 'LiteLLMProvider' });
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;
@@ -149,6 +147,7 @@ export class LiteLLMProvider implements LLMProvider {
     extraParams: Record<string, unknown>;
   };
   private debugLogInitialized = false;
+  private readonly logger: pino.Logger;
 
   constructor(config: LiteLLMConfig) {
     this.config = {
@@ -160,7 +159,8 @@ export class LiteLLMProvider implements LLMProvider {
       extraParams: config.extraParams ?? {},
     };
 
-    logger.info(
+    this.logger = pino({ base: { component: 'LiteLLMProvider' } });
+    this.logger.info(
       {
         baseUrl: this.config.baseUrl,
         model: this.config.model,
@@ -205,13 +205,11 @@ export class LiteLLMProvider implements LLMProvider {
     // Log raw chunks if debug logging is enabled
     // shareReplay() ensures only ONE subscription to the underlying HTTP stream
     // even though multiple operators (content, tags, complete$) derive from it
-    const stream$ = (this.config.debugLogPath
-      ? rawStream$.pipe(tap(chunk => this.debugLogRawChunk(chunk)))
-      : rawStream$
-    ).pipe(
-      choices(),
-      shareReplay()
-    );
+    const stream$ = (
+      this.config.debugLogPath
+        ? rawStream$.pipe(tap((chunk) => this.debugLogRawChunk(chunk)))
+        : rawStream$
+    ).pipe(choices(), shareReplay());
 
     // Split content into text and inline XML tags
     const { content, tags } = splitInlineXml(stream$.pipe(getContent()));
@@ -233,7 +231,19 @@ export class LiteLLMProvider implements LLMProvider {
     // Map <thinking> tags to ThoughtStreamEvent (without contextId/taskId)
     let thoughtIndex = 0;
     const thoughts$ = tags.pipe(
-      filter((tag) => ['thinking', 'analysis', 'reasoning', 'reflection', 'planning', 'debugging', 'decision', 'observation', 'strategizing'].includes(tag.name)),
+      filter((tag) =>
+        [
+          'thinking',
+          'analysis',
+          'reasoning',
+          'reflection',
+          'planning',
+          'debugging',
+          'decision',
+          'observation',
+          'strategizing',
+        ].includes(tag.name)
+      ),
       map((tag): LLMEvent<ThoughtStreamEvent> => {
         const thoughtType =
           (singleString(
@@ -253,8 +263,8 @@ export class LiteLLMProvider implements LLMProvider {
           index: thoughtIndex++,
           timestamp: new Date().toISOString(),
           metadata: {
-            source: 'content-delta'
-          }
+            source: 'content-delta',
+          },
         };
       }),
       this.debugLog('thought-stream')
@@ -275,7 +285,10 @@ export class LiteLLMProvider implements LLMProvider {
             type: 'function' as const,
             function: {
               name: tc.function?.name as string,
-              arguments: (typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function?.arguments) : tc.function?.arguments) || {},
+              arguments:
+                (typeof tc.function?.arguments === 'string'
+                  ? JSON.parse(tc.function?.arguments)
+                  : tc.function?.arguments) || {},
             },
           }));
 
@@ -312,29 +325,31 @@ export class LiteLLMProvider implements LLMProvider {
         );
         this.debugLogInitialized = true;
       } catch (error) {
-        logger.warn({ error }, 'Failed to initialize debug log file');
+        this.logger.warn({ error }, 'Failed to initialize debug log file');
         return;
       }
     }
 
     try {
-      // Format similar to sse-log.txt but for raw LLM chunks
+      // Format similar to sse-debug.log but for raw LLM chunks
       const logEntry = [
         `chunk: ${new Date().toISOString()}`,
         `data: ${JSON.stringify(chunk)}`,
         '', // blank line separator
       ].join('\n');
 
-      appendFileSync(this.config.debugLogPath, logEntry + '\n');
+      appendFileSync(this.config.debugLogPath, `${logEntry}\n`);
     } catch (error) {
-      logger.warn({ error }, 'Failed to write debug log');
+      this.logger.warn({ error }, 'Failed to write debug log');
     }
   }
 
   /**
    * Debug logging operator - logs events to file if debugLogPath is configured
    */
-  private debugLog<T extends LLMEvent<AnyEvent>>(eventType: string): (source: Observable<T>) => Observable<T> {
+  private debugLog<T extends LLMEvent<AnyEvent>>(
+    eventType: string
+  ): (source: Observable<T>) => Observable<T> {
     if (!this.config.debugLogPath) {
       // No-op if debug logging is disabled
       return (source) => source;
@@ -356,7 +371,7 @@ export class LiteLLMProvider implements LLMProvider {
               this.debugLogInitialized = true;
             }
 
-            // Format similar to sse-log.txt
+            // Format similar to sse-debug.log
             const logEntry = [
               `event: ${eventType}`,
               `data: ${JSON.stringify(event)}`,
@@ -364,10 +379,10 @@ export class LiteLLMProvider implements LLMProvider {
               '', // blank line separator
             ].join('\n');
 
-            await fs.appendFile(this.config.debugLogPath!, logEntry + '\n');
+            await fs.appendFile(this.config.debugLogPath!, `${logEntry}\n`);
           } catch (error) {
             // Log error but don't disrupt the stream
-            logger.warn({ error, eventType }, 'Failed to write debug log');
+            this.logger.warn({ error, eventType }, 'Failed to write debug log');
           }
         })
       );
@@ -496,7 +511,7 @@ export class LiteLLMProvider implements LLMProvider {
                 const chunk: LiteLLMStreamChunk = JSON.parse(data);
                 subscriber.next(chunk);
               } catch (error) {
-                logger.warn({ error, line }, 'Failed to parse SSE chunk');
+                this.logger.warn({ error, line }, 'Failed to parse SSE chunk');
               }
             }
           }

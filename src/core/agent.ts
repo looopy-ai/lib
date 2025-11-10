@@ -449,7 +449,6 @@ export class Agent {
                 tap(async (event) => {
                   switch (event.kind) {
                     case 'content-complete':
-                      console.log('###### Captured assistant message:', event);
                       if (this.config.autoSave && (event.content || event.toolCalls)) {
                         await this.config.messageStore.append(this.config.contextId, [
                           {

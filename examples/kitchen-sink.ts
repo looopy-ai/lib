@@ -40,6 +40,7 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import pino from 'pino';
+import { setDefaultLogger } from '../src/core';
 import { Agent } from '../src/core/agent';
 import type { StoredArtifact } from '../src/core/types';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
@@ -95,6 +96,10 @@ function generateContextId(): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   return `session-${timestamp}`;
 }
+
+// Create logger
+const logger = pino({ level: 'error' });
+setDefaultLogger(logger);
 
 // Main CLI interface
 async function main() {
@@ -200,9 +205,6 @@ When creating artifacts:
 
 Be concise and helpful in your responses.`;
 
-  // Create logger
-  const logger = pino({ level: 'error' });
-
   // Create agent
   console.log('🎯 Creating agent...\n');
   const agent = new Agent({
@@ -247,7 +249,7 @@ Be concise and helpful in your responses.`;
   console.log('✅ Agent ready! Type your messages below.');
   console.log('   Commands: /quit, /exit, /history, /artifacts, /clear');
   console.log('            /contexts, /title <title>, /tag <tag>, /info');
-  console.log('            /sse-log [lines], /clear-sse-log\n');
+  console.log('            /sse-debug [lines], /clear-sse-debug\n');
 
   console.log('');
 
@@ -256,7 +258,7 @@ Be concise and helpful in your responses.`;
     BASE_PATH,
     `agent=${agentId}`,
     `context=${contextId}`,
-    'sse-log.txt'
+    'sse-debug.log'
   );
 
   // Ensure directory exists for SSE log
@@ -446,7 +448,7 @@ Be concise and helpful in your responses.`;
       return false;
     },
 
-    async '/clear-sse-log'(): Promise<boolean> {
+    async '/clear-sse-debug'(): Promise<boolean> {
       console.log('\n🗑️  Clearing SSE log...');
       try {
         await fsPromises.writeFile(sseLogPath, '', 'utf-8');
@@ -489,7 +491,7 @@ Be concise and helpful in your responses.`;
       return true;
     }
 
-    if (input.startsWith('/sse-log')) {
+    if (input.startsWith('/sse-debug')) {
       const args = input.split(' ');
       const lineCount = args[1] ? Number.parseInt(args[1], 10) : 50;
 
