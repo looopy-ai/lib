@@ -1,4 +1,4 @@
-import { filter, map, type Observable, pipe, Subject } from 'rxjs';
+import { filter, map, type Observable, pipe, ReplaySubject } from 'rxjs';
 import type { Choice, InlineXml } from './types';
 
 type SplitResult = {
@@ -58,8 +58,8 @@ export const getContent = <T extends Choice>() =>
  * - If a source chunk is fully consumed by tags, nothing is emitted on content$
  */
 export const splitInlineXml = (source: Observable<string>): SplitResult => {
-  const contentSubj = new Subject<string>();
-  const tagsSubj = new Subject<InlineXml>();
+  const contentSubj = new ReplaySubject<string>();
+  const tagsSubj = new ReplaySubject<InlineXml>();
 
   // Parser state
   let buffer = '';
