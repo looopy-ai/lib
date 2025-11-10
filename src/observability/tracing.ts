@@ -476,6 +476,10 @@ export const SpanAttributes = {
   GEN_AI_USAGE_PROMPT_TOKENS: 'gen_ai.usage.prompt_tokens',
   GEN_AI_USAGE_COMPLETION_TOKENS: 'gen_ai.usage.completion_tokens',
   GEN_AI_USAGE_TOTAL_TOKENS: 'gen_ai.usage.total_tokens',
+  GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS: 'gen_ai.usage.completion_tokens_details',
+  GEN_AI_USAGE_PROMPT_TOKENS_DETAILS: 'gen_ai.usage.prompt_tokens_details',
+  GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS: 'gen_ai.usage.cache_creation_input_tokens',
+  GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS: 'gen_ai.usage.cache_read_input_tokens',
 } as const;
 
 /**

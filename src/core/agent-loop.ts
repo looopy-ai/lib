@@ -8,19 +8,20 @@
  */
 
 import type { Span, Context as SpanContext } from '@opentelemetry/api';
+import chalk from 'chalk';
 import { concat, defer, merge, type Observable, of, Subject } from 'rxjs';
 import {
   catchError,
   filter,
   finalize,
-  last,
   map,
   shareReplay,
   switchMap,
-  tap,
+  tap
 } from 'rxjs/operators';
 import type { ContentCompleteEvent, LLMEvent } from '../events/types';
 import {
+  addLLMUsageToSpan,
   completeToolExecutionSpan,
   failToolExecutionSpan,
   failToolExecutionSpanWithException,
@@ -151,7 +152,7 @@ export class AgentLoop {
         this.config.logger.trace({ taskId: state.taskId }, 'switchMap to runLoop');
         return this.runLoop(state);
       }),
-      tap(tapAfterExecuteEvents(this.config.logger)),
+      tap(tapAfterExecuteEvents(rootSpanRef, this.config.logger)),
       catchError(catchExecuteError(rootSpanRef, context, this.config.logger, execId)),
       // Complete event emitter on execution completion
       tap({
@@ -446,7 +447,7 @@ export class AgentLoop {
 
     // Convert LLM events to AgentEvents by stamping with contextId/taskId
     // Merge with the initial LLM call event
-    const events$ = merge(
+    const events$ = concat(
       of(llmCallEvent),
       llmEvents$.pipe(
         map(
@@ -456,14 +457,26 @@ export class AgentLoop {
               contextId: state.contextId,
               taskId: state.taskId,
             }) as AgentEvent
-        )
+        ),
+        tap((event) => {
+          if (!spanRef.current) return;
+
+          switch (event.kind) {
+            case 'llm-usage':
+              console.log(chalk.yellow(`[LLM Event] ${event.kind} for task ${state.taskId}`), spanRef.current);
+              addLLMUsageToSpan(spanRef.current, event);
+              break;
+          }
+        })
       )
     );
+
+    // TODO handle LLM usage events to add to span
 
     // Extract final response and build LoopState
     const state$ = llmEvents$.pipe(
       filter((event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete'),
-      last(),
+      // last(),
       map((event): LLMResponse => {
         const toolCalls = event.toolCalls?.map((tc) => ({
           ...tc,
@@ -484,7 +497,7 @@ export class AgentLoop {
           },
           toolCalls,
           finished: true,
-          finishReason: 'stop',
+          finishReason: event.finishReason || (toolCalls?.length ? 'tool_calls' : 'stop'),
         };
       }),
       map(sanitizeLLMResponse),

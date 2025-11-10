@@ -1,6 +1,6 @@
 import { Observable, type OperatorFunction } from 'rxjs';
 import { InlineXmlParser } from './content';
-import type { Choice, InlineXml, ToolCall } from './types';
+import type { Choice, InlineXml, LLMUsage, ToolCall } from './types';
 
 type ToolCallAccumulator = {
   id: string | null;
@@ -151,6 +151,120 @@ export const aggregateChoice =
           }
 
           // Emit the fully aggregated choice
+          subscriber.next(aggregated as T);
+          subscriber.complete();
+        },
+      });
+
+      return () => sub.unsubscribe();
+    });
+
+const mergeDetailsObject = (
+  target: Record<string, number>,
+  source?: Record<string, number>
+): void => {
+  if (!source) return;
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === 'number') {
+      target[key] = (target[key] || 0) + value;
+    }
+  }
+};
+
+const buildAggregatedUsage = (
+  promptTokens: number,
+  completionTokens: number,
+  totalTokens: number,
+  cacheCreationInputTokens: number,
+  cacheReadInputTokens: number,
+  completionTokensDetails: Record<string, number>,
+  promptTokensDetails: Record<string, number>
+): LLMUsage => {
+  const aggregated: LLMUsage = {};
+
+  if (promptTokens > 0) aggregated.prompt_tokens = promptTokens;
+  if (completionTokens > 0) aggregated.completion_tokens = completionTokens;
+  if (totalTokens > 0) aggregated.total_tokens = totalTokens;
+  if (cacheCreationInputTokens > 0)
+    aggregated.cache_creation_input_tokens = cacheCreationInputTokens;
+  if (cacheReadInputTokens > 0) aggregated.cache_read_input_tokens = cacheReadInputTokens;
+
+  if (Object.keys(completionTokensDetails).length > 0) {
+    aggregated.completion_tokens_details = completionTokensDetails;
+  }
+
+  if (Object.keys(promptTokensDetails).length > 0) {
+    aggregated.prompt_tokens_details = promptTokensDetails;
+  }
+
+  return aggregated;
+};
+
+/**
+ * Aggregate streaming LLMUsage deltas into a single complete LLMUsage object.
+ *
+ * This operator accumulates all numeric fields from streamed LLMUsage objects
+ * and emits a single aggregated LLMUsage at the end of the stream.
+ *
+ * For numeric fields (token counts), values are summed across all deltas.
+ * For nested objects (completion_tokens_details, prompt_tokens_details),
+ * their numeric fields are also summed.
+ *
+ * @example
+ * ```typescript
+ * // Stream of usage deltas from LLM provider
+ * const usageStream$ = of(
+ *   { prompt_tokens: 10, completion_tokens: 5 },
+ *   { prompt_tokens: 0, completion_tokens: 8 },
+ *   { prompt_tokens: 0, completion_tokens: 3 }
+ * );
+ *
+ * usageStream$.pipe(
+ *   aggregateLLMUsage()
+ * ).subscribe(aggregated => {
+ *   console.log(aggregated);
+ *   // Output: { prompt_tokens: 10, completion_tokens: 16, total_tokens: 0 }
+ * });
+ * ```
+ */
+export const aggregateLLMUsage =
+  <T extends LLMUsage>(): OperatorFunction<T, T> =>
+  (source) =>
+    new Observable<T>((subscriber) => {
+      let promptTokens = 0;
+      let completionTokens = 0;
+      let totalTokens = 0;
+      let cacheCreationInputTokens = 0;
+      let cacheReadInputTokens = 0;
+      const completionTokensDetails: Record<string, number> = {};
+      const promptTokensDetails: Record<string, number> = {};
+
+      const sub = source.subscribe({
+        next: (usage) => {
+          // Aggregate top-level numeric fields
+          if (usage.prompt_tokens) promptTokens += usage.prompt_tokens;
+          if (usage.completion_tokens) completionTokens += usage.completion_tokens;
+          if (usage.total_tokens) totalTokens += usage.total_tokens;
+          if (usage.cache_creation_input_tokens)
+            cacheCreationInputTokens += usage.cache_creation_input_tokens;
+          if (usage.cache_read_input_tokens) cacheReadInputTokens += usage.cache_read_input_tokens;
+
+          // Aggregate nested detail objects
+          mergeDetailsObject(completionTokensDetails, usage.completion_tokens_details);
+          mergeDetailsObject(promptTokensDetails, usage.prompt_tokens_details);
+        },
+        error: (err) => subscriber.error(err),
+        complete: () => {
+          const aggregated = buildAggregatedUsage(
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            cacheCreationInputTokens,
+            cacheReadInputTokens,
+            completionTokensDetails,
+            promptTokensDetails
+          );
+
           subscriber.next(aggregated as T);
           subscriber.complete();
         },

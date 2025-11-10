@@ -158,6 +158,8 @@ export interface ContentDeltaEvent {
   timestamp: string;
 }
 
+export type FinishReason = 'stop' | 'length' | 'tool_calls' | 'content_filter';
+
 /**
  * Indicates streaming content is finished
  */
@@ -166,6 +168,7 @@ export interface ContentCompleteEvent {
   contextId: string;
   taskId: string;
   content: string; // Full assembled content
+  finishReason: FinishReason; // Why generation ended
   toolCalls?: Array<{
     id: string;
     type: 'function';
@@ -550,6 +553,33 @@ export type InternalDebugEvent =
   | InternalThoughtProcessEvent;
 
 // ============================================================================
+// 10. LLM Usage Events
+// ============================================================================
+
+/**
+ * LLM API call started
+ */
+export interface LLMUsageEvent {
+  kind: 'llm-usage';
+  contextId: string;
+  taskId: string;
+  model: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  completion_tokens_details?: Record<string, number>;
+  prompt_tokens_details?: Record<string, number>;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  timestamp: string;
+}
+
+/**
+ * Union of all usage events
+ */
+export type UsageEvent = LLMUsageEvent;
+
+// ============================================================================
 // Event Unions
 // ============================================================================
 
@@ -565,7 +595,8 @@ export type AnyEvent =
   | ArtifactEvent
   | SubAgentEvent
   | ThoughtStreamEvent
-  | InternalDebugEvent;
+  | InternalDebugEvent
+  | UsageEvent;
 
 export type LLMEvent<T> = Omit<T, 'contextId' | 'taskId'>;
 

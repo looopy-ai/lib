@@ -42,6 +42,7 @@ function createMockLLMEvents(response: LLMResponse): LLMEvent<ContentCompleteEve
             : tc.function.arguments) || {},
       },
     })),
+    finishReason: response.finishReason || 'stop',
     timestamp: new Date().toISOString(),
   };
 }

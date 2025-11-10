@@ -16,6 +16,7 @@ import {
   createTaskStatusEvent,
   createThoughtStreamEvent,
 } from '../../events';
+import type { FinishReason } from '../../events/types';
 import type { Message, ToolCall, ToolResult } from '../types';
 import { emitLLMCallEvent } from './llm-event-operators';
 import { emitToolCompleteEvent, emitToolStartEvent } from './tool-operators';
@@ -83,11 +84,17 @@ export class LoopEventEmitter {
   /**
    * Emit content streaming complete
    */
-  emitContentComplete(taskId: string, contextId: string, content: string): void {
+  emitContentComplete(
+    taskId: string,
+    contextId: string,
+    content: string,
+    finishReason: FinishReason
+  ): void {
     const event = createContentCompleteEvent({
       contextId,
       taskId,
       content,
+      finishReason,
     });
     this.eventSubject.next(event);
   }

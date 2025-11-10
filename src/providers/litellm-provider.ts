@@ -1,4 +1,3 @@
-import type { LLMEvent } from './../events/types';
 /**
  * LiteLLM Provider
  *
@@ -17,10 +16,12 @@ import { merge, Observable } from 'rxjs';
 import { filter, map, shareReplay, tap } from 'rxjs/operators';
 import {
   aggregateChoice,
+  aggregateLLMUsage,
   type Choice,
   choices,
   getContent,
   splitInlineXml,
+  usage,
 } from '../core/operators/chat-completions';
 import type { LLMProvider, Message, ToolDefinition } from '../core/types';
 import type {
@@ -32,6 +33,7 @@ import type {
   ThoughtVerbosity,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
+import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;
@@ -209,10 +211,13 @@ export class LiteLLMProvider implements LLMProvider {
       this.config.debugLogPath
         ? rawStream$.pipe(tap((chunk) => this.debugLogRawChunk(chunk)))
         : rawStream$
-    ).pipe(choices(), shareReplay());
+    ).pipe(shareReplay());
+
+    const choices$ = stream$.pipe(choices());
+    const usage$ = stream$.pipe(usage());
 
     // Split content into text and inline XML tags
-    const { content, tags } = splitInlineXml(stream$.pipe(getContent()));
+    const { content, tags } = splitInlineXml(choices$.pipe(getContent()));
 
     // Map content chunks to ContentDeltaEvent (without contextId/taskId)
     let contentIndex = 0;
@@ -271,7 +276,7 @@ export class LiteLLMProvider implements LLMProvider {
     );
 
     // Aggregate final response with tool calls
-    const complete$ = stream$.pipe(
+    const contentComplete$ = choices$.pipe(
       aggregateChoice<Choice>(),
       map((aggregated): LLMEvent<ContentCompleteEvent> => {
         // Assemble complete content
@@ -296,14 +301,28 @@ export class LiteLLMProvider implements LLMProvider {
           kind: 'content-complete',
           content,
           toolCalls: toolCalls?.length ? toolCalls : undefined,
+          finishReason: (aggregated.finish_reason as FinishReason) || 'stop',
           timestamp: new Date().toISOString(),
         };
       }),
       this.debugLog('content-complete')
     );
 
+    const usageComplete$ = usage$.pipe(
+      aggregateLLMUsage(),
+      map(
+        (usage): LLMEvent<LLMUsageEvent> => ({
+          kind: 'llm-usage' as const,
+          model: this.config.model,
+          ...usage,
+          timestamp: new Date().toISOString(),
+        })
+      ),
+      this.debugLog('llm-usage')
+    );
+
     // Merge all event streams
-    return merge(contentDeltas$, thoughts$, complete$);
+    return merge(contentDeltas$, thoughts$, contentComplete$, usageComplete$);
   }
 
   /**

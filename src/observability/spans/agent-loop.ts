@@ -6,6 +6,7 @@
 
 import { context as otelContext, type Span, trace } from '@opentelemetry/api';
 import type { TraceContext } from '../../core/types';
+import type { LLMUsageEvent } from '../../events/types';
 import { extractTraceContext, injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
 
 export interface AgentLoopSpanParams {
@@ -50,6 +51,29 @@ export function startAgentLoopSpan(params: AgentLoopSpanParams): {
   }
 
   return { span, traceContext };
+}
+
+export function addLLMUsageToSpan(span: Span, usage: LLMUsageEvent): void {
+  span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, usage.model);
+  span.setAttribute(SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS, usage.prompt_tokens || 0);
+  span.setAttribute(SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS, usage.completion_tokens || 0);
+  span.setAttribute(SpanAttributes.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens || 0);
+  span.setAttribute(
+    SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS,
+    JSON.stringify(usage.completion_tokens_details || {})
+  );
+  span.setAttribute(
+    SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS,
+    JSON.stringify(usage.prompt_tokens_details || {})
+  );
+  span.setAttribute(
+    SpanAttributes.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+    usage.cache_creation_input_tokens || 0
+  );
+  span.setAttribute(
+    SpanAttributes.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+    usage.cache_read_input_tokens || 0
+  );
 }
 
 /**

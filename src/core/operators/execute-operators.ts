@@ -63,15 +63,16 @@ export const tapBeforeExecute = (
  *
  * Completes the root span when task finishes
  */
-export const tapAfterExecuteEvents = (logger: Logger) => {
+export const tapAfterExecuteEvents = (
+  { current: span }: { current: Span | null },
+  logger: Logger
+) => {
   return (event: AgentEvent) => {
-    // Only process completion events
-    if (event.kind !== 'task-complete' && event.kind !== 'task-status') {
+    if (!span) {
       return;
     }
-
-    const span = (event as WithTraceContext)._rootSpan;
-    if (!span) {
+    // Only process completion events
+    if (event.kind !== 'task-complete' && event.kind !== 'task-status') {
       return;
     }
 

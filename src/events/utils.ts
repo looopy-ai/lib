@@ -16,6 +16,7 @@ import type {
   DatasetWriteEvent,
   DataWriteEvent,
   FileWriteEvent,
+  FinishReason,
   InputProvider,
   InputReceivedEvent,
   InputRequiredEvent,
@@ -156,6 +157,7 @@ export interface CreateContentCompleteEventOptions {
   contextId: string;
   taskId: string;
   content: string;
+  finishReason?: FinishReason;
 }
 
 export function createContentCompleteEvent(
@@ -166,6 +168,7 @@ export function createContentCompleteEvent(
     contextId: options.contextId,
     taskId: options.taskId,
     content: options.content,
+    finishReason: options.finishReason || 'stop',
     timestamp: new Date().toISOString(),
   };
 }
