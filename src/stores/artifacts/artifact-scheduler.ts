@@ -50,6 +50,7 @@ export class ArtifactScheduler implements ArtifactStore {
     description?: string;
     mimeType?: string;
     encoding?: 'utf-8' | 'base64';
+    override?: boolean;
   }): Promise<string> {
     return this.scheduleOperation(params.artifactId, () => this.store.createFileArtifact(params));
   }
@@ -78,6 +79,7 @@ export class ArtifactScheduler implements ArtifactStore {
     contextId: string;
     name?: string;
     description?: string;
+    override?: boolean;
   }): Promise<string> {
     return this.scheduleOperation(params.artifactId, () => this.store.createDataArtifact(params));
   }
@@ -101,6 +103,7 @@ export class ArtifactScheduler implements ArtifactStore {
     name?: string;
     description?: string;
     schema?: DatasetSchema;
+    override?: boolean;
   }): Promise<string> {
     return this.scheduleOperation(params.artifactId, () =>
       this.store.createDatasetArtifact(params)

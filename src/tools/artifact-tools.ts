@@ -53,7 +53,7 @@ export function createArtifactTools(
 
     tool(
       'create_file_artifact',
-      'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content.',
+      'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content. Set override=true to replace existing artifact.',
       z.object({
         artifactId: z
           .string()
@@ -70,14 +70,13 @@ export function createArtifactTools(
           .optional()
           .default('utf-8')
           .describe('Content encoding'),
+        override: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Set to true to replace an existing artifact with the same ID'),
       }),
       async (params, context) => {
-        // Check if artifact already exists
-        const existing = await artifactStore.getArtifact(params.artifactId);
-        if (existing) {
-          throw new Error(`Artifact already exists: ${params.artifactId}`);
-        }
-
         await artifactStore.createFileArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
@@ -86,6 +85,7 @@ export function createArtifactTools(
           description: params.description,
           mimeType: params.mimeType,
           encoding: params.encoding,
+          override: params.override,
         });
 
         // Track in state
@@ -95,7 +95,9 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           type: 'file',
           status: 'building',
-          message: 'File artifact created. Use append_file_chunk to add content.',
+          message: params.override
+            ? 'File artifact reset. Use append_file_chunk to add content.'
+            : 'File artifact created. Use append_file_chunk to add content.',
         };
       }
     ),
@@ -105,7 +107,7 @@ export function createArtifactTools(
       'Append a chunk of content to a file artifact. Call multiple times to stream content.',
       z.object({
         artifactId: z.string().describe('The artifact ID to append to'),
-        chunk: z.string().describe('Content chunk to append'),
+        content_chunk: z.string().describe('Content chunk to append to the file'),
         isLastChunk: z
           .boolean()
           .optional()
@@ -113,7 +115,7 @@ export function createArtifactTools(
           .describe('Set to true on the final chunk to mark artifact as complete'),
       }),
       async (params, _context) => {
-        await artifactStore.appendFileChunk(params.artifactId, params.chunk, {
+        await artifactStore.appendFileChunk(params.artifactId, params.content_chunk, {
           isLastChunk: params.isLastChunk,
         });
 
@@ -149,20 +151,19 @@ export function createArtifactTools(
 
     tool(
       'create_data_artifact',
-      'Create a data artifact with structured JSON data',
+      'Create a data artifact with structured JSON data. Set override=true to replace existing artifact.',
       z.object({
         artifactId: z.string().describe('Unique identifier for the artifact'),
         name: z.string().optional().describe('Human-readable name'),
         description: z.string().optional().describe('Description of the data'),
         data: z.record(z.string(), z.unknown()).describe('The structured data object'),
+        override: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Set to true to replace an existing artifact with the same ID'),
       }),
       async (params, context) => {
-        // Check if artifact already exists
-        const existing = await artifactStore.getArtifact(params.artifactId);
-        if (existing) {
-          throw new Error(`Artifact already exists: ${params.artifactId}`);
-        }
-
         // Create the artifact
         await artifactStore.createDataArtifact({
           artifactId: params.artifactId,
@@ -170,6 +171,7 @@ export function createArtifactTools(
           contextId: context.contextId,
           name: params.name,
           description: params.description,
+          override: params.override,
         });
 
         // Write the initial data
@@ -182,7 +184,9 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           type: 'data',
           status: 'complete',
-          message: 'Data artifact created successfully.',
+          message: params.override
+            ? 'Data artifact reset successfully.'
+            : 'Data artifact created successfully.',
         };
       }
     ),
@@ -226,7 +230,7 @@ export function createArtifactTools(
 
     tool(
       'create_dataset_artifact',
-      'Create a dataset artifact for tabular data with a schema',
+      'Create a dataset artifact for tabular data with a schema. Set override=true to replace existing artifact.',
       z.object({
         artifactId: z.string().describe('Unique identifier for the dataset'),
         name: z.string().optional().describe('Human-readable name'),
@@ -240,14 +244,13 @@ export function createArtifactTools(
             })
           ),
         }),
+        override: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Set to true to replace an existing artifact with the same ID'),
       }),
       async (params, context) => {
-        // Check if artifact already exists
-        const existing = await artifactStore.getArtifact(params.artifactId);
-        if (existing) {
-          throw new Error(`Artifact already exists: ${params.artifactId}`);
-        }
-
         await artifactStore.createDatasetArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
@@ -255,6 +258,7 @@ export function createArtifactTools(
           name: params.name,
           description: params.description,
           schema: params.schema,
+          override: params.override,
         });
 
         // Track in state
@@ -264,7 +268,9 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           type: 'dataset',
           status: 'building',
-          message: 'Dataset artifact created. Use append_dataset_row(s) to add data.',
+          message: params.override
+            ? 'Dataset artifact reset. Use append_dataset_row(s) to add data.'
+            : 'Dataset artifact created. Use append_dataset_row(s) to add data.',
         };
       }
     ),

@@ -44,8 +44,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
     description?: string;
     mimeType?: string;
     encoding?: 'utf-8' | 'base64';
+    override?: boolean;
   }): Promise<string> {
+    const existing = this.artifacts.get(params.artifactId);
+
+    // Check if artifact already exists
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${params.artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
     const now = new Date().toISOString();
+    const createdAt = existing ? existing.createdAt : now;
 
     const artifact: FileArtifact = {
       type: 'file',
@@ -60,15 +72,15 @@ export class InMemoryArtifactStore implements ArtifactStore {
       totalChunks: 0,
       totalSize: 0,
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: randomUUID(),
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt,
       updatedAt: now,
     };
 
@@ -159,8 +171,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
     contextId: string;
     name?: string;
     description?: string;
+    override?: boolean;
   }): Promise<string> {
+    const existing = this.artifacts.get(params.artifactId);
+
+    // Check if artifact already exists
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${params.artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
     const now = new Date().toISOString();
+    const createdAt = existing ? existing.createdAt : now;
 
     const artifact: DataArtifact = {
       type: 'data',
@@ -171,15 +195,15 @@ export class InMemoryArtifactStore implements ArtifactStore {
       description: params.description,
       data: {},
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: randomUUID(),
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt,
       updatedAt: now,
     };
 
@@ -246,8 +270,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
     name?: string;
     description?: string;
     schema?: DatasetSchema;
+    override?: boolean;
   }): Promise<string> {
+    const existing = this.artifacts.get(params.artifactId);
+
+    // Check if artifact already exists
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${params.artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
     const now = new Date().toISOString();
+    const createdAt = existing ? existing.createdAt : now;
 
     const artifact: DatasetArtifact = {
       type: 'dataset',
@@ -261,15 +297,15 @@ export class InMemoryArtifactStore implements ArtifactStore {
       totalChunks: 0,
       totalSize: 0,
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: randomUUID(),
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt,
       updatedAt: now,
     };
 

@@ -412,6 +412,7 @@ export interface ArtifactStore {
     description?: string;
     mimeType?: string;
     encoding?: 'utf-8' | 'base64';
+    override?: boolean;
   }): Promise<string>;
 
   /**
@@ -423,6 +424,7 @@ export interface ArtifactStore {
     contextId: string;
     name?: string;
     description?: string;
+    override?: boolean;
   }): Promise<string>;
 
   /**
@@ -435,6 +437,7 @@ export interface ArtifactStore {
     name?: string;
     description?: string;
     schema?: DatasetSchema;
+    override?: boolean;
   }): Promise<string>;
 
   /**
@@ -669,7 +672,7 @@ export interface ArtifactPart {
  */
 export interface ArtifactOperation {
   operationId: string;
-  type: 'create' | 'append' | 'replace' | 'complete';
+  type: 'create' | 'append' | 'replace' | 'complete' | 'reset';
   timestamp: string;
   partIndex?: number;
   chunkIndex?: number;

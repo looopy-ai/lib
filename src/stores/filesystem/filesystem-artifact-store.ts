@@ -54,9 +54,28 @@ export class FileSystemArtifactStore implements ArtifactStore {
     description?: string;
     mimeType?: string;
     encoding?: 'utf-8' | 'base64';
+    override?: boolean;
   }): Promise<string> {
     const artifactId = params.artifactId || randomUUID();
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
+
+    // Check if artifact already exists
+    const existing = await this.loadArtifactByIdScan(artifactId);
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
+    // If overriding, remove existing directory
+    if (existing && params.override) {
+      try {
+        await rm(artifactDir, { recursive: true, force: true });
+      } catch {
+        // Ignore errors if directory doesn't exist
+      }
+    }
 
     await mkdir(artifactDir, { recursive: true });
 
@@ -78,15 +97,15 @@ export class FileSystemArtifactStore implements ArtifactStore {
       totalChunks: 0,
       totalSize: 0,
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: `op-${Date.now()}`,
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt: existing ? existing.createdAt : now,
       updatedAt: now,
     };
 
@@ -170,9 +189,28 @@ export class FileSystemArtifactStore implements ArtifactStore {
     contextId: string;
     name?: string;
     description?: string;
+    override?: boolean;
   }): Promise<string> {
     const artifactId = params.artifactId || randomUUID();
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
+
+    // Check if artifact already exists
+    const existing = await this.loadArtifactByIdScan(artifactId);
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
+    // If overriding, remove existing directory
+    if (existing && params.override) {
+      try {
+        await rm(artifactDir, { recursive: true, force: true });
+      } catch {
+        // Ignore errors if directory doesn't exist
+      }
+    }
 
     await mkdir(artifactDir, { recursive: true });
 
@@ -186,15 +224,15 @@ export class FileSystemArtifactStore implements ArtifactStore {
       description: params.description,
       data: {},
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: `op-${Date.now()}`,
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt: existing ? existing.createdAt : now,
       updatedAt: now,
     };
 
@@ -261,9 +299,28 @@ export class FileSystemArtifactStore implements ArtifactStore {
     name?: string;
     description?: string;
     schema?: DatasetSchema;
+    override?: boolean;
   }): Promise<string> {
     const artifactId = params.artifactId || randomUUID();
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
+
+    // Check if artifact already exists
+    const existing = await this.loadArtifactByIdScan(artifactId);
+    if (existing && !params.override) {
+      throw new Error(
+        `Artifact already exists: ${artifactId}. ` +
+          `Use override: true to replace it, or use a different artifactId.`
+      );
+    }
+
+    // If overriding, remove existing directory
+    if (existing && params.override) {
+      try {
+        await rm(artifactDir, { recursive: true, force: true });
+      } catch {
+        // Ignore errors if directory doesn't exist
+      }
+    }
 
     await mkdir(artifactDir, { recursive: true });
 
@@ -280,15 +337,15 @@ export class FileSystemArtifactStore implements ArtifactStore {
       totalChunks: 0,
       totalSize: 0,
       status: 'building',
-      version: 1,
+      version: existing && params.override ? existing.version + 1 : 1,
       operations: [
         {
           operationId: `op-${Date.now()}`,
-          type: 'create',
+          type: params.override ? 'reset' : 'create',
           timestamp: now,
         },
       ],
-      createdAt: now,
+      createdAt: existing ? existing.createdAt : now,
       updatedAt: now,
     };
 
