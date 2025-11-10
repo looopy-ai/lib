@@ -23,6 +23,7 @@ import {
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
+import { ArtifactScheduler } from '../stores/artifacts/artifact-scheduler';
 import type { MessageStore } from '../stores/messages/interfaces';
 import { AgentLoop } from './agent-loop';
 import type { AgentLoopConfig } from './config';
@@ -148,6 +149,9 @@ export class Agent {
   private _state: AgentState;
 
   constructor(config: AgentConfig) {
+    // Wrap artifact store with scheduler to handle parallel create+append operations
+    const scheduledArtifactStore = new ArtifactScheduler(config.artifactStore);
+
     this.config = {
       autoSave: true,
       autoCompact: false,
@@ -155,6 +159,7 @@ export class Agent {
       agentId: 'default-agent',
       systemPrompt: 'You are a helpful AI assistant.',
       ...config,
+      artifactStore: scheduledArtifactStore, // Use scheduled version
       logger: config.logger || getLogger({ component: 'Agent', contextId: config.contextId }),
     };
 
@@ -164,7 +169,7 @@ export class Agent {
       llmProvider: this.config.llmProvider,
       toolProviders: this.config.toolProviders,
       taskStateStore: new NoopStateStore(), // Agent handles state, not AgentLoop
-      artifactStore: this.config.artifactStore,
+      artifactStore: this.config.artifactStore, // Already scheduled
       systemPrompt: this.config.systemPrompt,
       logger: this.config.logger,
       ...this.config.loopConfig,
@@ -193,6 +198,20 @@ export class Agent {
    */
   get contextId(): string {
     return this.config.contextId;
+  }
+
+  /**
+   * Get the artifact store (wrapped with scheduler)
+   *
+   * Use this when creating artifact tools to ensure they use the same
+   * scheduled store instance as the agent.
+   *
+   * @example
+   * const agent = new Agent({ artifactStore: myStore, ... });
+   * const artifactTools = createArtifactTools(agent.artifactStore, taskStateStore);
+   */
+  get artifactStore(): ArtifactStore {
+    return this.config.artifactStore;
   }
 
   /**

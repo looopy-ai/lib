@@ -94,33 +94,40 @@ export class InMemoryArtifactStore implements ArtifactStore {
     }
 
     const now = new Date().toISOString();
-    const encoding = options?.encoding || artifact.encoding || 'utf-8';
-    const chunkSize = Buffer.byteLength(chunk, encoding);
 
-    const artifactChunk: ArtifactChunk = {
-      index: artifact.chunks.length,
-      data: chunk,
-      size: chunkSize,
-      timestamp: now,
-    };
+    // Only append chunk if there's content
+    if (chunk && chunk.length > 0) {
+      const encoding = options?.encoding || artifact.encoding || 'utf-8';
+      const chunkSize = Buffer.byteLength(chunk, encoding);
 
-    artifact.chunks.push(artifactChunk);
-    artifact.totalChunks = artifact.chunks.length;
-    artifact.totalSize += chunkSize;
+      const artifactChunk: ArtifactChunk = {
+        index: artifact.chunks.length,
+        data: chunk,
+        size: chunkSize,
+        timestamp: now,
+      };
+
+      artifact.chunks.push(artifactChunk);
+      artifact.totalChunks = artifact.chunks.length;
+      artifact.totalSize += chunkSize;
+
+      artifact.operations.push({
+        operationId: randomUUID(),
+        type: 'append',
+        timestamp: now,
+        chunkIndex: artifactChunk.index,
+      });
+    }
+
+    // Always update metadata
     artifact.updatedAt = now;
     artifact.version += 1;
 
+    // Mark as complete if requested (even with empty chunk)
     if (options?.isLastChunk) {
       artifact.status = 'complete';
       artifact.completedAt = now;
     }
-
-    artifact.operations.push({
-      operationId: randomUUID(),
-      type: 'append',
-      timestamp: now,
-      chunkIndex: artifactChunk.index,
-    });
   }
 
   /**
@@ -289,24 +296,29 @@ export class InMemoryArtifactStore implements ArtifactStore {
 
     const now = new Date().toISOString();
 
-    // Append rows
-    artifact.rows.push(...rows);
-    artifact.totalChunks += 1; // Batch count
-    artifact.totalSize = artifact.rows.length; // Total rows
+    // Only append rows if there are any
+    if (rows && rows.length > 0) {
+      artifact.rows.push(...rows);
+      artifact.totalChunks += 1; // Batch count
+      artifact.totalSize = artifact.rows.length; // Total rows
+
+      artifact.operations.push({
+        operationId: randomUUID(),
+        type: 'append',
+        timestamp: now,
+        chunkIndex: artifact.totalChunks - 1,
+      });
+    }
+
+    // Always update metadata
     artifact.updatedAt = now;
     artifact.version += 1;
 
+    // Mark as complete if requested (even with empty batch)
     if (options?.isLastBatch) {
       artifact.status = 'complete';
       artifact.completedAt = now;
     }
-
-    artifact.operations.push({
-      operationId: randomUUID(),
-      type: 'append',
-      timestamp: now,
-      chunkIndex: artifact.totalChunks - 1,
-    });
   }
 
   /**

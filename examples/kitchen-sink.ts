@@ -130,9 +130,6 @@ async function main() {
   // Local tools provider
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
-  // Artifact tools provider (NEW: uses discriminated union types)
-  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
-
   // System prompt
   const systemPrompt = `You are a helpful AI assistant with access to various tools.
 
@@ -204,13 +201,21 @@ Be concise and helpful in your responses.`;
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider],
+    toolProviders: [localToolProvider], // Artifact tools added after agent construction
     messageStore,
     artifactStore,
     systemPrompt,
     autoSave: true,
     logger,
   });
+
+  // Artifact tools provider - MUST be created after Agent to use scheduled store
+  // Agent wraps artifactStore with ArtifactScheduler internally, so we need to use
+  // agent.artifactStore to ensure tools use the same scheduled instance
+  const artifactToolProvider = createArtifactTools(agent.artifactStore, taskStateStore);
+
+  // Add artifact tools to agent
+  agent['config'].toolProviders.push(artifactToolProvider);
 
   // Initialize or load context state
   let contextState = await contextStore.load(contextId);

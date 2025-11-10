@@ -5,6 +5,7 @@
  * See: ai-journal/DISCRIMINATED_UNIONS_REFACTOR.md
  */
 
+export { ArtifactScheduler } from './artifact-scheduler';
 export {
   InternalEventArtifactStore,
   type InternalEventArtifactStoreConfig,
