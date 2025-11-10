@@ -57,6 +57,13 @@ export interface AgentLoopConfig {
   checkpointInterval?: number;
 
   /**
+   * Enable think_aloud tool for explicit thought emission
+   * When disabled, only <thinking> tags are supported for streaming thoughts
+   * @default false
+   */
+  enableThoughtTools?: boolean;
+
+  /**
    * Logger instance (optional)
    * If not provided, a default logger will be used
    */

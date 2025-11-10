@@ -10,8 +10,10 @@ import type { LLMEvent } from './../events/types';
  * @see https://docs.litellm.ai/
  */
 
+import { appendFileSync, promises as fs, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { merge, Observable } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
+import { filter, map, shareReplay, tap } from 'rxjs/operators';
 import { getLogger } from '../core/logger';
 import {
   aggregateChoice,
@@ -69,6 +71,9 @@ export interface LiteLLMConfig {
 
   /** Additional parameters to pass to LiteLLM */
   extraParams?: Record<string, unknown>;
+
+  /** Debug logging - path to file where all LLM events will be logged */
+  debugLogPath?: string;
 }
 
 /**
@@ -143,6 +148,7 @@ export class LiteLLMProvider implements LLMProvider {
     timeout: number;
     extraParams: Record<string, unknown>;
   };
+  private debugLogInitialized = false;
 
   constructor(config: LiteLLMConfig) {
     this.config = {
@@ -194,7 +200,18 @@ export class LiteLLMProvider implements LLMProvider {
     tools?: ToolDefinition[];
     sessionId?: string;
   }): Observable<LLMEvent<AnyEvent>> {
-    const stream$ = this.createSSEStream(request).pipe(choices());
+    const rawStream$ = this.createSSEStream(request);
+
+    // Log raw chunks if debug logging is enabled
+    // shareReplay() ensures only ONE subscription to the underlying HTTP stream
+    // even though multiple operators (content, tags, complete$) derive from it
+    const stream$ = (this.config.debugLogPath
+      ? rawStream$.pipe(tap(chunk => this.debugLogRawChunk(chunk)))
+      : rawStream$
+    ).pipe(
+      choices(),
+      shareReplay()
+    );
 
     // Split content into text and inline XML tags
     const { content, tags } = splitInlineXml(stream$.pipe(getContent()));
@@ -209,7 +226,8 @@ export class LiteLLMProvider implements LLMProvider {
           index: contentIndex++,
           timestamp: new Date().toISOString(),
         })
-      )
+      ),
+      this.debugLog('content-delta')
     );
 
     // Map <thinking> tags to ThoughtStreamEvent (without contextId/taskId)
@@ -238,7 +256,8 @@ export class LiteLLMProvider implements LLMProvider {
             source: 'content-delta'
           }
         };
-      })
+      }),
+      this.debugLog('thought-stream')
     );
 
     // Aggregate final response with tool calls
@@ -266,11 +285,92 @@ export class LiteLLMProvider implements LLMProvider {
           toolCalls: toolCalls?.length ? toolCalls : undefined,
           timestamp: new Date().toISOString(),
         };
-      })
+      }),
+      this.debugLog('content-complete')
     );
 
     // Merge all event streams
     return merge(contentDeltas$, thoughts$, complete$);
+  }
+
+  /**
+   * Debug log raw SSE chunks from LiteLLM
+   */
+  private debugLogRawChunk(chunk: LiteLLMStreamChunk): void {
+    if (!this.config.debugLogPath) {
+      return;
+    }
+
+    // Initialize on first write
+    if (!this.debugLogInitialized) {
+      try {
+        mkdirSync(dirname(this.config.debugLogPath), { recursive: true });
+        writeFileSync(
+          this.config.debugLogPath,
+          `# LLM Raw Stream Debug Log\n# Started: ${new Date().toISOString()}\n# Model: ${this.config.model}\n\n`,
+          { flag: 'w' }
+        );
+        this.debugLogInitialized = true;
+      } catch (error) {
+        logger.warn({ error }, 'Failed to initialize debug log file');
+        return;
+      }
+    }
+
+    try {
+      // Format similar to sse-log.txt but for raw LLM chunks
+      const logEntry = [
+        `chunk: ${new Date().toISOString()}`,
+        `data: ${JSON.stringify(chunk)}`,
+        '', // blank line separator
+      ].join('\n');
+
+      appendFileSync(this.config.debugLogPath, logEntry + '\n');
+    } catch (error) {
+      logger.warn({ error }, 'Failed to write debug log');
+    }
+  }
+
+  /**
+   * Debug logging operator - logs events to file if debugLogPath is configured
+   */
+  private debugLog<T extends LLMEvent<AnyEvent>>(eventType: string): (source: Observable<T>) => Observable<T> {
+    if (!this.config.debugLogPath) {
+      // No-op if debug logging is disabled
+      return (source) => source;
+    }
+
+    return (source: Observable<T>) =>
+      source.pipe(
+        tap(async (event) => {
+          try {
+            // Ensure directory exists on first write
+            if (!this.debugLogInitialized) {
+              await fs.mkdir(dirname(this.config.debugLogPath!), { recursive: true });
+              // Write header on first use
+              await fs.writeFile(
+                this.config.debugLogPath!,
+                `# LLM Event Debug Log\n# Started: ${new Date().toISOString()}\n# Model: ${this.config.model}\n\n`,
+                { flag: 'w' }
+              );
+              this.debugLogInitialized = true;
+            }
+
+            // Format similar to sse-log.txt
+            const logEntry = [
+              `event: ${eventType}`,
+              `data: ${JSON.stringify(event)}`,
+              `when: ${new Date().toISOString()}`,
+              '', // blank line separator
+            ].join('\n');
+
+            await fs.appendFile(this.config.debugLogPath!, logEntry + '\n');
+          } catch (error) {
+            // Log error but don't disrupt the stream
+            logger.warn({ error, eventType }, 'Failed to write debug log');
+          }
+        })
+      );
   }
 
   /**
@@ -459,13 +559,14 @@ export const LiteLLM = {
   /**
    * Create provider for Nova Lite
    */
-  novaLite(baseUrl: string, apiKey?: string): LiteLLMProvider {
+  novaLite(baseUrl: string, apiKey?: string, debugLogPath?: string): LiteLLMProvider {
     return new LiteLLMProvider({
       baseUrl,
       model: 'amazon.nova-lite-v1:0',
       apiKey,
       temperature: 0.7,
       maxTokens: 8192,
+      debugLogPath,
     });
   },
 

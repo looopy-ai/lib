@@ -68,7 +68,6 @@ if (process.env.OTEL_ENABLED === 'true') {
 const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
-const _OTEL_ENABLED = process.env.OTEL_ENABLED === 'true';
 
 // Parse command line arguments
 function parseArgs(): { agentId: string; contextId: string | null } {
@@ -102,9 +101,11 @@ async function main() {
   const { agentId, contextId: providedContextId } = parseArgs();
   const contextId = providedContextId || generateContextId();
 
+  const storagePath = `${BASE_PATH}/agent=${agentId}/context=${contextId}`;
+
   console.log(`Agent ID: ${agentId}`);
   console.log(`Context ID: ${contextId}`);
-  console.log(`Storage Path: ${BASE_PATH}/agent=${agentId}/context=${contextId}/`);
+  console.log(`Storage Path: ${storagePath}/`);
   console.log('');
 
   // Initialize stores
@@ -116,7 +117,11 @@ async function main() {
 
   // Initialize LLM provider
   console.log('🤖 Connecting to LiteLLM...');
-  const llmProvider = LiteLLM.novaLite(LITELLM_URL, LITELLM_API_KEY);
+  const llmProvider = LiteLLM.novaLite(
+    LITELLM_URL,
+    LITELLM_API_KEY,
+    `${storagePath}/llm-debug.log`
+  );
 
   // Initialize tools
   console.log('🔧 Setting up tools...');
@@ -134,7 +139,6 @@ Available capabilities:
 - Mathematical calculations (calculate)
 - Random number generation (get_random_number)
 - Weather information (get_weather)
-- Thought streaming (think_aloud): Share your reasoning process with users
 - Artifact creation and management:
   - create_file_artifact: Create text/file artifacts with streaming chunks
   - append_file_chunk: Append content to file artifacts
@@ -146,32 +150,23 @@ Available capabilities:
   - list_artifacts: List all artifacts
   - get_artifact: Retrieve artifact details
 
-Thinking Out Loud:
-Use the think_aloud tool to share your reasoning process, especially when:
-- Planning your approach to a complex task (thought_type: "planning")
-- Working through a multi-step problem (thought_type: "reasoning")
-- Making decisions between alternatives (thought_type: "decision", include alternatives array)
-- Reflecting on what you've done (thought_type: "reflection")
-- Noticing important details in the user's request (thought_type: "observation")
+Streaming Your Thoughts:
+You can share your internal reasoning process with users by wrapping your thoughts in <thinking> tags.
+The content inside these tags will be streamed to the user in real-time as you generate your response.
 
-Important: Provide a thought_id (like "initial_plan", "step1", "weather_check") so you can reference
-thoughts later using related_to. This helps create chains of reasoning.
+Examples of when to use thinking tags:
+- When planning your approach to a complex task
+- When working through multi-step reasoning
+- When making decisions or weighing alternatives
+- When you want to show your work transparently
 
-Example: Before calling multiple tools, use think_aloud to explain your plan:
-  think_aloud({
-    thought_id: "initial_plan",
-    thought: "I'll first get the weather, then calculate if temperature conversion is needed",
-    thought_type: "planning",
-    confidence: 0.9
-  })
-
-Then later you can reference it:
-  think_aloud({
-    thought_id: "weather_retrieved",
-    thought: "Got the weather data, now I see it's in Celsius",
-    thought_type: "observation",
-    related_to: "initial_plan"
-  })
+Example:
+<thinking>
+The user wants weather information and a calculation. I'll:
+1. First get the weather data
+2. Then perform any needed calculations
+3. Present the results clearly
+</thinking>
 
 When creating artifacts:
 - File artifacts: Use create_file_artifact, then append_file_chunk (set isLastChunk=true on final chunk)

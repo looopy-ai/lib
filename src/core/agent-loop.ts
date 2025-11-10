@@ -86,6 +86,7 @@ export class AgentLoop {
       systemPrompt: 'You are a helpful AI assistant.',
       enableCheckpoints: true,
       checkpointInterval: 3,
+      enableThoughtTools: false,
       ...config,
       logger: config.logger || getLogger({ component: 'AgentLoop' }),
     };
@@ -220,17 +221,18 @@ export class AgentLoop {
     const taskId = context.taskId || generateTaskId();
     const contextId = context.contextId;
 
-    // Create thought tools provider for this execution
-    this.thoughtToolProvider = this.eventEmitter
-      ? thoughtTools({
-          eventEmitter: this.eventEmitter,
-          taskId,
-          contextId,
-          enabled: true,
-        })
-      : null;
+    // Create thought tools provider for this execution (if enabled)
+    this.thoughtToolProvider =
+      this.eventEmitter && this.config.enableThoughtTools
+        ? thoughtTools({
+            eventEmitter: this.eventEmitter,
+            taskId,
+            contextId,
+            enabled: true,
+          })
+        : null;
 
-    // Gather tools from all providers (including thought tools)
+    // Gather tools from all providers (including thought tools if enabled)
     const allProviders = this.thoughtToolProvider
       ? [...this.config.toolProviders, this.thoughtToolProvider]
       : this.config.toolProviders;
