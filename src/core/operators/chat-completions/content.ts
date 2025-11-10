@@ -211,3 +211,33 @@ export const splitInlineXml = (source: Observable<string>): SplitResult => {
 
   return { content: contentSubj.asObservable(), tags: tagsSubj.asObservable() };
 };
+
+/**
+ * stripInlineXmlTags
+ * Removes inline XML-like tags from a complete string.
+ * Useful for cleaning aggregated content after streaming completes.
+ *
+ * - Removes self-closing tags: <thinking />
+ * - Removes paired tags and their content: <thinking>...</thinking>
+ * - Preserves whitespace appropriately (adds space where tags are removed if needed)
+ *
+ * @param text - The text to clean
+ * @returns Text with XML tags removed
+ */
+export const stripInlineXmlTags = (text: string): string => {
+  let result = text;
+
+  // Remove paired tags with content: <tagname ...>...</tagname>
+  // Replace with space to preserve word boundaries
+  result = result.replace(/<([A-Za-z_:][\w:.-]*)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g, ' ');
+
+  // Remove self-closing tags: <tagname ... />
+  // Replace with space to preserve word boundaries
+  result = result.replace(/<([A-Za-z_:][\w:.-]*)(?:\s[^>]*)?\s*\/>/g, ' ');
+
+  // Clean up excessive whitespace
+  // Replace multiple spaces/newlines with single space, trim start/end
+  result = result.replace(/\s+/g, ' ').trim();
+
+  return result;
+};

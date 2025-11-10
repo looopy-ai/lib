@@ -235,4 +235,83 @@ describe('aggregateChoice', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({});
   });
+
+  it('should strip inline XML tags from aggregated content', async () => {
+    const chunks: Choice[] = [
+      {
+        index: 0,
+        delta: { content: 'Let me think about this. <thinking>I need to ' },
+        finish_reason: null,
+      },
+      {
+        index: 0,
+        delta: { content: 'analyze the problem carefully</thinking> The answer is ' },
+        finish_reason: null,
+      },
+      {
+        index: 0,
+        delta: { content: '42.' },
+        finish_reason: 'stop',
+      },
+    ];
+
+    const result = await from(chunks).pipe(aggregateChoice(), toArray()).toPromise();
+
+    if (!result) throw new Error('Result is undefined');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      index: 0,
+      delta: {
+        content: 'Let me think about this. The answer is 42.',
+      },
+      finish_reason: 'stop',
+    });
+  });
+
+  it('should strip self-closing XML tags from aggregated content', async () => {
+    const chunks: Choice[] = [
+      {
+        index: 0,
+        delta: { content: 'Processing<thinking />Now complete.' },
+        finish_reason: 'stop',
+      },
+    ];
+
+    const result = await from(chunks).pipe(aggregateChoice(), toArray()).toPromise();
+
+    if (!result) throw new Error('Result is undefined');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      index: 0,
+      delta: {
+        content: 'Processing Now complete.',
+      },
+      finish_reason: 'stop',
+    });
+  });
+
+  it('should handle multiple XML tags in aggregated content', async () => {
+    const chunks: Choice[] = [
+      {
+        index: 0,
+        delta: { content: '<thinking>First thought</thinking> Content <thinking>Second thought</thinking>' },
+        finish_reason: 'stop',
+      },
+    ];
+
+    const result = await from(chunks).pipe(aggregateChoice(), toArray()).toPromise();
+
+    if (!result) throw new Error('Result is undefined');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      index: 0,
+      delta: {
+        content: 'Content',
+      },
+      finish_reason: 'stop',
+    });
+  });
 });

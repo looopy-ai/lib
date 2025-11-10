@@ -1,4 +1,5 @@
 import { Observable, type OperatorFunction } from 'rxjs';
+import { stripInlineXmlTags } from './content';
 import type { Choice, ToolCall } from './types';
 
 type ToolCallAccumulator = {
@@ -132,6 +133,11 @@ export const aggregateChoice =
               ...aggregated.delta,
               tool_calls: finalizeToolCalls(toolCallsByIndex),
             };
+          }
+
+          // Strip inline XML tags from aggregated content
+          if (aggregated.delta?.content) {
+            aggregated.delta.content = stripInlineXmlTags(aggregated.delta.content);
           }
 
           // Emit the fully aggregated choice
