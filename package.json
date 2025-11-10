@@ -5,10 +5,12 @@
   "main": "src/core/index.ts",
   "type": "module",
   "scripts": {
+    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --allowUnusedTypes --excludePathsFromReport='index'",
+    "check:types": "tsc --noEmit",
     "test": "CI=true vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "example": "tsx examples/basic-agent.ts",
+    "example": "tsx examples/kitchen-sink.ts",
     "example:litellm": "tsx examples/litellm-agent.ts",
     "build": "tsc --noEmit",
     "lint": "biome check src examples tests",
