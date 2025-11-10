@@ -8,89 +8,83 @@ This document describes the end-to-end architecture of the streaming and eventin
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          CLIENT LAYER                                   │
+│                    CLIENT LAYER (Kitchen Sink CLI)                      │
 │                                                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  SSE Client (Browser/CLI)                                        │  │
-│  │  • EventSource connection                                        │  │
-│  │  • Receives JSON events line-by-line                             │  │
-│  │  • Handles reconnection with Last-Event-ID                       │  │
+│  │  Kitchen Sink CLI (examples/kitchen-sink.ts)                     │  │
+│  │  • Subscribes to agent.startTurn() Observable                    │  │
+│  │  • Handles events in handleAgentEvent()                          │  │
+│  │  • Uses fs.writeSync() for ordered console output                │  │
+│  │  • Logs all events to SSE log file                               │  │
 │  └───────────────────────────┬──────────────────────────────────────┘  │
 └─────────────────────────────┼────────────────────────────────────────────┘
                               │
-                      HTTP SSE Stream
-                      (text/event-stream)
-                              │
-┌─────────────────────────────┼────────────────────────────────────────────┐
-│                    SSE SERVER LAYER                                     │
-│  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  SSEServer (Express Endpoint)                                    │  │
-│  │  • Maintains long-lived HTTP connections                         │  │
-│  │  • Routes events to correct subscribers                          │  │
-│  │  • Keep-alive pings every 30s                                    │  │
-│  │  • Handles subscriber lifecycle                                  │  │
-│  └───────────────────────────┬──────────────────────────────────────┘  │
-│                              │                                          │
-│                   EventRouter.route()                                  │
-│                              │                                          │
-│  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  EventRouter                                                     │  │
-│  │  • Maps taskId → Set<Subscriber>                                 │  │
-│  │  • Broadcasts events to all subscribers                          │  │
-│  │  • Filters internal:* events                                     │  │
-│  │  • Handles subscriber errors gracefully                          │  │
-│  └───────────────────────────┬──────────────────────────────────────┘  │
-└─────────────────────────────┼────────────────────────────────────────────┘
-                              │
-                   InternalEvent objects
+                Observable<AgentEvent>.subscribe()
                               │
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                      AGENT LAYER                                        │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  Agent.startTurn()                                               │  │
-│  │  • Creates LoopEventEmitter                                      │  │
-│  │  • Subscribes to eventEmitter.events$                            │  │
-│  │  • Routes events to SSE via EventRouter                          │  │
-│  │  • Manages conversation state (MessageStore)                     │  │
+│  │  Agent.startTurn() (src/core/agent.ts)                          │  │
+│  │  • Loads message history from MessageStore                       │  │
+│  │  • Appends user message to history                               │  │
+│  │  • Calls AgentLoop.startTurn(messages)                           │  │
+│  │  • Maps LLMEvents to AgentEvents (adds contextId/taskId)         │  │
+│  │  • Saves conversation to MessageStore after completion           │  │
+│  │  • Returns Observable<AgentEvent>                                │  │
 │  └───────────────────────────┬──────────────────────────────────────┘  │
 └─────────────────────────────┼────────────────────────────────────────────┘
                               │
-                    Observable<InternalEvent>
+                Observable<LLMEvent> from AgentLoop
                               │
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                   AGENT LOOP LAYER                                      │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  AgentLoop.startTurn()                                           │  │
-│  │  • Creates LoopEventEmitter (emits to Subject)                   │  │
-│  │  • Builds RxJS pipeline with operators                           │  │
-│  │  • Returns Observable<InternalEvent> via events$                 │  │
-│  └───────────────────────────┬──────────────────────────────────────┘  │
-│                              │                                          │
-│            RxJS Observable Pipeline                                    │
-│                              │                                          │
-│  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  Operator Pipeline                                               │  │
-│  │                                                                  │  │
-│  │  1. prepareLLMCall() → emitLLMCall()                             │  │
-│  │  2. switchMap(llmProvider.call())                                │  │
-│  │  3. extractThoughtsFromStream()  ←── Extracts <thinking> tags   │  │
-│  │  4. last() → Final response                                      │  │
-│  │  5. Tool execution (if needed)                                   │  │
-│  │  6. Loop or complete                                             │  │
+│  │  AgentLoop.startTurn() (src/core/agent-loop.ts)                 │  │
+│  │  • Emits task-created and task-status events                     │  │
+│  │  • Builds RxJS execution pipeline                                │  │
+│  │  • Calls llmProvider.call() for each iteration                   │  │
+│  │  • Executes tools if requested by LLM                            │  │
+│  │  • Returns Observable<LLMEvent> (no contextId/taskId)            │  │
 │  └───────────────────────────┬──────────────────────────────────────┘  │
 └─────────────────────────────┼────────────────────────────────────────────┘
                               │
-                   Observable<LLMResponse>
+                   Observable<LLMEvent<AnyEvent>>
                               │
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                    LLM PROVIDER LAYER                                   │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  LiteLLMProvider.call()                                          │  │
-│  │  • Streaming HTTP request to LiteLLM proxy                       │  │
-│  │  • Parses Server-Sent Events (SSE)                               │  │
-│  │  • Accumulates content chunks                                    │  │
-│  │  • Emits accumulated content (not deltas!)                       │  │
-│  │  • Returns Observable<LLMResponse>                               │  │
+│  │  LiteLLMProvider.call() (src/providers/litellm-provider.ts)     │  │
+│  │                                                                  │  │
+│  │  1. Creates raw SSE stream from LiteLLM HTTP endpoint            │  │
+│  │  2. Pipes through choices() operator                             │  │
+│  │  3. Uses shareReplay() to multicast (single HTTP request)        │  │
+│  │  4. Splits stream into three parallel paths:                     │  │
+│  │                                                                  │  │
+│  │     ┌─────────────────────────────────────────────┐              │  │
+│  │     │ A. Content Deltas                            │              │  │
+│  │     │    stream$ → getContent()                    │              │  │
+│  │     │           → splitInlineXml()                 │              │  │
+│  │     │           → content chunks                   │              │  │
+│  │     │           → map to ContentDeltaEvent         │              │  │
+│  │     └─────────────────────────────────────────────┘              │  │
+│  │                                                                  │  │
+│  │     ┌─────────────────────────────────────────────┐              │  │
+│  │     │ B. Thought Streams                           │              │  │
+│  │     │    stream$ → getContent()                    │              │  │
+│  │     │           → splitInlineXml()                 │              │  │
+│  │     │           → tags (InlineXml objects)         │              │  │
+│  │     │           → filter <thinking> tags           │              │  │
+│  │     │           → map to ThoughtStreamEvent        │              │  │
+│  │     └─────────────────────────────────────────────┘              │  │
+│  │                                                                  │  │
+│  │     ┌─────────────────────────────────────────────┐              │  │
+│  │     │ C. Content Complete + Tool Calls             │              │  │
+│  │     │    stream$ → aggregateChoice()               │              │  │
+│  │     │           → map to ContentCompleteEvent      │              │  │
+│  │     └─────────────────────────────────────────────┘              │  │
+│  │                                                                  │  │
+│  │  5. Merges all three streams: merge(A, B, C)                     │  │
+│  │  6. Returns Observable<LLMEvent<AnyEvent>>                       │  │
 │  └───────────────────────────┬──────────────────────────────────────┘  │
 └─────────────────────────────┼────────────────────────────────────────────┘
                               │
@@ -99,7 +93,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                    LLM SERVICE (External)                               │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  LiteLLM Proxy / OpenAI / Anthropic                              │  │
+│  │  LiteLLM Proxy / OpenAI / Anthropic / Bedrock                    │  │
 │  │  • Streams response chunks via SSE                               │  │
 │  │  • Format: data: {"choices":[{"delta":{"content":"..."}}]}       │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
@@ -108,283 +102,324 @@ This document describes the end-to-end architecture of the streaming and eventin
 
 ## Data Flow: Request to Response
 
-### 1. Client Initiates Request
+### 1. Kitchen Sink CLI Initiates Request
 
 ```typescript
-// Client makes HTTP POST to SSE endpoint
-POST /api/sse/message
-Content-Type: application/json
+// Kitchen Sink CLI (examples/kitchen-sink.ts)
+// User types a message in the interactive prompt
+rl.on('line', async (line) => {
+  const input = line.trim();
+  if (!input) return;
 
-{
-  "message": "What is 2+2?",
-  "contextId": "session-123"
-}
+  // Start turn with agent
+  const events$ = await agent.startTurn(input);
 
-// Server responds with SSE stream
-HTTP/1.1 200 OK
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-```
-
-### 2. SSE Server Creates Subscription
-
-```typescript
-// SSEServer endpoint
-app.post('/api/sse/message', async (req, res) => {
-  const { message, contextId } = req.body;
-  const taskId = generateTaskId();
-
-  // Set SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  // Create subscriber
-  const subscriber = eventRouter.subscribe(taskId, {
-    send: (event: InternalEvent) => {
-      // Filter internal:* events
-      if (event.kind.startsWith('internal:')) return;
-
-      // Send to client
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
+  // Subscribe to event stream
+  events$.subscribe({
+    next: (event) => handleAgentEvent(event),
+    complete: () => {
+      console.log('');
+      rl.prompt();
     }
-  });
-
-  // Get/create agent
-  const agent = await getOrCreateAgent(contextId);
-
-  // Start turn (non-blocking)
-  agent.startTurn(message, { taskId }).then(events$ => {
-    events$.subscribe({
-      next: (event) => {
-        // Events automatically routed via EventRouter
-      },
-      complete: () => {
-        eventRouter.unsubscribe(taskId, subscriber);
-        res.end();
-      }
-    });
   });
 });
 ```
 
-### 3. Agent Starts Turn
+### 2. Agent Starts Turn
 
 ```typescript
-// Agent.startTurn()
-async startTurn(message: string, options?: { taskId?: string }) {
-  const taskId = options?.taskId || generateTaskId();
+// Agent.startTurn() (src/core/agent.ts)
+async startTurn(userMessage: string): Promise<Observable<AgentEvent>> {
+  const taskId = this.generateTaskId();
 
-  // Load message history
-  const history = await this.messageStore.getRecent(this.contextId);
+  // 1. Load message history from MessageStore
+  const history = await this.messageStore.getAll(this.contextId);
 
-  // Append user message
-  const messages = [...history, { role: 'user', content: message }];
+  // 2. Append user message
+  const messages = [
+    ...history,
+    { role: 'user', content: userMessage }
+  ];
 
-  // Create event emitter for this turn
-  const eventEmitter = new LoopEventEmitter();
-
-  // Subscribe to events and route to EventRouter
-  eventEmitter.events$.subscribe(event => {
-    this.eventRouter?.route(event);
-  });
-
-  // Start AgentLoop
-  const events$ = this.agentLoop.startTurn(messages, {
-    taskId,
+  // 3. Call AgentLoop with full history
+  const llmEvents$ = this.agentLoop.startTurn(messages, {
     contextId: this.contextId,
-    eventEmitter
+    taskId,
+    turnNumber: this.state.turnCount + 1
   });
 
-  return events$;
+  // 4. Map LLMEvents to AgentEvents (add contextId/taskId stamps)
+  const agentEvents$ = llmEvents$.pipe(
+    map(llmEvent => ({
+      ...llmEvent,
+      contextId: this.contextId,
+      taskId
+    }))
+  );
+
+  // 5. Subscribe to save messages after completion
+  agentEvents$.pipe(last()).subscribe({
+    complete: async () => {
+      // Save conversation to MessageStore
+      await this.messageStore.append(this.contextId, newMessages);
+    }
+  });
+
+  // 6. Return event stream
+  return agentEvents$;
 }
 ```
 
-### 4. AgentLoop Executes Pipeline
+### 3. AgentLoop Executes Pipeline
 
 ```typescript
-// AgentLoop.startTurn()
-startTurn(messages: Message[], options: StartTurnOptions): Observable<InternalEvent> {
-  const eventEmitter = options.eventEmitter || new LoopEventEmitter();
+// AgentLoop.startTurn() (src/core/agent-loop.ts)
+startTurn(messages: Message[], options: StartTurnOptions): Observable<LLMEvent<AnyEvent>> {
+  const { taskId, contextId, turnNumber } = options;
 
-  // Emit initial task-created event
-  eventEmitter.emitTaskStatus(taskId, contextId, { state: 'submitted' });
+  // Emit initial events
+  const initialEvents$ = of(
+    { kind: 'task-created', taskId, initiator: 'user', timestamp: now() },
+    { kind: 'task-status', taskId, status: 'working', timestamp: now() }
+  );
 
   // Build execution pipeline
-  const pipeline$ = defer(() => {
-    // Emit working status
-    eventEmitter.emitTaskStatus(taskId, contextId, { state: 'working' });
+  const execution$ = this.executeIteration(messages, 1).pipe(
+    // Handle tool calls and loop if needed
+    expand((result) => {
+      if (result.needsToolExecution) {
+        return this.executeTools(result).pipe(
+          switchMap(toolResults =>
+            this.executeIteration([...messages, ...toolResults], result.iteration + 1)
+          )
+        );
+      }
+      return EMPTY;
+    }),
+    // Get final result
+    last()
+  );
 
-    return this.llmProvider.call({ messages, tools }).pipe(
-      // Extract thoughts and emit content-delta events
-      extractThoughtsFromStream(taskId, contextId, eventEmitter),
+  // Merge initial events with execution events
+  return merge(initialEvents$, execution$);
+}
 
-      // Get final response
-      last(),
-
-      // Clean and emit content-complete
-      map(response => {
-        const cleaned = cleanThinkingTags(response.message.content);
-        eventEmitter.emitContentComplete(taskId, contextId, cleaned);
-        return response;
-      })
-    );
-  });
-
-  // Execute pipeline and merge with event stream
-  pipeline$.subscribe();
-
-  // Return event stream for Agent to subscribe
-  return eventEmitter.events$;
+private executeIteration(messages: Message[], iteration: number): Observable<LLMEvent<AnyEvent>> {
+  // Call LLM provider - this returns a merged stream of:
+  // - ContentDeltaEvents (text chunks)
+  // - ThoughtStreamEvents (<thinking> tags)
+  // - ContentCompleteEvent (final aggregated response)
+  return this.llmProvider.call({ messages, tools: this.tools });
 }
 ```
 
-### 5. LLM Provider Streams Response
+
+
+### 4. LLM Provider Streams Response (Three-Path Architecture)
+
+This is the **heart of the streaming system**. The LiteLLM provider creates a single HTTP SSE connection and splits it into **three parallel observables**:
 
 ```typescript
-// LiteLLMProvider.call()
-call(params: LLMCallParams): Observable<LLMResponse> {
-  return new Observable(subscriber => {
-    const response = await fetch(this.baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.model,
-        messages: params.messages,
-        tools: params.tools,
-        stream: true  // Enable streaming
-      })
-    });
+// LiteLLMProvider.streamEvents() (src/providers/litellm-provider.ts)
+private streamEvents(params: SSERequestParams): Observable<LLMEvent<AnyEvent>> {
+  // 1. Create raw SSE stream (single HTTP connection)
+  const rawStream$ = this.createSSEStream(params);
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+  // 2. Parse chunks and multicast with shareReplay()
+  const stream$ = rawStream$.pipe(
+    choices(),        // Extract choice deltas
+    shareReplay()     // Share single connection for all paths
+  );
 
-    let accumulated = '';  // Accumulate content chunks
+  // ┌─────────────────────────────────────────────────────────────┐
+  // │  Path A: Content Deltas (text chunks)                       │
+  // └─────────────────────────────────────────────────────────────┘
+  const { content, tags } = splitInlineXml(
+    stream$.pipe(getContent())  // Extract content from choices
+  );
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  const contentDeltas$ = content.pipe(
+    map((delta): LLMEvent<ContentDeltaEvent> => ({
+      kind: 'content-delta',
+      delta,
+      timestamp: new Date().toISOString()
+    }))
+  );
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+  // ┌─────────────────────────────────────────────────────────────┐
+  // │  Path B: Thought Streams (<thinking> tags)                  │
+  // └─────────────────────────────────────────────────────────────┘
+  const thoughts$ = tags.pipe(
+    filter(tag => tag.name === 'thinking'),
+    map((tag): LLMEvent<ThoughtStreamEvent> => ({
+      kind: 'thought-stream',
+      thoughtId: tag.id!,
+      delta: tag.isClosed ? null : tag.content,
+      isComplete: tag.isClosed,
+      timestamp: new Date().toISOString()
+    }))
+  );
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = JSON.parse(line.slice(6));
+  // ┌─────────────────────────────────────────────────────────────┐
+  // │  Path C: Content Complete (final aggregated message)        │
+  // └─────────────────────────────────────────────────────────────┘
+  const complete$ = stream$.pipe(
+    aggregateChoice(),  // Collect all chunks into final message
+    map((choice): LLMEvent<ContentCompleteEvent> => ({
+      kind: 'content-complete',
+      message: {
+        role: 'assistant',
+        content: choice.message.content || '',
+        tool_calls: choice.message.tool_calls
+      },
+      finishReason: choice.finish_reason,
+      timestamp: new Date().toISOString()
+    }))
+  );
 
-          // Extract delta from SSE chunk
-          const delta = data.choices[0]?.delta?.content;
-          if (delta) {
-            // Accumulate (not emit delta directly!)
-            accumulated += delta;
-
-            // Emit ACCUMULATED content
-            subscriber.next({
-              message: {
-                role: 'assistant',
-                content: accumulated  // Full content so far
-              },
-              finished: false
-            });
-          }
-        }
-      }
-    }
-
-    subscriber.complete();
-  });
-}
-```
-
-**Key Insight**: LiteLLM provider emits **accumulated content**, not deltas. This is crucial for the thought extraction operator to work correctly.
-
-### 6. Thought Extraction Operator
-
-```typescript
-// extractThoughtsFromStream operator
-export function extractThoughtsFromStream(
-  taskId: string,
-  contextId: string,
-  eventEmitter: LoopEventEmitter
-): OperatorFunction<LLMResponse, LLMResponse> {
-  const buffer = {
-    lastCleanedContent: '',
-    emittedThoughts: new Set<string>()
-  };
-
-  return source$ => source$.pipe(
-    scan((acc, response) => ({ response, chunkIndex: acc.chunkIndex + 1 }),
-         { chunkIndex: -1 }),
-
-    concatMap(({ response, chunkIndex }) => {
-      const accumulated = response.message.content;
-
-      // Extract complete <thinking> tags (all 3 formats)
-      let cleaned = accumulated
-        .replace(/<thinking>(.*?)<\/thinking>/gs, (_, thought) => {
-          if (!buffer.emittedThoughts.has(thought)) {
-            buffer.emittedThoughts.add(thought);
-            eventEmitter.emitThought(taskId, contextId, 'reasoning', thought);
-          }
-          return '';
-        })
-        .replace(/<thinking\s+([^>]*)><\/thinking>/gs, (_, attrs) => {
-          extractAttributeThought(attrs, eventEmitter);
-          return '';
-        })
-        .replace(/<thinking\s+([^>]*?)\/>/gs, (_, attrs) => {
-          extractAttributeThought(attrs, eventEmitter);
-          return '';
-        });
-
-      // Check for incomplete tags and buffer
-      cleaned = removeIncompleteTag(cleaned);
-
-      // Compute delta from last cleaned content
-      const delta = cleaned.substring(buffer.lastCleanedContent.length);
-
-      if (delta) {
-        // Emit content-delta event
-        eventEmitter.emitContentDelta(taskId, contextId, delta, chunkIndex);
-      }
-
-      buffer.lastCleanedContent = cleaned;
-
-      // Pass through original response unchanged
-      return [response];
-    })
+  // ┌─────────────────────────────────────────────────────────────┐
+  // │  Merge all three paths into single event stream             │
+  // └─────────────────────────────────────────────────────────────┘
+  return merge(
+    contentDeltas$,  // Text chunks as they arrive
+    thoughts$,       // <thinking> content and completion events
+    complete$        // Final complete event
   );
 }
 ```
 
-### 7. Event Emission Timeline
+**Key Points:**
+
+1. **Single HTTP Request**: `shareReplay()` ensures only one SSE connection is made to the LLM service, even though three observables subscribe to `stream$`.
+
+2. **splitInlineXml()**: This utility function parses the content stream and splits it into two observables:
+   - `content`: Plain text chunks (non-XML content)
+   - `tags`: XML tag objects with `name`, `id`, `content`, `isClosed`
+
+3. **Synchronous Processing**: `splitInlineXml()` uses synchronous, left-to-right buffer processing with `ReplaySubject` to guarantee emission order. No race conditions possible.
+
+4. **Event Ordering**: Events are emitted in real-time as they arrive:
+   - `content-delta` events stream continuously as text arrives
+   - `thought-stream` events emit when `<thinking>` tags are detected
+   - `content-complete` event emits once at the end with full aggregated message
+
+5. **Thought Extraction**: Inline XML tags like `<thinking id="abc">...</thinking>` are extracted from the content stream. The content observable emits text **without** the XML tags, while the tags observable emits structured tag objects.
+
+### 5. splitInlineXml() Utility (Content/Tag Separation)
+
+The `splitInlineXml()` utility is critical for thought extraction. It takes a stream of content deltas and splits it into two observables:
+
+```typescript
+// src/core/operators/chat-completions/content.ts
+export function splitInlineXml(source: Observable<string>): {
+  content: Observable<string>;
+  tags: Observable<InlineXml>;
+} {
+  // Use ReplaySubject to buffer emissions (prevents timing issues)
+  const contentSubj = new ReplaySubject<string>();
+  const tagsSubj = new ReplaySubject<InlineXml>();
+
+  const parser = new InlineXmlParser();
+
+  source.subscribe({
+    next: (chunk) => {
+      // Parse chunk synchronously (guarantees left-to-right processing)
+      const { content, tags } = parser.parse(chunk);
+
+      // Emit to both subjects
+      if (content) contentSubj.next(content);
+      tags.forEach(tag => tagsSubj.next(tag));
+    },
+    complete: () => {
+      contentSubj.complete();
+      tagsSubj.complete();
+    },
+    error: (err) => {
+      contentSubj.error(err);
+      tagsSubj.error(err);
+    }
+  });
+
+  return {
+    content: contentSubj.asObservable(),
+    tags: tagsSubj.asObservable()
+  };
+}
+
+// Tag object emitted when XML tags are found
+interface InlineXml {
+  name: string;        // e.g., "thinking"
+  id?: string;         // Extracted from id attribute
+  content: string;     // Tag content (for closed tags)
+  isClosed: boolean;   // true if </thinking> found
+}
+```
+
+**Example Parsing:**
+
+Input stream:
+```
+"Let me "
+"analyze <thinking id=\"abc\">I should "
+"verify first</thinking> The "
+"answer is 4"
+```
+
+Output to `content` observable:
+```
+"Let me "
+"analyze "
+" The "
+"answer is 4"
+```
+
+Output to `tags` observable:
+```
+{ name: "thinking", id: "abc", content: "I should verify first", isClosed: true }
+```
+
+**Key Properties:**
+
+1. **Synchronous Processing**: Parser processes chunks left-to-right in order received. No race conditions.
+2. **ReplaySubject Buffering**: Emissions are buffered so late subscribers don't miss events.
+3. **Incremental Parsing**: Handles incomplete tags across chunk boundaries (e.g., `"<thi"` then `"nking>"`)
+4. **Content Stripped**: XML tags are removed from content stream automatically.
+
+### 6. Event Emission Timeline
 
 Here's what events flow through the system for a typical request:
 
 ```
 Time  | Source              | Event Kind          | Content
 ------|---------------------|---------------------|---------------------------
-T+0ms | AgentLoop           | task-status         | state: 'submitted'
-T+1ms | AgentLoop           | task-status         | state: 'working'
-T+2ms | AgentLoop           | internal:llm-call   | (filtered by SSE server)
+T+0ms | AgentLoop           | task-created        | taskId, initiator: 'user'
+T+1ms | AgentLoop           | task-status         | status: 'working'
       |                     |                     |
-[LLM streaming begins]      |                     |
+[LLM streaming begins - three parallel paths]
       |                     |                     |
-T+100 | ThoughtExtractor    | content-delta       | "Let me "
-T+150 | ThoughtExtractor    | content-delta       | "analyze "
-T+200 | [incomplete tag]    | [buffered]          | (no event - "<thinking>")
-T+250 | ThoughtExtractor    | thought-stream      | "I should verify first"
-T+300 | ThoughtExtractor    | content-delta       | "The "
-T+350 | ThoughtExtractor    | content-delta       | "answer "
-T+400 | ThoughtExtractor    | content-delta       | "is 4"
+T+100 | LiteLLM (Path A)    | content-delta       | delta: "Let me "
+T+150 | LiteLLM (Path A)    | content-delta       | delta: "analyze "
+T+200 | [incomplete tag]    | [buffered in parser]| (no emission - "<thinking>")
+T+210 | LiteLLM (Path B)    | thought-stream      | thoughtId: "abc", delta: "I should"
+T+230 | LiteLLM (Path B)    | thought-stream      | thoughtId: "abc", delta: " verify first"
+T+250 | LiteLLM (Path B)    | thought-stream      | thoughtId: "abc", isComplete: true
+T+260 | LiteLLM (Path A)    | content-delta       | delta: " The "
+T+300 | LiteLLM (Path A)    | content-delta       | delta: "answer "
+T+350 | LiteLLM (Path A)    | content-delta       | delta: "is 4"
       |                     |                     |
 [LLM streaming ends]        |                     |
       |                     |                     |
-T+450 | AgentLoop           | content-complete    | "Let me analyze The answer is 4"
-T+451 | AgentLoop           | internal:checkpoint | (filtered by SSE server)
-T+452 | AgentLoop           | task-complete       | finishReason: 'stop'
+T+450 | LiteLLM (Path C)    | content-complete    | message: { content: "Let me analyze The answer is 4", tool_calls: [] }
+T+451 | AgentLoop           | task-status         | status: 'completed', final: true
 ```
+
+**Key Points:**
+
+- **Path A** (content-delta): Emits text chunks with `<thinking>` tags removed
+- **Path B** (thought-stream): Emits thought content and completion events
+- **Path C** (content-complete): Emits once at the end with full aggregated message
+- All three paths run **in parallel** from the same shared SSE stream
+- Events are naturally ordered because `splitInlineXml()` processes synchronously
 
 ## Event Types & Structure
 
@@ -404,87 +439,97 @@ type InternalEvent =
   | InternalCheckpointEvent; // Filtered before SSE
 ```
 
-### Event Emission Points
 
-```
-AgentLoop Pipeline:
-├─ emitTaskStatus('submitted')        ← AgentLoop start
-├─ emitTaskStatus('working')          ← Before LLM call
-├─ emitLLMCall()                      ← internal:llm-call
-│
-├─ [LLM Streaming via extractThoughtsFromStream]
-│   ├─ emitContentDelta()             ← Each chunk (thoughts removed)
-│   └─ emitThought()                  ← Complete <thinking> tags
-│
-├─ emitContentComplete()              ← After last()
-│
-├─ [If tools requested]
-│   ├─ emitToolStart()                ← internal:tool-start
-│   └─ emitToolComplete()             ← internal:tool-complete
-│
-├─ emitCheckpoint()                   ← internal:checkpoint
-└─ emitTaskComplete()                 ← Final status
-```
 
 ## Key Design Patterns
 
-### 1. Accumulated Content (Not Deltas)
+### 1. Three-Path Merge Pattern
 
-**LiteLLM Provider emits accumulated content**, which simplifies thought extraction:
+The LiteLLM provider uses a **single HTTP connection** split into three parallel observables:
 
 ```typescript
-// Chunk 1: "Hello"
-subscriber.next({ message: { content: "Hello" } });
+const stream$ = rawStream$.pipe(choices(), shareReplay());
 
-// Chunk 2: " world"
-subscriber.next({ message: { content: "Hello world" } }); // ACCUMULATED
+// Fork into three paths
+const pathA = stream$.pipe(getContent(), splitInlineXml(), ...);
+const pathB = stream$.pipe(getContent(), splitInlineXml(), filter(), ...);
+const pathC = stream$.pipe(aggregateChoice(), ...);
 
-// NOT this:
-subscriber.next({ message: { content: " world" } }); // Delta (❌)
+// Merge back together
+return merge(pathA, pathB, pathC);
 ```
 
-This allows `extractThoughtsFromStream` to:
-- Extract complete `<thinking>` tags from accumulated content
-- Detect incomplete tags at the end
-- Compute deltas by comparing with previous cleaned content
+**Benefits:**
+- Single HTTP request (efficient)
+- Parallel processing (low latency)
+- Natural event ordering (synchronous operators)
+- Easy to test each path independently
 
-### 2. Hot Observable with shareReplay()
+### 2. Content Deltas (Not Accumulated Content)
 
-The execution pipeline is made "hot" to prevent duplicate executions:
+**LiteLLM Provider emits true deltas** from the SSE stream:
 
 ```typescript
-const execution$ = pipeline$.pipe(
-  shareReplay(1)  // Multicast to subscribers, replay last value
+// LLM sends:
+chunk 1: { delta: { content: "Hello" } }
+chunk 2: { delta: { content: " world" } }
+
+// Provider emits:
+{ kind: 'content-delta', delta: "Hello" }
+{ kind: 'content-delta', delta: " world" }
+
+// Kitchen sink accumulates:
+process.stdout.write("Hello");   // First delta
+process.stdout.write(" world");  // Second delta
+// Result: "Hello world"
+```
+
+This is different from some LLM APIs that accumulate internally.
+
+### 3. shareReplay() for Single HTTP Connection
+
+The `shareReplay()` operator multicasts the SSE stream to all three paths:
+
+```typescript
+const stream$ = rawStream$.pipe(
+  choices(),
+  shareReplay()  // Single HTTP request, multiple subscribers
 );
 
-// Multiple subscriptions = single execution
-execution$.subscribe(observer1);
-execution$.subscribe(observer2);
+// All three paths subscribe to the same stream$
+const contentDeltas$ = stream$.pipe(...);  // Path A
+const thoughts$ = stream$.pipe(...);        // Path B
+const complete$ = stream$.pipe(...);        // Path C
 ```
 
-### 3. Event Filtering at SSE Layer
+Without `shareReplay()`, each path would create its own HTTP request (wasteful).
 
-Internal observability events are filtered before sending to clients:
+### 4. ReplaySubject for Buffering
+
+`splitInlineXml()` uses `ReplaySubject` to prevent timing issues:
 
 ```typescript
-send: (event: InternalEvent) => {
-  // Filter internal:* events
-  if (event.kind.startsWith('internal:')) return;
+const contentSubj = new ReplaySubject<string>();
+const tagsSubj = new ReplaySubject<InlineXml>();
 
-  res.write(`data: ${JSON.stringify(event)}\n\n`);
-}
+// Emissions are buffered and replayed to late subscribers
 ```
 
-### 4. Operator Factory Pattern
+If we used `Subject`, late subscribers could miss emissions. `ReplaySubject` guarantees delivery.
 
-Operators are created via factory functions with closures:
+### 5. Synchronous Writes for Ordering
+
+Kitchen sink uses **synchronous file writes** to guarantee console output order:
 
 ```typescript
-export function extractThoughtsFromStream(
-  taskId: string,
-  contextId: string,
-  eventEmitter: LoopEventEmitter
-): OperatorFunction<LLMResponse, LLMResponse> {
+// Synchronous write (blocks until complete)
+fs.writeSync(process.stdout.fd, event.delta);
+
+// NOT async (can complete out of order)
+process.stdout.write(event.delta, callback);
+```
+
+This ensures rapid content-delta events display in the correct order.
   // Closure over taskId, contextId, eventEmitter
 
   return (source$) => source$.pipe(
@@ -504,19 +549,57 @@ Benefits:
 ### Server-Side
 
 ```typescript
-// Set SSE headers
-res.setHeader('Content-Type', 'text/event-stream');
-res.setHeader('Cache-Control', 'no-cache');
-res.setHeader('Connection', 'keep-alive');
+## Kitchen Sink CLI Event Handling
 
-// Send event
-res.write(`data: ${JSON.stringify(event)}\n\n`);
+The kitchen sink example consumes events directly from the Agent Observable:
 
-// Keep-alive ping (every 30s)
-res.write(': ping\n\n');
+```typescript
+// examples/kitchen-sink.ts
+const events$ = await agent.startTurn(userInput);
 
-// Complete stream
-res.end();
+events$.subscribe({
+  next: (event) => {
+    switch (event.kind) {
+      case 'content-delta':
+        // Synchronous write to ensure ordering
+        fs.writeSync(process.stdout.fd, event.delta);
+        break;
+
+      case 'thought-stream':
+        if (event.isComplete) {
+          // Thought complete - could display summary
+          console.log(`\n[Thought ${event.thoughtId} complete]`);
+        }
+        break;
+
+      case 'content-complete':
+        // LLM finished - save to message history
+        console.log('\n');
+        break;
+
+      case 'task-status':
+        if (event.status === 'completed') {
+          rl.prompt(); // Ready for next input
+        }
+        break;
+    }
+  },
+  error: (err) => {
+    console.error('Error:', err);
+    rl.prompt();
+  },
+  complete: () => {
+    // Turn complete
+  }
+});
+```
+
+**Key Points:**
+
+- Direct Observable subscription (no SSE server layer)
+- Synchronous writes (`fs.writeSync`) for guaranteed ordering
+- Immediate event processing (no network latency)
+- Simple error handling and recovery
 ```
 
 ### Client-Side
@@ -550,56 +633,39 @@ eventSource.onerror = (err) => {
 
 ## Thought Extraction: Supported Formats
 
-The `extractThoughtsFromStream` operator supports three formats:
+The `splitInlineXml()` utility extracts `<thinking>` tags from the content stream. The LiteLLM provider filters these tags and emits `thought-stream` events:
 
-### Format 1: Content Between Tags
+### Format: Content Between Tags
 ```xml
-<thinking>This is my thought</thinking>
+<thinking id="abc">This is my reasoning</thinking>
 ```
 
-### Format 2: Attributes with Closing Tag
-```xml
-<thinking thought="This is my thought" thought_type="reflection" confidence="0.7"></thinking>
+**Parsing:**
+- Tag name: `"thinking"`
+- ID: `"abc"` (extracted from `id` attribute)
+- Content: `"This is my reasoning"`
+- isClosed: `true`
+
+**Events Emitted:**
+
+As content arrives:
+```typescript
+{ kind: 'thought-stream', thoughtId: 'abc', delta: 'This is my ', isComplete: false }
+{ kind: 'thought-stream', thoughtId: 'abc', delta: 'reasoning', isComplete: false }
 ```
 
-### Format 3: Self-Closing Tag
-```xml
-<thinking thought="This is my thought" thought_type="reflection" confidence="0.7" />
+When tag closes:
+```typescript
+{ kind: 'thought-stream', thoughtId: 'abc', delta: null, isComplete: true }
 ```
 
-All formats:
-- Extract thought content and emit `thought-stream` event
-- Remove tags from content-delta events
-- Handle incomplete tags across chunk boundaries
-- Deduplicate thoughts (via Set)
+**Key Properties:**
+- `id` attribute is required (generates unique ID if missing)
+- Content is streamed incrementally (not all at once)
+- Closing event signals thought is complete
+- Tags are removed from `content-delta` stream automatically
 
 ## Error Handling & Recovery
-
-### Connection Failures
-
-```typescript
-// Client reconnection with Last-Event-ID
-const eventSource = new EventSource('/api/sse/message?lastEventId=123');
-
-// Server resends events after lastEventId
-if (req.query.lastEventId) {
-  // Resend missed events
-  const missedEvents = getMissedEvents(taskId, req.query.lastEventId);
-  missedEvents.forEach(event => res.write(`data: ${JSON.stringify(event)}\n\n`));
-}
-```
-
-### Subscriber Errors
-
-```typescript
-// EventRouter handles subscriber errors gracefully
-try {
-  subscriber.send(event);
-} catch (error) {
-  logger.warn('Failed to send event', { subscriberId, error });
-  // Don't crash other subscribers
-}
-```
 
 ### LLM Stream Interruption
 
@@ -617,99 +683,125 @@ llmProvider.call(params).pipe(
 
 ## Performance Considerations
 
-### 1. Event Buffering
+### 1. Synchronous Write Performance
 
-Events are emitted immediately (no buffering) for real-time feel:
-
-```typescript
-// Emit as soon as delta is computed
-if (delta) {
-  eventEmitter.emitContentDelta(taskId, contextId, delta, chunkIndex);
-}
-```
-
-### 2. Keep-Alive Interval
-
-30-second pings prevent connection timeouts:
+Kitchen sink uses `fs.writeSync()` for guaranteed ordering:
 
 ```typescript
-const keepAliveInterval = setInterval(() => {
-  res.write(': ping\n\n');
-}, 30000);
-
-req.on('close', () => clearInterval(keepAliveInterval));
+fs.writeSync(process.stdout.fd, event.delta);
 ```
 
-### 3. Subscriber Cleanup
+**Performance Impact:**
+- Blocks event loop briefly (microseconds per write)
+- Fast enough to be imperceptible for terminal output
+- Guarantees correct order (critical for readability)
+- Trade-off: ordering guarantee > theoretical max throughput
 
-Unsubscribe when client disconnects:
+### 2. shareReplay() Memory Usage
+
+`shareReplay()` buffers the last emitted value:
 
 ```typescript
-req.on('close', () => {
-  eventRouter.unsubscribe(taskId, subscriber);
-  clearInterval(keepAliveInterval);
-});
+const stream$ = rawStream$.pipe(
+  choices(),
+  shareReplay()  // Buffers last value
+);
 ```
+
+**Memory Impact:**
+- One buffered chunk per shared stream (typically <1KB)
+- Negligible for typical LLM responses (<10KB total)
+- Benefits: Single HTTP connection instead of 3 connections
+
+### 3. ReplaySubject Buffer Size
+
+`splitInlineXml()` uses `ReplaySubject` with unlimited buffer:
+
+```typescript
+const contentSubj = new ReplaySubject<string>();  // Buffers all emissions
+```
+
+**Memory Impact:**
+- Buffers all content/tag emissions until source completes
+- Typical usage: Source completes quickly (within seconds)
+- Memory freed when Observable completes
+- Alternative: `ReplaySubject(1)` would buffer only last emission (but could lose data)
 
 ## Testing Strategy
 
 ### Unit Tests
-- `tests/thought-extraction.test.ts` - Thought extraction logic
-- `tests/sanitize.test.ts` - Content cleaning
+- `tests/content.test.ts` - splitInlineXml() utility, tag extraction logic (61 tests passing)
 - `tests/agent-loop.test.ts` - Pipeline integration
+- `tests/litellm-provider.test.ts` - LLM provider streaming
 
-### Manual Tests
-- `tests/manual-thought-test.ts` - Split tags across chunks
-- `tests/thought-streaming-edge-cases.ts` - Multiple thoughts, partial tags
-- `tests/thought-attribute-format.ts` - Attribute-based format
-- `tests/thought-self-closing.ts` - Self-closing tags
+### Test Coverage for splitInlineXml
+```typescript
+describe('splitInlineXml', () => {
+  it('emits content without tags');
+  it('emits tag objects with correct structure');
+  it('handles incomplete tags across chunks');
+  it('extracts id attribute from tags');
+  it('handles multiple tags in single chunk');
+  it('handles nested tags');
+  it('emits in correct order (content, tags)');
+  // ... 54 more tests
+});
+```
 
 ### Integration Tests
-- `tests/sse-server.test.ts` - SSE server and EventRouter
 - `examples/kitchen-sink.ts` - End-to-end with real LLM
+- `examples/litellm-agent.ts` - LiteLLM provider integration
 
 ## Future Enhancements
 
-### 1. Binary Streaming for Large Artifacts
+### 1. Additional XML Tag Support
 
-For large files (images, documents), use binary streaming instead of JSON:
+Extend `splitInlineXml()` to extract other tag types:
 
 ```typescript
-if (event.kind === 'artifact-update' && event.artifact.size > 1MB) {
-  // Use multipart/mixed or separate binary endpoint
-  res.write(`event: artifact-binary\n`);
-  res.write(`data: ${artifactUrl}\n\n`);
-}
+// Support multiple tag types
+const { content, thoughts, artifacts, citations } = splitInlineXml(stream$, {
+  tagNames: ['thinking', 'artifact', 'cite']
+});
 ```
 
-### 2. Event Prioritization
+### 2. Adaptive Buffering
 
-High-priority events (errors, user input required) sent immediately:
+Adjust `ReplaySubject` buffer size based on content length:
 
 ```typescript
-const priority = event.kind === 'task-status' && event.status.state === 'failed'
-  ? 'high'
-  : 'normal';
+// Small buffer for short responses, larger for long ones
+const bufferSize = estimatedLength > 10000 ? 100 : undefined;
+const contentSubj = new ReplaySubject<string>(bufferSize);
 ```
 
-### 3. Compression
+### 3. Parallel Tool Execution Events
 
-Enable gzip compression for text events:
+Emit events showing parallel tool execution progress:
 
 ```typescript
-res.setHeader('Content-Encoding', 'gzip');
-const gzip = zlib.createGzip();
-gzip.pipe(res);
+{ kind: 'tools-started', toolNames: ['search', 'calculate', 'fetch'] }
+{ kind: 'tool-progress', toolName: 'search', status: 'running' }
+{ kind: 'tool-progress', toolName: 'calculate', status: 'complete' }
 ```
 
-### 4. Sub-Agent Event Namespacing
+### 4. SSE Server Layer (Optional)
 
-Hierarchical event routing for sub-agent invocations:
+Add SSE server for web clients (currently only CLI example exists):
 
 ```typescript
-// Parent task: task-123
-// Sub-agent task: task-123/sub-456
-eventRouter.subscribe('task-123/**', subscriber);
+// Server endpoint for remote clients
+app.post('/api/sse/message', (req, res) => {
+  const agent = getOrCreateAgent(req.body.contextId);
+  const events$ = await agent.startTurn(req.body.message);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+
+  events$.subscribe({
+    next: (event) => res.write(`data: ${JSON.stringify(event)}\n\n`),
+    complete: () => res.end()
+  });
+});
 ```
 
 ## Related Documentation
@@ -721,6 +813,54 @@ eventRouter.subscribe('task-123/**', subscriber);
 - **[Observability](./observability.md)** - Tracing and logging
 
 ## Implementation References
+
+### Core Files
+
+- **`src/providers/litellm-provider.ts`** - Three-path streaming architecture implementation
+  - `streamEvents()` method creates the merge of three paths
+  - Uses `splitInlineXml()`, `aggregateChoice()`, `shareReplay()`
+
+- **`src/core/operators/chat-completions/content.ts`** - Content/tag splitting utilities
+  - `splitInlineXml()` function with `ReplaySubject` buffering
+  - `InlineXmlParser` class for synchronous parsing
+  - `getContent()` operator to extract content from choices
+
+- **`src/core/operators/chat-completions/aggregate.ts`** - Choice aggregation
+  - `aggregateChoice()` operator for Path C (content-complete)
+  - Collects all chunks into final message
+
+- **`src/core/agent.ts`** - Multi-turn conversation manager
+  - `startTurn()` method coordinates with AgentLoop
+  - Maps LLMEvents to AgentEvents (adds contextId/taskId)
+
+- **`src/core/agent-loop.ts`** - Single-turn execution engine
+  - `startTurn()` method calls LLM provider
+  - Emits task-created and task-status events
+
+### Example Files
+
+- **`examples/kitchen-sink.ts`** - Interactive CLI example
+  - Direct Observable subscription (no SSE server)
+  - Synchronous writes with `fs.writeSync()` for ordering
+  - Event handling for content-delta, thought-stream, etc.
+
+- **`examples/litellm-agent.ts`** - LiteLLM provider integration example
+  - Shows basic usage without thought extraction
+
+### Test Files
+
+- **`tests/content.test.ts`** - 61 tests for splitInlineXml()
+  - Tag extraction, incomplete tags, multiple tags, ordering
+
+- **`tests/agent-loop.test.ts`** - Pipeline integration tests
+
+- **`tests/litellm-provider.test.ts`** - Provider streaming tests
+
+### Related Documentation
+
+- **`docs/THOUGHT_EXTRACTION.md`** - Detailed thought extraction documentation
+- **`ai-journal/CONTENT_DELTA_ORDER_FIX.md`** - Content ordering fix with synchronous writes
+- **`ai-journal/THOUGHT_STREAMING_COMPLETE.md`** - Thought streaming implementation history
 
 - **LLM Provider**: `src/providers/litellm-provider.ts`
 - **Thought Extraction**: `src/core/operators/thought-stream.ts`

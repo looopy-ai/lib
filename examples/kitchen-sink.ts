@@ -34,8 +34,8 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
+import chalk from 'chalk';
 import * as dotenv from 'dotenv';
-import fs from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
@@ -528,7 +528,8 @@ Be concise and helpful in your responses.`;
         break;
       case 'content-delta':
         // Use synchronous write to preserve order
-        fs.writeSync(process.stdout.fd, event.delta);
+        // fs.writeSync(process.stdout.fd, chalk.dim(event.delta));
+        console.log(chalk.dim(event.delta));
         break;
       case 'content-complete':
         console.log(`\n\n📦 Content completed:\n${event.content}`);
@@ -558,7 +559,7 @@ Be concise and helpful in your responses.`;
     const icon = icons[event.thoughtType] || '💭';
     const verbosityLabel = event.verbosity === 'detailed' ? ' [detailed]' : '';
 
-    console.log(`\n${icon} ${event.thoughtType}${verbosityLabel}: ${event.content}`);
+    console.log(chalk.italic(`\n${icon} ${event.thoughtType}${verbosityLabel}: ${event.content}`));
   }
 
   function handleTaskStatus(event: { kind: 'task-status'; status: string; message?: string }) {
