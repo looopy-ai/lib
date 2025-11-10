@@ -46,13 +46,6 @@ export function addMessagesLoadedEvent(span: Span, count: number): void {
 }
 
 /**
- * Add span event for messages saved
- */
-export function addMessagesSavedEvent(span: Span, count: number): void {
-  span.addEvent('messages.saved', { count });
-}
-
-/**
  * Add span event for messages compacted
  */
 export function addMessagesCompactedEvent(span: Span): void {

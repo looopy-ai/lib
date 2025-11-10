@@ -74,9 +74,9 @@ export function extractResponseFromEvents(
           function: {
             ...tc.function,
             arguments:
-              typeof tc.function.arguments === 'string'
+              (typeof tc.function.arguments === 'string'
                 ? JSON.parse(tc.function.arguments)
-                : tc.function.arguments,
+                : tc.function.arguments) || {},
           },
         }));
 

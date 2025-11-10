@@ -63,32 +63,40 @@ export const tapBeforeExecute = (
  *
  * Completes the root span when task finishes
  */
-export const tapAfterExecuteEvents = () => {
+export const tapAfterExecuteEvents = (logger: Logger) => {
   return (event: AgentEvent) => {
-    // Task completion events trigger span completion
-    if (event.kind === 'task-complete' || event.kind === 'task-status') {
-      const span = (event as WithTraceContext)._rootSpan;
-      if (span) {
-        // Determine if this is final based on event type and status
-        const isFinal =
-          event.kind === 'task-complete' ||
-          (event.kind === 'task-status' &&
-            (event.status === 'completed' ||
-              event.status === 'failed' ||
-              event.status === 'canceled'));
-
-        if (isFinal) {
-          completeAgentExecuteSpan(span, {
-            state:
-              event.kind === 'task-complete'
-                ? 'completed'
-                : (event.status as 'completed' | 'failed'),
-            output: event.kind === 'task-complete' ? event.content : event.message,
-            error: event.metadata?.error as string | undefined,
-          });
-        }
-      }
+    // Only process completion events
+    if (event.kind !== 'task-complete' && event.kind !== 'task-status') {
+      return;
     }
+
+    const span = (event as WithTraceContext)._rootSpan;
+    if (!span) {
+      return;
+    }
+
+    // Check if this is a final event
+    const isFinal =
+      event.kind === 'task-complete' ||
+      (event.kind === 'task-status' &&
+        (event.status === 'completed' || event.status === 'failed' || event.status === 'canceled'));
+
+    if (!isFinal) {
+      return;
+    }
+
+    // Extract output and state
+    const output = event.kind === 'task-complete' ? event.content : event.message;
+    const state =
+      event.kind === 'task-complete' ? 'completed' : (event.status as 'completed' | 'failed');
+    const error = event.metadata?.error as string | undefined;
+
+    logger.trace(
+      { eventKind: event.kind, hasOutput: !!output, outputLength: output?.length, state },
+      'Completing agent execute span'
+    );
+
+    completeAgentExecuteSpan(span, { state, output, error });
   };
 };
 

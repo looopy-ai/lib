@@ -275,7 +275,7 @@ export class LiteLLMProvider implements LLMProvider {
             type: 'function' as const,
             function: {
               name: tc.function?.name as string,
-              arguments: tc.function?.arguments as string,
+              arguments: (typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function?.arguments) : tc.function?.arguments) || {},
             },
           }));
 

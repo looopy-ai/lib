@@ -7,12 +7,11 @@
  * Design Reference: design/agent-lifecycle.md
  */
 
-import { catchError, concat, Observable, of } from 'rxjs';
+import { catchError, concat, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
 import {
   addMessagesCompactedEvent,
   addMessagesLoadedEvent,
-  addMessagesSavedEvent,
   completeAgentInitializeSpan,
   completeAgentTurnSpan,
   failAgentInitializeSpan,
@@ -437,17 +436,71 @@ export class Agent {
             );
 
             // 3. Execute turn via AgentLoop with trace context
-            const turnEvents$ = this.agentLoop.startTurn(messages, {
-              contextId: this.config.contextId,
-              taskId,
-              turnNumber,
-              artifacts: await this.getArtifacts(),
-              authContext,
-              traceContext, // Propagate trace context for nested spans
-            });
-
-            // Collect assistant messages during turn
-            const assistantMessages: Message[] = [];
+            const turnEvents$ = this.agentLoop
+              .startTurn(messages, {
+                contextId: this.config.contextId,
+                taskId,
+                turnNumber,
+                artifacts: await this.getArtifacts(),
+                authContext,
+                traceContext, // Propagate trace context for nested spans
+              })
+              .pipe(
+                tap(async (event) => {
+                  switch (event.kind) {
+                    case 'content-complete':
+                      console.log('###### Captured assistant message:', event);
+                      if (this.config.autoSave && (event.content || event.toolCalls)) {
+                        await this.config.messageStore.append(this.config.contextId, [
+                          {
+                            role: 'assistant',
+                            content: event.content,
+                            toolCalls: event.toolCalls?.map((toolCall) => ({
+                              id: toolCall.id,
+                              type: toolCall.type,
+                              function: {
+                                name: toolCall.function.name,
+                                arguments: toolCall.function.arguments || {},
+                              },
+                            })),
+                          },
+                        ]);
+                      }
+                      break;
+                    case 'tool-complete':
+                      console.log('###### Captured tool message:', event);
+                      // TODO convert and save to message store
+                      // if (this.config.autoSave) {
+                      //   await this.config.messageStore.append(this.config.contextId, [
+                      //     {
+                      //       role: 'tool',
+                      //       content: 'Tool response',
+                      //       toolCallId: event.toolCallId,
+                      //       toolCalls: [
+                      //         {
+                      //           id: event.toolCallId,
+                      //           type: 'function',
+                      //           function: { name: event.toolName },
+                      //         },
+                      //       ],
+                      //     },
+                      //   ]);
+                      // }
+                      break;
+                    case 'task-complete':
+                      if (event.content) {
+                        setTurnOutputAttribute(span, event.content);
+                        this.config.logger.trace(
+                          { messageContent: event.content },
+                          `Added assistant message output to agent[${this.config.agentId}] span`
+                        );
+                      }
+                      break;
+                    default:
+                      return;
+                  }
+                })
+              );
 
             // Subscribe to turn events
             turnEvents$.subscribe({
@@ -466,61 +519,14 @@ export class Agent {
               },
               complete: async () => {
                 try {
-                  // TODO this is a bad way of getting the last message of the turn. We shouldn't need to read from the store here, but get the last event from the stream
-
-                  // 4. Get the latest messages from store to find assistant responses
-                  const latestMessages = await this.config.messageStore.getRecent(
-                    this.config.contextId,
-                    {
-                      maxMessages: 20, // Get recent messages to find the assistant response
-                    }
-                  );
-
-                  // Find assistant and tool messages from this turn (after the user message)
-                  const turnMessages = latestMessages.filter(
-                    (m: Message) => m.role === 'assistant' || m.role === 'tool'
-                  );
-                  assistantMessages.push(...turnMessages);
-
-                  // Note: Messages are already saved by AgentLoop if autoSave is enabled
-                  if (this.config.autoSave && assistantMessages.length > 0) {
-                    addMessagesSavedEvent(span, assistantMessages.length);
-
-                    this.config.logger.debug(
-                      {
-                        contextId: this.config.contextId,
-                        messageCount: assistantMessages.length,
-                      },
-                      'Assistant messages already saved by AgentLoop'
-                    );
-                  }
-
-                  // Add output to span (final assistant message)
-                  const finalAssistantMessage = assistantMessages.find(
-                    (m: Message) => m.role === 'assistant'
-                  );
-                  if (finalAssistantMessage) {
-                    const messageContent =
-                      typeof finalAssistantMessage.content === 'string'
-                        ? finalAssistantMessage.content
-                        : JSON.stringify(finalAssistantMessage.content);
-
-                    setTurnOutputAttribute(span, messageContent);
-
-                    this.config.logger.trace(
-                      { messageContent },
-                      `Added assistant message output to agent[${this.config.agentId}] span`
-                    );
-                  }
-
-                  // 5. Update agent state
+                  // Update agent state
                   this._state.turnCount++;
                   this._state.lastActivity = new Date();
                   this._state.status = 'ready';
 
                   setTurnCountAttribute(span, this._state.turnCount);
 
-                  // 6. Check if compaction needed
+                  // Check if compaction needed
                   if (this.config.autoCompact) {
                     await this.checkAndCompact();
                     addMessagesCompactedEvent(span);
@@ -585,13 +591,13 @@ export class Agent {
     this.config.logger.info({ contextId: this.config.contextId }, 'Shutting down agent');
 
     try {
+      this._state.status = 'shutdown';
+      this._state.lastActivity = new Date();
+
       // Save any pending state
       if (!this.config.autoSave) {
         await this.save();
       }
-
-      this._state.status = 'shutdown';
-      this._state.lastActivity = new Date();
 
       this.config.logger.info({ contextId: this.config.contextId }, 'Agent shutdown complete');
     } catch (error) {

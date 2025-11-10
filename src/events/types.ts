@@ -169,7 +169,7 @@ export interface ContentCompleteEvent {
   toolCalls?: Array<{
     id: string;
     type: 'function';
-    function: { name: string; arguments: string };
+    function: { name: string; arguments: Record<string, unknown> };
   }>; // Tool calls from LLM (if any)
   timestamp: string;
 }

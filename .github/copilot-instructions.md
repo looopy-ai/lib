@@ -520,4 +520,4 @@ Keep designs clean, conceptual, and stable. Put all the detailed implementation 
 
 All shell commands must be in nushell. This computer does not run bash by default.
 
-When running commands, avoid output redirection.
+When running commands, avoid output redirection. i.e. do NOT do this: `2>&1` (that's bash syntax) and will not work.

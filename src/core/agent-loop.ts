@@ -151,7 +151,7 @@ export class AgentLoop {
         this.config.logger.trace({ taskId: state.taskId }, 'switchMap to runLoop');
         return this.runLoop(state);
       }),
-      tap(tapAfterExecuteEvents()),
+      tap(tapAfterExecuteEvents(this.config.logger)),
       catchError(catchExecuteError(rootSpanRef, context, this.config.logger, execId)),
       // Complete event emitter on execution completion
       tap({
