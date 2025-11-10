@@ -1,9 +1,8 @@
 /**
- * Test that Agent correctly exposes scheduled artifact store
+ * Test that documents the correct pattern for artifact store scheduling
  *
- * This test documents the correct pattern for creating artifact tools:
- * Tools should be created AFTER Agent construction using agent.artifactStore
- * to ensure they use the same scheduled store instance as AgentLoop.
+ * The correct pattern is to wrap the artifact store with ArtifactScheduler BEFORE
+ * passing it to Agent, and use the same scheduled instance for artifact tools.
  */
 
 import { of } from 'rxjs';
@@ -14,8 +13,9 @@ import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-s
 import { InMemoryMessageStore } from '../src/stores/messages/memory-message-store';
 
 describe('Agent Artifact Store Scheduling', () => {
-  it('should wrap artifact store with scheduler on construction', () => {
+  it('should accept pre-scheduled artifact store', () => {
     const baseStore = new InMemoryArtifactStore();
+    const scheduledStore = new ArtifactScheduler(baseStore);
     const messageStore = new InMemoryMessageStore();
 
     const agent = new Agent({
@@ -35,18 +35,20 @@ describe('Agent Artifact Store Scheduling', () => {
       },
       toolProviders: [],
       messageStore,
-      artifactStore: baseStore,
+      artifactStore: scheduledStore, // Pass scheduled store directly
     });
 
-    // Agent should expose the scheduled store
-    expect(agent.artifactStore).toBeInstanceOf(ArtifactScheduler);
-    expect(agent.artifactStore).not.toBe(baseStore);
+    // Agent should use the store as-is, no wrapping
+    // biome-ignore lint/complexity/useLiteralKeys: accessing private property for test
+    expect(agent['config'].artifactStore).toBe(scheduledStore);
   });
 
-  it('should use same scheduled store in agent config', () => {
+  it('should use same store instance for agent and tools - correct pattern', () => {
     const baseStore = new InMemoryArtifactStore();
+    const scheduledStore = new ArtifactScheduler(baseStore);
     const messageStore = new InMemoryMessageStore();
 
+    // ✅ CORRECT: Create scheduled store once, use everywhere
     const agent = new Agent({
       contextId: 'test-context',
       agentId: 'test-agent',
@@ -64,22 +66,21 @@ describe('Agent Artifact Store Scheduling', () => {
       },
       toolProviders: [],
       messageStore,
-      artifactStore: baseStore,
+      artifactStore: scheduledStore, // Same instance
     });
 
-    // Config should store the scheduled version
-    // biome-ignore lint/complexity/useLiteralKeys: accessing private property for test
-    expect(agent['config'].artifactStore).toBeInstanceOf(ArtifactScheduler);
+    // Tools would use the same scheduledStore instance
+    // Example: const artifactTools = createArtifactTools(scheduledStore, stateStore);
 
-    // Getter should return same instance as config
     // biome-ignore lint/complexity/useLiteralKeys: accessing private property for test
-    expect(agent.artifactStore).toBe(agent['config'].artifactStore);
+    expect(agent['config'].artifactStore).toBe(scheduledStore);
   });
 
-  it('should allow creating artifact tools with agent.artifactStore', () => {
+  it('can also work without scheduler if user chooses', () => {
     const baseStore = new InMemoryArtifactStore();
     const messageStore = new InMemoryMessageStore();
 
+    // User can choose NOT to use scheduler
     const agent = new Agent({
       contextId: 'test-context',
       agentId: 'test-agent',
@@ -97,15 +98,12 @@ describe('Agent Artifact Store Scheduling', () => {
       },
       toolProviders: [],
       messageStore,
-      artifactStore: baseStore,
+      artifactStore: baseStore, // Use base store directly
     });
 
-    // This is the CORRECT pattern: create tools after Agent construction
-    // using agent.artifactStore to ensure they use the scheduled store
-    const scheduledStore = agent.artifactStore;
-    expect(scheduledStore).toBeInstanceOf(ArtifactScheduler);
-
-    // Tools can now be created with the scheduled store
-    // Example: const artifactTools = createArtifactTools(agent.artifactStore, stateStore);
+    // biome-ignore lint/complexity/useLiteralKeys: accessing private property for test
+    expect(agent['config'].artifactStore).toBe(baseStore);
+    // biome-ignore lint/complexity/useLiteralKeys: accessing private property for test
+    expect(agent['config'].artifactStore).not.toBeInstanceOf(ArtifactScheduler);
   });
 });

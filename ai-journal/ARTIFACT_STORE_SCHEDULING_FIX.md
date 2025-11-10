@@ -1,17 +1,17 @@
-# Artifact Store Scheduling Fix Complete
+# Artifact Store Scheduling - Cleaner Pattern
 
 **Date**: 2025-01-14
-**Status**: ✅ Complete
+**Status**: ✅ Complete (Refactored to simpler pattern)
 
 ## Problem Summary
 
-The kitchen-sink example was encountering "File artifact not found" errors even though artifacts were being created successfully. Root cause: artifact tools were using a different artifact store instance than AgentLoop.
+The kitchen-sink example was encountering "File artifact not found" errors because artifact tools were using a different artifact store instance than AgentLoop.
 
-### Technical Details
+### Original Issue
 
 **Flow**:
 1. `examples/kitchen-sink.ts` created artifact tools with base `artifactStore`
-2. Agent constructor wrapped `artifactStore` with `ArtifactScheduler`
+2. Agent constructor wrapped `artifactStore` with `ArtifactScheduler` internally
 3. AgentLoop received the scheduled store from config
 4. Result: Tools pointed to base store Map, AgentLoop pointed to scheduled store Map
 5. Artifacts created via tools existed in base store but were invisible to AgentLoop
@@ -21,95 +21,118 @@ The kitchen-sink example was encountering "File artifact not found" errors even 
 Error: File artifact not found: bruno-kids-book
 ```
 
-## Solution
+### Initial Solution Was Messy
 
-### 1. Agent Exposes Scheduled Store
+First attempt had Agent wrap the store internally and expose it via getter:
+```typescript
+// ❌ MESSY - Hidden wrapping, confusing instances
+const agent = new Agent({ artifactStore: baseStore, ... });
+const artifactTools = createArtifactTools(agent.artifactStore, stateStore); // Different instance!
+```
+
+This was unintuitive because:
+- Two different instances existed (base vs scheduled)
+- Hidden wrapping made it hard to understand
+- Easy to accidentally use wrong instance
+- Required accessing agent property after construction
+
+## Final Solution: User Controls Wrapping
+
+### 1. Agent No Longer Wraps
 
 Modified `src/core/agent.ts`:
 ```typescript
 constructor(config: AgentConfig) {
-  // Wrap artifact store with scheduler BEFORE storing in config
-  const scheduledArtifactStore = new ArtifactScheduler(config.artifactStore);
-
+  // DON'T wrap - just use whatever store user provides
   this.config = {
+    autoSave: true,
+    autoCompact: false,
+    maxMessages: 100,
+    agentId: 'default-agent',
+    systemPrompt: 'You are a helpful AI assistant.',
     ...config,
-    artifactStore: scheduledArtifactStore,  // Config gets scheduled version
+    // No wrapping - user's store used as-is
   };
 
-  // AgentLoop receives config.artifactStore (already scheduled)
+  // AgentLoop gets whatever store user provided
   this.agentLoop = new AgentLoop({
     artifactStore: this.config.artifactStore,
     // ...
   });
 }
-
-// Expose scheduled store via getter
-get artifactStore(): ArtifactStore {
-  return this.config.artifactStore;
-}
 ```
 
-### 2. Kitchen-Sink Example Updated
+### 2. Kitchen-Sink Example - Explicit Scheduling
 
 Modified `examples/kitchen-sink.ts`:
 ```typescript
-// Create agent FIRST
+// Create base artifact store
+const baseArtifactStore = new FileSystemArtifactStore({ basePath });
+
+// Wrap it with scheduler EXPLICITLY (user's choice)
+const scheduledArtifactStore = new ArtifactScheduler(baseArtifactStore);
+
+// Create artifact tools with SAME scheduled store
+const artifactToolProvider = createArtifactTools(scheduledArtifactStore, taskStateStore);
+
+// Create agent with SAME scheduled store
 const agent = new Agent({
   contextId,
   agentId,
   llmProvider,
-  toolProviders: [localToolProvider], // Artifact tools added later
+  toolProviders: [localToolProvider, artifactToolProvider],
   messageStore,
-  artifactStore,  // Base store passed to constructor
+  artifactStore: scheduledArtifactStore, // Same instance everywhere
   systemPrompt,
   autoSave: true,
   logger,
 });
-
-// Create artifact tools AFTER agent using agent.artifactStore
-// This ensures tools use the scheduled store (same instance as AgentLoop)
-const artifactToolProvider = createArtifactTools(agent.artifactStore, taskStateStore);
-
-// Add to agent's tool providers
-agent['config'].toolProviders.push(artifactToolProvider);
 ```
 
 ### 3. Test Coverage
 
-Created `tests/agent-artifact-tools.test.ts` documenting the correct pattern:
-- ✅ Verifies agent wraps store with scheduler
-- ✅ Verifies config stores scheduled version
-- ✅ Verifies getter exposes scheduled store
-- ✅ Documents correct pattern for creating artifact tools
+Updated `tests/agent-artifact-tools.test.ts`:
+- ✅ Verifies agent accepts pre-scheduled store
+- ✅ Verifies agent doesn't wrap (uses store as-is)
+- ✅ Verifies user can choose NOT to schedule
+- ✅ Documents correct pattern
 
 ## Correct Pattern
 
-**Always create artifact tools AFTER Agent construction:**
+**Create scheduled store once, pass same instance everywhere:**
 
 ```typescript
-// ✅ CORRECT
-const agent = new Agent({ artifactStore: baseStore, ... });
-const artifactTools = createArtifactTools(agent.artifactStore, stateStore);
-agent['config'].toolProviders.push(artifactTools);
+// ✅ CORRECT - ONE instance, explicit control
+const artifactStore = new ArtifactScheduler(new InMemoryArtifactStore());
 
-// ❌ WRONG - Tools will use different store than AgentLoop
-const artifactTools = createArtifactTools(baseStore, stateStore);
-const agent = new Agent({ artifactStore: baseStore, toolProviders: [artifactTools] });
-```
+// Pass same instance to tools
+const artifactTools = createArtifactTools(artifactStore, stateStore);
 
-## Why This Works
+// Pass same instance to agent
+const agent = new Agent({
+  artifactStore,
+  toolProviders: [artifactTools],
+  // ...
+});
 
-The ArtifactScheduler is a wrapper that maintains per-artifact operation queues. When you pass a base store to Agent:
+// User can also choose NOT to schedule:
+const baseStore = new InMemoryArtifactStore();
+const agent = new Agent({ artifactStore: baseStore, ... }); // No scheduling
+```## Why This Is Better
 
-1. Agent wraps it: `scheduledStore = new ArtifactScheduler(baseStore)`
-2. Agent stores wrapped version in config
-3. AgentLoop receives scheduled store from config
-4. Tools created with `agent.artifactStore` receive same scheduled store
+**Benefits**:
+1. ✅ **One instance** - No hidden wrapping, explicit control
+2. ✅ **Clear intent** - User explicitly chooses to schedule
+3. ✅ **Simple** - Pass the same thing everywhere
+4. ✅ **Flexible** - User can choose NOT to schedule
+5. ✅ **Intuitive** - No surprising behavior
 
-All components now reference the same Map instance:
-- ✅ Artifact tools write to scheduled store → queued operations
-- ✅ AgentLoop reads from scheduled store → sees all artifacts
-- ✅ Parallel create + append properly sequenced per artifact
+**How It Works**:
+- ArtifactScheduler wraps base store with per-artifact queues
+- User creates scheduled store once
+- Same scheduled instance passed to Agent and tools
+- All components reference same Map instance
+- Parallel create + append properly sequenced per artifact
 
 ## Test Results
 

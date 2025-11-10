@@ -44,6 +44,7 @@ import { Agent } from '../src/core/agent';
 import type { StoredArtifact } from '../src/core/types';
 import { initializeTracing, shutdownTracing } from '../src/observability/tracing';
 import { LiteLLM } from '../src/providers/litellm-provider';
+import { ArtifactScheduler } from '../src/stores/artifacts/artifact-scheduler';
 import { FileSystemArtifactStore } from '../src/stores/filesystem/filesystem-artifact-store';
 import { FileSystemContextStore } from '../src/stores/filesystem/filesystem-context-store';
 import { FileSystemMessageStore } from '../src/stores/filesystem/filesystem-message-store';
@@ -130,6 +131,13 @@ async function main() {
   // Local tools provider
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
+  // Wrap artifact store with scheduler to handle parallel create+append operations
+  // This ensures sequential execution per artifact while allowing parallel execution across different artifacts
+  const scheduledArtifactStore = new ArtifactScheduler(artifactStore);
+
+  // Artifact tools provider - uses the same scheduled store as Agent will use
+  const artifactToolProvider = createArtifactTools(scheduledArtifactStore, taskStateStore);
+
   // System prompt
   const systemPrompt = `You are a helpful AI assistant with access to various tools.
 
@@ -201,21 +209,13 @@ Be concise and helpful in your responses.`;
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider], // Artifact tools added after agent construction
+    toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
-    artifactStore,
+    artifactStore: scheduledArtifactStore, // Use scheduled store
     systemPrompt,
     autoSave: true,
     logger,
   });
-
-  // Artifact tools provider - MUST be created after Agent to use scheduled store
-  // Agent wraps artifactStore with ArtifactScheduler internally, so we need to use
-  // agent.artifactStore to ensure tools use the same scheduled instance
-  const artifactToolProvider = createArtifactTools(agent.artifactStore, taskStateStore);
-
-  // Add artifact tools to agent
-  agent['config'].toolProviders.push(artifactToolProvider);
 
   // Initialize or load context state
   let contextState = await contextStore.load(contextId);
