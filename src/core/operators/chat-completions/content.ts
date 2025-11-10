@@ -1,11 +1,5 @@
 import { filter, map, type Observable, pipe, Subject } from 'rxjs';
-import type { Choice } from './types';
-
-export type InlineXml = {
-  name: string;
-  content?: string;
-  attributes: Record<string, string | string[]>;
-};
+import type { Choice, InlineXml } from './types';
 
 type SplitResult = {
   content: Observable<string>;
@@ -241,3 +235,137 @@ export const stripInlineXmlTags = (text: string): string => {
 
   return result;
 };
+
+/**
+ * InlineXmlParser
+ * Stateful parser for extracting XML tags and clean content from text chunks.
+ * Uses the same logic as splitInlineXml() for consistent whitespace handling.
+ */
+export class InlineXmlParser {
+  private buffer = '';
+  private prevEmittedWasTag = false;
+  private contentParts: string[] = [];
+  private extractedTags: InlineXml[] = [];
+
+  /**
+   * Process a text chunk, extracting tags and accumulating clean content
+   */
+  processChunk(chunk: string): void {
+    this.buffer += chunk;
+    this.flushParsable();
+
+    // If after parsing there's no tag in buffer, we can safely emit the remainder as content
+    const nextLt = this.buffer.indexOf('<');
+    if (nextLt === -1 && this.buffer.length) {
+      let out = this.buffer;
+      if (this.prevEmittedWasTag) out = out.replace(/^\s+/, '');
+      if (out.length) this.contentParts.push(out);
+      this.buffer = '';
+      this.prevEmittedWasTag = false;
+    }
+  }
+
+  /**
+   * Finalize parsing and return results
+   */
+  finalize(): { content: string; tags: InlineXml[] } {
+    // At completion, if buffer contains anything, emit it as trailing content
+    if (this.buffer.length) {
+      let out = this.buffer;
+      if (this.prevEmittedWasTag) out = out.replace(/^\s+/, '');
+      if (out.length) this.contentParts.push(out);
+      this.buffer = '';
+    }
+
+    return {
+      content: this.contentParts.join(''),
+      tags: this.extractedTags,
+    };
+  }
+
+  private flushParsable(): void {
+    while (true) {
+      const lt = this.buffer.indexOf('<');
+      if (lt === -1) {
+        return;
+      }
+
+      const gt = this.buffer.indexOf('>', lt + 1);
+      if (gt === -1) {
+        return; // Incomplete tag, wait for more data
+      }
+
+      // Emit text before tag
+      if (lt > 0) {
+        this.emitContent(this.buffer.slice(0, lt), true);
+      }
+
+      const tagHead = this.buffer.slice(lt + 1, gt).trim();
+      this.buffer = this.buffer.slice(gt + 1);
+
+      if (!this.processTagHead(tagHead)) {
+        return; // Need more data for complete tag
+      }
+    }
+  }
+
+  private processTagHead(tagHead: string): boolean {
+    const selfClose = tagHead.endsWith('/');
+    const isClosing = tagHead.startsWith('/');
+
+    if (isClosing) {
+      this.prevEmittedWasTag = true;
+      return true;
+    }
+
+    const nameMatch = /^([A-Za-z_:][\w:.-]*)([\s\S]*)$/.exec(
+      selfClose ? tagHead.slice(0, -1).trimEnd() : tagHead
+    );
+    if (!nameMatch) {
+      this.prevEmittedWasTag = true;
+      return true;
+    }
+
+    const tagName = nameMatch[1];
+    const attributes = parseAttributes(nameMatch[2]?.trim() ?? '');
+
+    if (selfClose) {
+      this.extractedTags.push({ name: tagName, attributes });
+      this.prevEmittedWasTag = true;
+      return true;
+    }
+
+    return this.processPairedTag(tagName, tagHead, attributes);
+  }
+
+  private processPairedTag(
+    tagName: string,
+    tagHead: string,
+    attributes: Record<string, string | string[]>
+  ): boolean {
+    const closeSeq = `</${tagName}>`;
+    const closeIdx = this.buffer.indexOf(closeSeq);
+
+    if (closeIdx === -1) {
+      // Not complete yet; put it back
+      this.buffer = `<${tagHead}>${this.buffer}`;
+      return false;
+    }
+
+    const inner = this.buffer.slice(0, closeIdx);
+    this.buffer = this.buffer.slice(closeIdx + closeSeq.length);
+    this.extractedTags.push({ name: tagName, content: inner, attributes });
+    this.prevEmittedWasTag = true;
+    return true;
+  }
+
+  private emitContent(s: string, nextIsTagAhead: boolean): void {
+    let out = s;
+    if (this.prevEmittedWasTag) out = out.replace(/^\s+/, '');
+    if (nextIsTagAhead) out = out.replace(/\s+$/, '');
+    if (out.length > 0) {
+      this.contentParts.push(out);
+      this.prevEmittedWasTag = false;
+    }
+  }
+}

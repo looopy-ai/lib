@@ -35,9 +35,11 @@ export type ThoughtVerbosity = 'brief' | 'normal' | 'detailed';
  * Thought types for semantic categorization
  */
 export type ThoughtType =
+  | 'analysis' // Analyzing information
   | 'planning' // Planning next steps
   | 'reasoning' // Reasoning about information
   | 'reflection' // Reflecting on progress
+  | 'thinking' // General thinking
   | 'decision' // Making a decision
   | 'observation' // Observing important context
   | 'strategy'; // Adjusting strategy

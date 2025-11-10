@@ -1,6 +1,6 @@
 import { Observable, type OperatorFunction } from 'rxjs';
-import { stripInlineXmlTags } from './content';
-import type { Choice, ToolCall } from './types';
+import { InlineXmlParser } from './content';
+import type { Choice, InlineXml, ToolCall } from './types';
 
 type ToolCallAccumulator = {
   id: string | null;
@@ -18,6 +18,7 @@ type AggregatedChoice = {
     tool_calls?: ToolCall[];
   };
   finish_reason?: string | null;
+  thoughts?: InlineXml[];
 };
 
 const mergeToolCallDelta = (existing: ToolCallAccumulator, delta: ToolCall): void => {
@@ -71,7 +72,8 @@ const finalizeToolCalls = (toolCallsByIndex: Map<number, ToolCallAccumulator>): 
 const processChoice = (
   choice: Choice,
   aggregated: AggregatedChoice,
-  toolCallsByIndex: Map<number, ToolCallAccumulator>
+  toolCallsByIndex: Map<number, ToolCallAccumulator>,
+  xmlParser: InlineXmlParser
 ): void => {
   // Set index from first choice (should be consistent)
   if (aggregated.index === undefined) {
@@ -80,13 +82,9 @@ const processChoice = (
 
   // Aggregate delta fields
   if (choice.delta) {
-    // Concatenate content
+    // Process content through XML parser to extract tags and clean content
     if (choice.delta.content) {
-      const existingContent = aggregated.delta?.content || '';
-      aggregated.delta = {
-        ...aggregated.delta,
-        content: existingContent + choice.delta.content,
-      };
+      xmlParser.processChunk(choice.delta.content);
     }
 
     // Aggregate tool calls by index
@@ -120,24 +118,36 @@ export const aggregateChoice =
     new Observable<T>((subscriber) => {
       const aggregated: AggregatedChoice = {};
       const toolCallsByIndex = new Map<number, ToolCallAccumulator>();
+      const xmlParser = new InlineXmlParser();
 
       const sub = source.subscribe({
         next: (choice) => {
-          processChoice(choice, aggregated, toolCallsByIndex);
+          processChoice(choice, aggregated, toolCallsByIndex, xmlParser);
         },
         error: (err) => subscriber.error(err),
         complete: () => {
+          // Finalize XML parsing to get clean content and extracted thoughts
+          const { content, tags } = xmlParser.finalize();
+
+          // Set the clean content
+          if (content) {
+            aggregated.delta = {
+              ...aggregated.delta,
+              content,
+            };
+          }
+
+          // Store extracted thoughts
+          if (tags.length > 0) {
+            aggregated.thoughts = tags;
+          }
+
           // Add aggregated tool_calls to delta if any were collected
           if (toolCallsByIndex.size > 0) {
             aggregated.delta = {
               ...aggregated.delta,
               tool_calls: finalizeToolCalls(toolCallsByIndex),
             };
-          }
-
-          // Strip inline XML tags from aggregated content
-          if (aggregated.delta?.content) {
-            aggregated.delta.content = stripInlineXmlTags(aggregated.delta.content);
           }
 
           // Emit the fully aggregated choice

@@ -7,9 +7,9 @@
 
 import { type Observable, share } from 'rxjs';
 import { aggregateChoice } from './aggregate';
-import { getContent, type InlineXml, splitInlineXml } from './content';
+import { getContent, splitInlineXml } from './content';
 import { assembleToolCalls, getToolCalls } from './tool-calls';
-import type { Choice, ToolCall } from './types';
+import type { Choice, InlineXml, ToolCall } from './types';
 
 /**
  * Pipeline result containing multiple output streams

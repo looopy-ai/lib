@@ -35,7 +35,8 @@
  */
 
 import * as dotenv from 'dotenv';
-import * as fs from 'node:fs/promises';
+import fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import pino from 'pino';
@@ -159,14 +160,33 @@ Examples of when to use thinking tags:
 - When working through multi-step reasoning
 - When making decisions or weighing alternatives
 - When you want to show your work transparently
+- Only use the following tag names, everything else must be outside of tags: thinking, analysis, planning, reasoning, reflection, decision
+- Do not omit or rename tags
+- Output and answers must be outside these tags
 
 Example:
+<analysis>
+The user has provided information about the task they want to accomplish. Including details...
+</analysis>
+<planning>
+To accomplish this, I will:
+[] First, think about ...
+[] Then, ...
+[] Finally, ...
+</planning>
 <thinking>
 The user wants weather information and a calculation. I'll:
 1. First get the weather data
 2. Then perform any needed calculations
 3. Present the results clearly
 </thinking>
+<planning>
+[x] Task xyz complete
+</planning>
+<reasoning>
+Expand on the logic and steps that lead to your conclusion. Show your full chain of reasoning here.
+</reasoning>
+Here is my answer...
 
 When creating artifacts:
 - File artifacts: Use create_file_artifact, then append_file_chunk (set isLastChunk=true on final chunk)
@@ -235,7 +255,7 @@ Be concise and helpful in your responses.`;
   );
 
   // Ensure directory exists for SSE log
-  await fs.mkdir(path.dirname(sseLogPath), { recursive: true });
+  await fsPromises.mkdir(path.dirname(sseLogPath), { recursive: true });
 
   // Helper to log events in SSE format
   async function logSSEEvent(event: import('../src/core/types').AgentEvent): Promise<void> {
@@ -297,7 +317,7 @@ Be concise and helpful in your responses.`;
         '',
       ];
 
-      await fs.appendFile(sseLogPath, lines.join('\n'), 'utf-8');
+      await fsPromises.appendFile(sseLogPath, lines.join('\n'), 'utf-8');
     } catch (error) {
       console.error('Failed to log SSE event:', error);
     }
@@ -424,7 +444,7 @@ Be concise and helpful in your responses.`;
     async '/clear-sse-log'(): Promise<boolean> {
       console.log('\n🗑️  Clearing SSE log...');
       try {
-        await fs.writeFile(sseLogPath, '', 'utf-8');
+        await fsPromises.writeFile(sseLogPath, '', 'utf-8');
         console.log('✅ SSE log cleared!');
       } catch (error) {
         console.error('❌ Failed to clear SSE log:', (error as Error).message);
@@ -470,7 +490,7 @@ Be concise and helpful in your responses.`;
 
       console.log(`\n📡 SSE Event Log (last ${lineCount} lines):`);
       try {
-        const content = await fs.readFile(sseLogPath, 'utf-8');
+        const content = await fsPromises.readFile(sseLogPath, 'utf-8');
         const lines = content.split('\n').filter((l) => l.trim());
         const lastLines = lines.slice(-lineCount);
 
@@ -507,7 +527,8 @@ Be concise and helpful in your responses.`;
         handleTaskStatus(event);
         break;
       case 'content-delta':
-        process.stdout.write(event.delta);
+        // Use synchronous write to preserve order
+        fs.writeSync(process.stdout.fd, event.delta);
         break;
       case 'content-complete':
         console.log(`\n\n📦 Content completed:\n${event.content}`);

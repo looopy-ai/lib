@@ -233,12 +233,12 @@ export class LiteLLMProvider implements LLMProvider {
     // Map <thinking> tags to ThoughtStreamEvent (without contextId/taskId)
     let thoughtIndex = 0;
     const thoughts$ = tags.pipe(
-      filter((tag) => tag.name === 'thinking'),
+      filter((tag) => ['thinking', 'analysis', 'reasoning', 'reflection', 'planning', 'debugging', 'decision', 'observation', 'strategizing'].includes(tag.name)),
       map((tag): LLMEvent<ThoughtStreamEvent> => {
         const thoughtType =
           (singleString(
-            tag.attributes.thoughtType || tag.attributes.thought_type
-          ) as ThoughtType) || 'reasoning';
+            tag.attributes.thoughtType || tag.attributes.thought_type || tag.name
+          ) as ThoughtType) || 'thinking';
 
         const verbosity = (singleString(tag.attributes.verbosity) as ThoughtVerbosity) || 'normal';
 

@@ -8,10 +8,17 @@ export type ToolCall = {
   type?: 'function';
 };
 
+export type InlineXml = {
+  name: string;
+  content?: string;
+  attributes: Record<string, string | string[]>;
+};
+
 export type Choice = {
   delta?: { content?: string; tool_calls?: ToolCall[] };
   index: number;
   finish_reason?: string | null;
+  thoughts?: InlineXml[];
 };
 
 export type ChatCompletionStreamData = {

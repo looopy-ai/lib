@@ -1,4 +1,4 @@
-# XML Tag Stripping in Content Aggregation
+# XML Tag Processing During Content Aggregation
 
 ## Issue
 
@@ -16,79 +16,118 @@ Aggregated content (had XML tags):
 
 ## Solution
 
-Added XML tag stripping logic to the content aggregation phase for cleaner final output.
+Process XML tags **during** content aggregation (not at the end) using the same logic as `splitInlineXml()` for consistent whitespace handling. Also collect extracted thoughts in the aggregated Choice object.
 
 ### Implementation
 
-1. **Created `stripInlineXmlTags()` utility** in `src/core/operators/chat-completions/content.ts`:
-   - Removes paired XML tags: `<thinking>...</thinking>`
-   - Removes self-closing tags: `<thinking />`
-   - Preserves word boundaries by replacing tags with space
-   - Collapses excessive whitespace
+1. **Created `InlineXmlParser` class** in `src/core/operators/chat-completions/content.ts`:
+   - Stateful parser that processes chunks incrementally
+   - Reuses exact logic from `splitInlineXml()` for consistent whitespace handling
+   - Accumulates clean content and extracted tags separately
+   - Handles tags across chunk boundaries (buffers internally)
 
-2. **Applied stripping in aggregation** in `src/core/operators/chat-completions/aggregate.ts`:
-   - Imported `stripInlineXmlTags()` utility
-   - Applied cleaning in the `complete` handler before emitting final choice
-   - Only strips tags if content exists
+2. **Updated `AggregatedChoice` type** to include `thoughts` array
+
+3. **Updated `Choice` type** to include `thoughts?: InlineXml[]`
+
+4. **Modified aggregation logic** in `src/core/operators/chat-completions/aggregate.ts`:
+   - Creates `InlineXmlParser` instance for each aggregation
+   - Processes each content chunk through the parser (not string concatenation)
+   - Finalizes parser to get clean content and extracted thoughts
+   - Stores both clean content and thoughts array in result
 
 ### Code Changes
 
 **`src/core/operators/chat-completions/content.ts`**:
 ```typescript
-export const stripInlineXmlTags = (text: string): string => {
-  let result = text;
+export class InlineXmlParser {
+  private buffer = '';
+  private prevEmittedWasTag = false;
+  private contentParts: string[] = [];
+  private extractedTags: InlineXml[] = [];
 
-  // Remove paired tags with content: <tagname ...>...</tagname>
-  // Replace with space to preserve word boundaries
-  result = result.replace(/<([A-Za-z_:][\w:.-]*)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g, ' ');
+  processChunk(chunk: string): void {
+    // Process chunk using same logic as splitInlineXml
+  }
 
-  // Remove self-closing tags: <tagname ... />
-  // Replace with space to preserve word boundaries
-  result = result.replace(/<([A-Za-z_:][\w:.-]*)(?:\s[^>]*)?\s*\/>/g, ' ');
+  finalize(): { content: string; tags: InlineXml[] } {
+    // Return accumulated clean content and extracted tags
+  }
+}
+```
 
-  // Clean up excessive whitespace
-  result = result.replace(/\s+/g, ' ').trim();
-
-  return result;
+**`src/core/operators/chat-completions/types.ts`**:
+```typescript
+export type Choice = {
+  delta?: { content?: string; tool_calls?: ToolCall[] };
+  index: number;
+  finish_reason?: string | null;
+  thoughts?: InlineXml[];  // NEW
 };
 ```
 
 **`src/core/operators/chat-completions/aggregate.ts`**:
 ```typescript
-import { stripInlineXmlTags } from './content';
+const xmlParser = new InlineXmlParser();
 
-// In aggregateChoice operator's complete handler:
+// Process each chunk through parser
+next: (choice) => {
+  if (choice.delta?.content) {
+    xmlParser.processChunk(choice.delta.content);
+  }
+}
+
+// Finalize and set clean content + thoughts
 complete: () => {
-  // ... existing tool_calls aggregation ...
+  const { content, tags } = xmlParser.finalize();
 
-  // Strip inline XML tags from aggregated content
-  if (aggregated.delta?.content) {
-    aggregated.delta.content = stripInlineXmlTags(aggregated.delta.content);
+  if (content) {
+    aggregated.delta = { ...aggregated.delta, content };
   }
 
-  // Emit the fully aggregated choice
-  subscriber.next(aggregated as T);
-  subscriber.complete();
+  if (tags.length > 0) {
+    aggregated.thoughts = tags;
+  }
 }
 ```
 
 ## Benefits
 
 1. **Cleaner Final Output**: Content-complete events no longer contain XML tags
-2. **Reusable Logic**: Centralized stripping function in content.ts
-3. **Consistent Behavior**: Streaming deltas and final content both clean
-4. **Preserves Whitespace**: Proper word boundaries maintained
-5. **Handles Multiple Tags**: Works with multiple or nested tags
+2. **Reusable Logic**: Same parsing logic as `splitInlineXml()` for consistency
+3. **Consistent Whitespace**: Identical behavior to streaming extraction
+4. **Thoughts Collection**: Aggregated Choice includes array of extracted thoughts
+5. **Incremental Processing**: Tags removed during chunk processing, not at the end
+6. **Handles Multiple Tags**: Works with multiple tags across chunk boundaries
 
 ## Testing
 
-Added 3 new test cases in `tests/chat-completions-aggregate.test.ts`:
+Updated 3 test cases in `tests/chat-completions-aggregate.test.ts`:
 
-1. **Paired tags across chunks**: `<thinking>...</thinking>` removed
-2. **Self-closing tags**: `<thinking />` removed
-3. **Multiple tags**: Multiple `<thinking>` tags cleaned
+1. **Paired tags across chunks**: `<thinking>...</thinking>` removed, thought collected
+2. **Self-closing tags**: `<thinking />` removed, thought collected
+3. **Multiple tags**: Multiple `<thinking>` tags cleaned, all thoughts collected
 
 All 230 tests passing (including 8 aggregate tests).
+
+**Test Examples**:
+```typescript
+// Paired tag with content
+expect(result[0].delta?.content).toBe('Let me think about this.The answer is 42.');
+expect(result[0].thoughts).toEqual([
+  {
+    name: 'thinking',
+    content: 'I need to analyze the problem carefully',
+    attributes: {},
+  },
+]);
+
+// Multiple tags
+expect(result[0].thoughts).toEqual([
+  { name: 'thinking', content: 'First thought', attributes: {} },
+  { name: 'thinking', content: 'Second thought', attributes: {} },
+]);
+```
 
 ## Example Output
 
@@ -104,17 +143,26 @@ All 230 tests passing (including 8 aggregate tests).
 }
 ```
 
-**After** (clean):
+**After** (clean content + thoughts array):
 ```json
 {
   "kind": "content-complete",
   "choice": {
     "delta": {
-      "content": "Let me think. The answer is 42."
-    }
+      "content": "Let me think.The answer is 42."
+    },
+    "thoughts": [
+      {
+        "name": "thinking",
+        "content": "I should analyze",
+        "attributes": {}
+      }
+    ]
   }
 }
 ```
+
+**Note**: Whitespace at tag boundaries is trimmed per `splitInlineXml()` behavior. If you need space preserved, add explicit space in content chunks: `"Let me think. "` instead of `"Let me think."`.
 
 ## Related Changes
 
@@ -134,30 +182,36 @@ No breaking changes. This is a quality improvement that automatically applies to
 
 ## Technical Notes
 
-### Why in Aggregation?
+### Why Process During Aggregation?
 
-Cleaning during aggregation (rather than just during streaming) provides:
-1. **Single source of truth**: All final content is clean
-2. **Reusability**: Works for both streaming and non-streaming scenarios
-3. **Consistency**: Streaming deltas and final content match
-4. **Simpler debugging**: No need to track whether tags were removed
+Processing during aggregation (chunk by chunk) rather than at the end provides:
+1. **Consistent Logic**: Uses exact same parser as `splitInlineXml()`
+2. **Consistent Whitespace**: Identical trimming behavior
+3. **Reusability**: `InlineXmlParser` class can be used elsewhere
+4. **Thought Collection**: Natural place to accumulate extracted thoughts
+5. **Handles Boundaries**: Tags spanning chunks handled correctly
 
 ### Whitespace Handling
 
-The function preserves natural word boundaries:
-- Replaces tags with space (not empty string)
-- Collapses multiple spaces to single space
-- Trims leading/trailing whitespace
-- Maintains readability
+Follows `splitInlineXml()` trimming rules:
+- Left-trim if previous emission was a tag: `\s+` at start removed
+- Right-trim if next content is a tag: `\s+` at end removed
+- Preserves single spaces within normal content
+- Result: `"text. <tag>...</tag> more"` → `"text.more"` (no space at boundaries)
 
-### Regex Pattern
+To preserve space: `"text. "` + `"<tag>..."` + `" more"` → `"text. more"`
 
-The regex patterns match:
-- Opening tag: `<tagname ...>`
-- Closing tag: `</tagname>`
-- Self-closing: `<tagname .../>`
-- With attributes: `<tagname attr="value">`
-- Captures tag names: Same pattern as `splitInlineXml()`
+### Parser State Machine
+
+The `InlineXmlParser` maintains:
+- **buffer**: Accumulates chunks until tags are complete
+- **prevEmittedWasTag**: Tracks whether to left-trim next content
+- **contentParts**: Array of clean content strings
+- **extractedTags**: Array of `InlineXml` objects
+
+Methods:
+- `processChunk(chunk)`: Process a new text chunk
+- `finalize()`: Return `{ content, tags }` after all chunks processed
 
 ## Status
 
@@ -169,9 +223,10 @@ The regex patterns match:
 
 ## Files Modified
 
-- `src/core/operators/chat-completions/content.ts` - Added `stripInlineXmlTags()` utility
-- `src/core/operators/chat-completions/aggregate.ts` - Applied stripping in complete handler
-- `tests/chat-completions-aggregate.test.ts` - Added 3 new test cases
+- `src/core/operators/chat-completions/content.ts` - Added `InlineXmlParser` class (reusing splitInlineXml logic)
+- `src/core/operators/chat-completions/types.ts` - Added `thoughts?: InlineXml[]` to `Choice` type
+- `src/core/operators/chat-completions/aggregate.ts` - Process chunks through parser, collect thoughts
+- `tests/chat-completions-aggregate.test.ts` - Updated 3 test cases to verify thoughts collection
 
 ## Date
 

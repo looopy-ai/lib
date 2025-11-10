@@ -236,7 +236,7 @@ describe('aggregateChoice', () => {
     expect(result[0]).toEqual({});
   });
 
-  it('should strip inline XML tags from aggregated content', async () => {
+  it('should strip inline XML tags from aggregated content and extract thoughts', async () => {
     const chunks: Choice[] = [
       {
         index: 0,
@@ -260,13 +260,15 @@ describe('aggregateChoice', () => {
     if (!result) throw new Error('Result is undefined');
 
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
-      index: 0,
-      delta: {
-        content: 'Let me think about this. The answer is 42.',
+    expect(result[0].delta?.content).toBe('Let me think about this.The answer is 42.');
+    expect(result[0].thoughts).toEqual([
+      {
+        name: 'thinking',
+        content: 'I need to analyze the problem carefully',
+        attributes: {},
       },
-      finish_reason: 'stop',
-    });
+    ]);
+    expect(result[0].finish_reason).toBe('stop');
   });
 
   it('should strip self-closing XML tags from aggregated content', async () => {
@@ -283,13 +285,14 @@ describe('aggregateChoice', () => {
     if (!result) throw new Error('Result is undefined');
 
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
-      index: 0,
-      delta: {
-        content: 'Processing Now complete.',
+    expect(result[0].delta?.content).toBe('ProcessingNow complete.');
+    expect(result[0].thoughts).toEqual([
+      {
+        name: 'thinking',
+        attributes: {},
       },
-      finish_reason: 'stop',
-    });
+    ]);
+    expect(result[0].finish_reason).toBe('stop');
   });
 
   it('should handle multiple XML tags in aggregated content', async () => {
@@ -306,12 +309,19 @@ describe('aggregateChoice', () => {
     if (!result) throw new Error('Result is undefined');
 
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
-      index: 0,
-      delta: {
-        content: 'Content',
+    expect(result[0].delta?.content).toBe('Content');
+    expect(result[0].thoughts).toEqual([
+      {
+        name: 'thinking',
+        content: 'First thought',
+        attributes: {},
       },
-      finish_reason: 'stop',
-    });
+      {
+        name: 'thinking',
+        content: 'Second thought',
+        attributes: {},
+      },
+    ]);
+    expect(result[0].finish_reason).toBe('stop');
   });
 });
