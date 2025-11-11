@@ -60,12 +60,14 @@ export function tool<TSchema extends z.ZodObject>(
 /**
  * Convert Zod schema to JSON Schema for tool parameters
  */
-function zodToJsonSchema(schema: z.ZodObject): {
+const zodToJsonSchema = (
+  schema: z.ZodObject
+): {
   type: 'object';
   properties: Record<string, unknown>;
   required?: string[];
   additionalProperties?: boolean;
-} {
+} => {
   // Use Zod's built-in toJSONSchema conversion
   const fullSchema = z.toJSONSchema(schema);
 
@@ -82,7 +84,7 @@ function zodToJsonSchema(schema: z.ZodObject): {
     required?: string[];
     additionalProperties?: boolean;
   };
-}
+};
 
 /**
  * Create a local tool provider from tool definitions
@@ -121,19 +123,16 @@ export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvi
   }
 
   return {
-    async getTools(): Promise<ToolDefinition[]> {
-      return tools.map((t) => ({
+    getTools: async (): Promise<ToolDefinition[]> =>
+      tools.map((t) => ({
         name: t.name,
         description: t.description,
         parameters: zodToJsonSchema(t.schema),
-      }));
-    },
+      })),
 
-    canHandle(toolName: string): boolean {
-      return toolMap.has(toolName);
-    },
+    canHandle: (toolName: string): boolean => toolMap.has(toolName),
 
-    async execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> {
+    execute: async (toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> => {
       const toolDef = toolMap.get(toolCall.function.name);
 
       if (!toolDef) {

@@ -101,38 +101,51 @@ AgentLoop executes **one complete turn**:
 
 ### Operator-Based Architecture
 
-The execution pipeline uses **factory functions** that create RxJS operators:
+The execution pipeline uses **factory functions** that create operator callbacks and manage tracing contexts:
 
 ```
 src/core/
 ├── agent-loop.ts              # Main orchestrator
 ├── operators/
-│   ├── execute-operators.ts   # Root span, initial/final events
-│   ├── iteration-operators.ts # Loop iteration management
-│   └── llm-operators.ts       # LLM calls and response processing
+│   ├── execute-operators.ts   # Root span lifecycle callbacks
+│   ├── iteration-operators.ts # Iteration span management
+│   └── llm-operators.ts       # LLM call span management
 └── types.ts                   # Core interfaces
 ```
 
 **Pattern**:
 ```typescript
-// Factory creates operator with closures over shared refs
-export function tapBeforeExecute(
-  spanRef: { current: Span | undefined },
+// Factory creates operator callbacks that manage spans and trace contexts
+export const startIterationSpan = (
+  state: LoopState,
+  nextIteration: number,
   logger: Logger,
-  context: Context
-): OperatorFunction<Context, Context> {
-  return tap((ctx) => {
-    spanRef.current = startExecutionSpan(ctx);
-    logger.trace({ taskId: ctx.taskId }, 'Started execution span');
+  parentContext: Context  // OpenTelemetry Context
+) => {
+  // Start iteration span as child of parent context
+  const { span, traceContext } = startLoopIterationSpan({
+    agentId: state.agentId,
+    taskId: state.taskId,
+    contextId: state.contextId,
+    iteration: nextIteration,
+    parentContext,  // Parent OTel context
   });
-}
+
+  return { span, traceContext };
+};
 ```
 
+**Key Changes in Tracing Architecture**:
+- **Explicit Context Passing**: OpenTelemetry `Context` objects are explicitly passed through the pipeline
+- **No Span Refs**: Instead of mutable span references, functions return `{ span, traceContext }` tuples
+- **Parent-Child Relationships**: Each span creation receives its parent context, ensuring proper nesting
+- **Cleaner Separation**: Span lifecycle management is separated from RxJS operators
+
 Benefits:
-- **Span sharing**: Nested operators access parent spans via refs
-- **Clean separation**: Each file handles one concern
-- **Testability**: Pure factory functions are easily tested
-- **Logger injection**: Consistent logging across pipeline
+- **Explicit Context Flow**: Trace context is visible in function signatures
+- **Type Safety**: OpenTelemetry Context types ensure proper propagation
+- **Testability**: Pure functions without mutable shared state
+- **Correct Nesting**: Parent-child span relationships are explicit and correct
 
 ### Checkpointing
 
@@ -174,13 +187,16 @@ interface AgentLoopConfig {
 }
 
 // Execution context
-interface Context {
+interface AgentLoopContext {
   taskId: string;
   agentId: string;
   contextId: string;
   messages: Message[];                 // Full history from Agent
-  traceContext?: Record<string, string>; // OpenTelemetry propagation
+  parentContext: Context;              // OpenTelemetry Context for tracing
   authContext?: AuthContext;
+  systemPrompt?: string;
+  maxIterations?: number;
+  metadata?: Record<string, unknown>;
 }
 
 // Internal loop state
@@ -241,36 +257,43 @@ class AgentLoop {
 High-level flow:
 
 ```
-startTurn(messages, context)
+execute(context: AgentLoopContext) → Observable<AgentEvent>
   ↓
-Build Context { taskId, agentId, messages, traceContext, ... }
-  ↓
-execute(context) → Observable<AgentEvent>
+Create agent loop span with parent context
+  { span, traceContext: loopContext } = startAgentLoopSpan({
+    agentId, taskId, contextId,
+    parentContext: context.parentContext
+  })
   ↓
 Pipeline:
-  defer(() => of(context))
-  → tap(beforeExecute)           # Start root span, emit TaskEvent
-  → switchMap(runLoop)            # Iteration loop
-  → tap(afterExecuteEvents)       # Final StatusUpdate, complete span
-  → catchError(handleExecuteError) # Handle errors, fail span
-  → shareReplay(1)                # Hot observable
+  defer(() => prepareTurnLoopState(context))
+  → switchMap(state => runLoop(state, loopContext))  # Pass loop context
+  → tap(tapAfterTurn)                                # Set output, usage
+  → catchError(catchTurnError)                       # Handle errors
+  → shareReplay()                                    # Hot observable
 ```
 
-**Operator Factories**:
+**Tracing Context Flow**:
+
+1. **Execute Level**: Creates root `agent.execute` span with parent context
+2. **Loop Level**: `runLoop(state, loopContext)` receives the loop's trace context
+3. **Iteration Level**: Each iteration creates a child span of `loopContext`
+4. **LLM/Tool Level**: LLM and tool operations create spans under iteration context
+
+**Operator Callbacks**:
 
 **Execute Operators** (`execute-operators.ts`):
-- `tapBeforeExecute()` - Create root execution span, emit TaskEvent
-- `tapAfterExecuteEvents()` - Complete span, emit final StatusUpdate
-- `catchExecuteError()` - Fail span, emit error StatusUpdate
+- `tapAfterTurn()` - Set span output and usage attributes
+- `catchTurnError()` - Fail span with error details
 
 **Iteration Operators** (`iteration-operators.ts`):
-- `startIterationSpan()` - Create iteration span, inject trace context
+- `startIterationSpan()` - Create iteration span, return `{ span, traceContext }`
 - `completeIteration()` - Update iteration count, complete span
 - `catchIterationError()` - Fail iteration span with error
 
 **LLM Operators** (`llm-operators.ts`):
-- `prepareLLMCall()` - Build messages (inject system prompt), start LLM span
-- `tapLLMResponse()` - Log response, complete span with metrics
+- `prepareLLMCall()` - Build messages (inject system prompt)
+- `tapLLMResponse()` - Log response, complete LLM span with metrics
 - `mapLLMResponseToState()` - Sanitize tool calls, map to LoopState
 - `catchLLMError()` - Fail LLM span
 
@@ -279,56 +302,90 @@ Pipeline:
 The `runLoop()` method orchestrates iterations:
 
 ```typescript
-private runLoop(initialContext: Context): Observable<AgentEvent> {
-  // Initialize state from context
-  const initialState = this.prepareInitialState(initialContext);
+private runLoop(
+  initialState: LoopState,
+  loopContext: import('@opentelemetry/api').Context  // Parent trace context
+): Observable<AgentEvent> {
+  // Subject to collect LLM events from all iterations
+  const llmEventsCollector = new Subject<AgentEvent>();
 
-  return new Observable((subscriber) => {
-    // Recursive iteration
-    const iterate = (state: LoopState) => {
-      // Check termination
-      if (state.isComplete || state.iteration >= this.config.maxIterations) {
-        subscriber.complete();
-        return;
-      }
+  // Recursive iteration function
+  const iterate = (state: LoopState): Observable<LoopState> => {
+    // Check termination
+    if (state.completed || state.iteration >= state.maxIterations) {
+      return of(state);
+    }
 
-      // Build iteration pipeline
-      const iteration$ = of(state).pipe(
-        startIterationSpan(iterationSpanRef, this.logger, initialContext),
+    // Execute iteration - returns { state$, events$ }
+    const { state$, events$ } = this.executeIteration(state, loopContext);
 
-        // LLM call
-        prepareLLMCall(llmSpanRef, this.logger, this.config),
-        switchMap(state => this.callLLM(state)),
-        tapLLMResponse(llmSpanRef, this.logger),
-        mapLLMResponseToState(this.logger),
+    // Subscribe to iteration events (LLM + tool) and forward to collector
+    events$.subscribe({
+      next: (event) => llmEventsCollector.next(event),
+      error: (err) => llmEventsCollector.error(err),
+    });
 
-        // Tool execution if needed
-        switchMap(state =>
-          state.pendingToolCalls?.length
-            ? this.executeTools(state, initialContext)
-            : of(state)
-        ),
+    // Continue iteration with state pipeline
+    return state$.pipe(
+      switchMap((nextState) => iterate(nextState))
+    );
+  };
 
-        completeIteration(iterationSpanRef, this.logger),
-        catchIterationError(iterationSpanRef, this.logger)
-      );
+  const stateLoop$ = defer(() => iterate(initialState)).pipe(
+    // Convert final state to status events
+    switchMap((state) => this.stateToEvents(state)),
+    // Complete the LLM events collector when state loop completes
+    finalize(() => llmEventsCollector.complete())
+  );
 
-      // Subscribe and recurse
-      iteration$.subscribe({
-        next: (newState) => {
-          // Emit events for client observation
-          subscriber.next(this.stateToEvent(newState));
+  // Merge initial events, LLM events from iterations, and final state events
+  return concat(
+    of(taskEvent, workingEvent),
+    merge(stateLoop$, llmEventsCollector)
+  );
+}
+```
 
-          // Continue to next iteration
-          iterate(newState);
-        },
-        error: (err) => subscriber.error(err)
-      });
-    };
+### Single Iteration Execution
 
-    // Start first iteration
-    iterate(initialState);
-  });
+Each iteration executes with its own trace context:
+
+```typescript
+private executeIteration(
+  state: LoopState,
+  loopContext: Context  // Parent context from runLoop
+): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
+  const nextIteration = state.iteration + 1;
+
+  // Create iteration span as child of loop context
+  const { span, traceContext: iterationContext } = startIterationSpan(
+    state,
+    nextIteration,
+    this.logger,
+    loopContext
+  );
+
+  // Call LLM with iteration context
+  const { state$: llmState$, events$: llmEvents$ } =
+    this.callLLMAndProcessEvents(
+      { ...state, iteration: nextIteration },
+      nextIteration,
+      iterationContext  // Pass to LLM operations
+    );
+
+  // Process LLM response and execute tools
+  const state$ = llmState$.pipe(
+    switchMap((s) =>
+      this.processLLMResponse(s, internalEventsCollector, iterationContext)
+    ),
+    tap(() => completeIterationSpan(span)),
+    catchError((err) => {
+      failIterationSpan(span, err);
+      throw err;
+    })
+  );
+
+  return { state$, events$: llmEvents$ };
 }
 ```
 
@@ -350,13 +407,26 @@ agent.turn (created by Agent)
           └─ llm.call (finished)
 ```
 
-Trace context propagation:
-1. Agent creates `agent.turn` span
-2. Agent extracts trace context and passes to `startTurn()`
-3. AgentLoop creates `agent.execute` span as child
-4. Iteration operators create nested iteration spans
-5. LLM/tool operators create spans under current iteration
-6. All spans linked via trace context in Context object
+**Trace Context Propagation**:
+
+1. **Agent Level**: Creates `agent.turn` span and extracts OpenTelemetry Context
+2. **Execute Level**: Receives `parentContext`, creates `agent.execute` span as child
+   ```typescript
+   const { span, traceContext: loopContext } = startAgentLoopSpan({
+     agentId, taskId, contextId,
+     parentContext: context.parentContext  // From Agent
+   });
+   ```
+3. **Loop Level**: Passes `loopContext` to `runLoop()` for iteration span creation
+4. **Iteration Level**: Each iteration creates span with `loopContext` as parent
+   ```typescript
+   const { span, traceContext: iterationContext } = startLoopIterationSpan({
+     agentId, taskId, contextId, iteration,
+     parentContext: loopContext  // From execute
+   });
+   ```
+5. **Operation Level**: LLM/tool operations receive `iterationContext` for their spans
+6. **Context Chain**: Each level receives explicit parent context, ensuring correct nesting
 
 ---
 

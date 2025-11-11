@@ -299,7 +299,9 @@ describe('aggregateChoice', () => {
     const chunks: Choice[] = [
       {
         index: 0,
-        delta: { content: '<thinking>First thought</thinking> Content <thinking>Second thought</thinking>' },
+        delta: {
+          content: '<thinking>First thought</thinking> Content <thinking>Second thought</thinking>',
+        },
         finish_reason: 'stop',
       },
     ];

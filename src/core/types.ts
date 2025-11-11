@@ -9,27 +9,17 @@ import type { Observable } from 'rxjs';
 /**
  * Context passed to agent loop execution
  */
-export interface Context {
-  taskId?: string;
+export interface AgentLoopContext {
+  taskId: string;
   agentId: string;
   contextId: string;
   parentTaskId?: string;
   systemPrompt?: string;
   maxIterations?: number;
-  traceContext?: TraceContext;
+  parentContext: import('@opentelemetry/api').Context;
   authContext?: AuthContext;
   messages?: Message[]; // Full conversation history (optional, for Agent integration)
   metadata?: Record<string, unknown>;
-}
-
-/**
- * Trace context for distributed tracing
- */
-export interface TraceContext {
-  traceId: string;
-  spanId: string;
-  traceFlags?: number;
-  traceState?: string;
 }
 
 /**
@@ -130,8 +120,7 @@ export interface LoopState {
   iteration: number;
   maxIterations: number;
 
-  context: Context;
-  traceContext?: TraceContext;
+  context: AgentLoopContext;
   authContext?: AuthContext;
 
   lastLLMResponse?: LLMResponse;
@@ -332,7 +321,7 @@ export interface ExecutionContext {
   taskId: string;
   contextId: string;
   agentId: string;
-  traceContext?: TraceContext;
+  parentContext: import('@opentelemetry/api').Context;
   authContext?: AuthContext;
   metadata?: Record<string, unknown>;
 }

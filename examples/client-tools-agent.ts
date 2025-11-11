@@ -13,6 +13,7 @@
  * To run: tsx examples/client-tools-agent.ts
  */
 
+import { context } from '@opentelemetry/api';
 import dotenv from 'dotenv';
 import { AgentLoop } from '../src/core/agent-loop';
 import { createLogger } from '../src/core/logger';
@@ -316,7 +317,7 @@ async function main() {
       const contextId = `scenario-${scenarios.indexOf(scenario) + 1}`;
       const taskId = `task-${Date.now()}`;
 
-      const events$ = agentLoop.startTurn(
+      const events$ = agentLoop.startTurnLoop(
         [
           {
             role: 'user',
@@ -327,6 +328,7 @@ async function main() {
           contextId,
           taskId,
           turnNumber: 1,
+          parentContext: context.active(),
         }
       );
 

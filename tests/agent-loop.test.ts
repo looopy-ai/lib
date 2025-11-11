@@ -4,6 +4,7 @@
  * Tests for the core agent loop execution engine.
  */
 
+import { context } from '@opentelemetry/api';
 import { evaluate } from 'mathjs';
 import { firstValueFrom, lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { delay } from 'rxjs/operators';
@@ -256,11 +257,13 @@ describe('AgentLoop', () => {
   // Helper to create test context
   const createTestContext = (
     userMessage: string,
-    overrides: Partial<import('../src/core/types').Context> = {}
-  ): import('../src/core/types').Context => ({
+    overrides: Partial<import('../src/core/types').AgentLoopContext> = {}
+  ): import('../src/core/types').AgentLoopContext => ({
     agentId: 'test-agent',
     contextId: 'test-context',
+    taskId: 'test-task',
     messages: [{ role: 'user', content: userMessage }],
+    parentContext: context.active(),
     ...overrides,
   });
 

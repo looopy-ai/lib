@@ -14,34 +14,36 @@ import type { LLMResponse, LoopState, Message } from '../types';
  *
  * Builds message array and starts span, returns state with messages
  */
-export const prepareLLMCall = (spanRef: { current: Span | null }, logger: Logger) => {
-  return (state: LoopState): { state: LoopState; messages: Message[] } => {
-    const messages = [
-      {
-        role: 'system' as const,
-        content: state.systemPrompt,
-      },
-      ...state.messages,
-    ];
+export const prepareLLMCall = (
+  state: LoopState,
+  parentContext: import('@opentelemetry/api').Context,
+  logger: Logger
+) => {
+  const messages = [
+    {
+      role: 'system' as const,
+      content: state.systemPrompt,
+    },
+    ...state.messages,
+  ];
 
-    logger.debug(
-      {
-        taskId: state.taskId,
-        messageCount: messages.length,
-        toolCount: state.availableTools.length,
-      },
-      'Calling LLM'
-    );
-
-    // Start LLM call span
-    spanRef.current = startLLMCallSpan({
-      agentId: state.agentId,
+  logger.debug(
+    {
       taskId: state.taskId,
-      traceContext: state.traceContext,
-    });
+      messageCount: messages.length,
+      toolCount: state.availableTools.length,
+    },
+    'Calling LLM'
+  );
 
-    return { state, messages };
-  };
+  // Start LLM call span
+  const { span, traceContext } = startLLMCallSpan({
+    agentId: state.agentId,
+    taskId: state.taskId,
+    parentContext,
+  });
+
+  return { state, messages, span, traceContext };
 };
 
 /**
@@ -49,11 +51,7 @@ export const prepareLLMCall = (spanRef: { current: Span | null }, logger: Logger
  *
  * Sanitizes, logs response and completes the span with metrics
  */
-export const tapLLMResponse = (
-  spanRef: { current: Span | null },
-  messages: Message[],
-  logger: Logger
-) => {
+export const tapLLMResponse = (span: Span, messages: Message[], logger: Logger) => {
   return (response: LLMResponse) => {
     logger.debug(
       {
@@ -65,9 +63,7 @@ export const tapLLMResponse = (
     );
 
     // Complete span with response
-    if (spanRef.current) {
-      completeLLMCallSpan(spanRef.current, response, messages);
-    }
+    completeLLMCallSpan(span, response, messages);
   };
 };
 
@@ -84,12 +80,10 @@ export const mapLLMResponseToState = (state: LoopState) => {
 /**
  * Factory for LLM error handler
  */
-export const catchLLMError = (spanRef: { current: Span | null }) => {
+export const catchLLMError = (span: Span) => {
   return (error: Error) => {
     // Fail span with error
-    if (spanRef.current) {
-      failLLMCallSpan(spanRef.current, error);
-    }
+    failLLMCallSpan(span, error);
     throw error;
   };
 };

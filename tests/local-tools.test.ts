@@ -1,3 +1,4 @@
+import { evaluate } from 'mathjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import type { ExecutionContext } from '../src/tools/interfaces';
@@ -92,7 +93,7 @@ describe('local-tools', () => {
             expression: z.string().describe('Math expression to evaluate'),
             precision: z.number().int().min(0).max(10).optional(),
           }),
-          async ({ expression }) => eval(expression)
+          async ({ expression }) => evaluate(expression)
         );
 
         const provider = localTools([calculatorTool]);
@@ -401,6 +402,7 @@ describe('local-tools', () => {
             type: 'function',
             function: {
               name: 'test',
+              // biome-ignore lint/suspicious/noExplicitAny: simulate invalid for testing
               arguments: null as any, // simulate invalid
             },
           },

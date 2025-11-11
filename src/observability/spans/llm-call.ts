@@ -4,22 +4,21 @@
  * Tracing utilities for LLM provider calls
  */
 
-import { context as otelContext, type Span, SpanStatusCode, trace } from '@opentelemetry/api';
-import type { LLMResponse, Message, TraceContext } from '../../core/types';
-import { extractTraceContext, SpanAttributes, SpanNames } from '../tracing';
+import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import type { LLMResponse, Message } from '../../core/types';
+import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LLMCallSpanParams {
   agentId: string;
   taskId: string;
-  traceContext?: TraceContext;
+  parentContext: import('@opentelemetry/api').Context;
 }
 
 /**
  * Start LLM call span
  */
-export function startLLMCallSpan(params: LLMCallSpanParams): Span {
+export const startLLMCallSpan = (params: LLMCallSpanParams) => {
   const tracer = trace.getTracer('looopy');
-  const parentContext = params.traceContext ? extractTraceContext(params.traceContext) : undefined;
 
   const span = tracer.startSpan(
     SpanNames.LLM_CALL,
@@ -30,11 +29,13 @@ export function startLLMCallSpan(params: LLMCallSpanParams): Span {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
       },
     },
-    parentContext || otelContext.active()
+    params.parentContext
   );
 
-  return span;
-}
+  const traceContext = trace.setSpan(params.parentContext, span);
+
+  return { span, traceContext };
+};
 
 /**
  * Set LLM response attributes on span

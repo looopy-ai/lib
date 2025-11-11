@@ -265,6 +265,10 @@ export class InMemoryMessageStore implements MessageStore {
    * Create LLM-based summary
    */
   private async createLLMSummary(messages: Message[], customPrompt?: string): Promise<string> {
+    if (!this.config.llmProvider) {
+      throw new Error('LLM Provider not configured for summarization');
+    }
+
     const summaryPrompt =
       customPrompt ||
       this.config.defaultSummaryPrompt ||
@@ -282,7 +286,7 @@ export class InMemoryMessageStore implements MessageStore {
       },
     ];
 
-    const response$ = this.config.llmProvider!.call({
+    const response$ = this.config.llmProvider.call({
       messages: summaryMessages,
       stream: false,
     });

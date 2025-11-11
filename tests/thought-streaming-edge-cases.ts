@@ -9,6 +9,7 @@
  * - Nested tags (if supported)
  */
 
+import { context } from '@opentelemetry/api';
 import { Observable } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { ArtifactStore, LLMProvider } from '../src/core/types';
@@ -204,9 +205,11 @@ async function runTest(name: string, provider: LLMProvider) {
     artifactStore: new MockArtifactStore(),
   });
 
-  const events$ = loop.startTurn([{ role: 'user', content: 'Test' }], {
+  const events$ = loop.startTurnLoop([{ role: 'user', content: 'Test' }], {
     contextId: 'test-context',
+    taskId: 'test-task',
     turnNumber: 1,
+    parentContext: context.active(),
   });
 
   let eventNum = 0;

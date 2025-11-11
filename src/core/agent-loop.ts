@@ -7,47 +7,37 @@
  * Design Reference: design/agent-loop.md
  */
 
-import type { Span, Context as SpanContext } from '@opentelemetry/api';
-import chalk from 'chalk';
+import { context as otelContext, type Span } from '@opentelemetry/api';
 import { concat, defer, merge, type Observable, of, Subject } from 'rxjs';
-import {
-  catchError,
-  filter,
-  finalize,
-  map,
-  shareReplay,
-  switchMap,
-  tap
-} from 'rxjs/operators';
+import { catchError, filter, finalize, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import type { ContentCompleteEvent, LLMEvent } from '../events/types';
 import {
   addLLMUsageToSpan,
   completeToolExecutionSpan,
   failToolExecutionSpan,
   failToolExecutionSpanWithException,
+  startAgentLoopSpan,
   startToolExecutionSpan,
 } from '../observability/spans';
-import { thoughtTools } from '../tools/thought-tools';
 import type { AgentLoopConfig } from './config';
 import { createCompletedEvent, createTaskEvent, createWorkingEvent, stateToEvents } from './events';
 import { getLogger } from './logger';
 import {
-  catchExecuteError,
   catchIterationError,
   catchLLMError,
+  catchTurnError,
   completeIteration,
   mapLLMResponseToState,
   prepareLLMCall,
   startIterationSpan,
-  tapAfterExecuteEvents,
-  tapBeforeExecute,
+  tapAfterTurn,
   tapLLMResponse,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
 import { sanitizeLLMResponse } from './sanitize';
 import type {
   AgentEvent,
-  Context,
+  AgentLoopContext,
   ExecutionContext,
   LLMResponse,
   LoopState,
@@ -56,11 +46,6 @@ import type {
   ToolCall,
   ToolResult,
 } from './types';
-
-type WithTraceContext = {
-  _rootSpan?: Span;
-  _rootContext?: SpanContext;
-};
 
 /**
  * Generate unique task ID
@@ -94,7 +79,7 @@ export class AgentLoop {
   }
 
   /**
-   * Start a single conversational turn
+   * Start a single conversational turn loop
    *
    * New API for Agent integration - starts one turn with provided messages
    *
@@ -102,7 +87,7 @@ export class AgentLoop {
    * @param context - Turn execution context
    * @returns Observable stream of events for this turn
    */
-  startTurn(
+  startTurnLoop(
     messages: Message[],
     context: {
       contextId: string;
@@ -110,7 +95,7 @@ export class AgentLoop {
       turnNumber: number;
       artifacts?: Array<{ id: string; content: unknown }>;
       authContext?: import('./types').AuthContext;
-      traceContext?: import('./types').TraceContext;
+      parentContext: import('@opentelemetry/api').Context;
       metadata?: Record<string, unknown>;
     }
   ): Observable<AgentEvent> {
@@ -121,7 +106,7 @@ export class AgentLoop {
       contextId: context.contextId,
       taskId: context.taskId || `turn-${context.turnNumber}`,
       authContext: context.authContext,
-      traceContext: context.traceContext,
+      parentContext: context.parentContext,
       messages, // Pass full conversation history
       ...context.metadata,
     });
@@ -132,9 +117,22 @@ export class AgentLoop {
    *
    * @param context - Execution context (must include messages)
    */
-  execute(context: Context): Observable<AgentEvent> {
+  execute(context: AgentLoopContext): Observable<AgentEvent> {
     const execId = `exec_${Math.random().toString(36).slice(2, 8)}`;
     this.config.logger.info({ context, execId }, 'Starting agent execution');
+    const {
+      traceContext: loopContext,
+      setOutput,
+      setUsage,
+      setSuccess,
+      setError,
+    } = startAgentLoopSpan({
+      agentId: context.agentId,
+      taskId: context.taskId,
+      contextId: context.contextId,
+      prompt: context.messages?.at(-1)?.content,
+      parentContext: context.parentContext,
+    });
 
     // Create event emitter for this execution
     this.eventEmitter = new LoopEventEmitter();
@@ -143,25 +141,27 @@ export class AgentLoop {
     const rootSpanRef = { current: null as Span | null };
 
     // Create execution pipeline
-    const execution$ = defer(() => {
+    const turnEvents$ = defer(() => {
       this.config.logger.trace({ execId }, 'defer() executing - prepareExecution');
-      return this.prepareExecution(context);
+      return this.prepareTurnLoopState(context);
     }).pipe(
-      tap(tapBeforeExecute(rootSpanRef, context, this.config.logger)),
+      // tap(tapBeforeTurn(rootSpanRef, context, this.config.logger)),
       switchMap((state: LoopState) => {
         this.config.logger.trace({ taskId: state.taskId }, 'switchMap to runLoop');
-        return this.runLoop(state);
+        return this.runLoop(state, loopContext);
       }),
-      tap(tapAfterExecuteEvents(rootSpanRef, this.config.logger)),
-      catchError(catchExecuteError(rootSpanRef, context, this.config.logger, execId)),
+      tap(tapAfterTurn(setOutput, setUsage)),
+      catchError(catchTurnError(rootSpanRef, context, this.config.logger, execId)),
       // Complete event emitter on execution completion
       tap({
         complete: () => {
+          setSuccess();
           if (this.eventEmitter) {
             this.eventEmitter.complete();
           }
         },
         error: (err) => {
+          setError(err);
           if (this.eventEmitter) {
             this.eventEmitter.error(err);
           }
@@ -170,7 +170,7 @@ export class AgentLoop {
     );
 
     // Merge execution events with internal protocol events
-    return merge(execution$, this.eventEmitter.events$).pipe(
+    return merge(turnEvents$, this.eventEmitter.events$).pipe(
       // Share the execution to prevent duplicate executions on multiple subscriptions
       // shareReplay(1) ensures:
       // - Only one execution happens regardless of subscriber count
@@ -186,7 +186,7 @@ export class AgentLoop {
   static async resume(
     taskId: string,
     config: AgentLoopConfig,
-    context: Partial<Context> = {}
+    context: Partial<AgentLoopContext> = {}
   ): Promise<Observable<AgentEvent>> {
     const logger = config.logger || getLogger({ component: 'AgentLoop' });
     logger.info({ taskId }, 'Resuming agent execution');
@@ -212,26 +212,25 @@ export class AgentLoop {
 
     const loop = new AgentLoop(config);
     const loopState = await loop.restoreState(state, context);
-    return loop.runLoop(loopState);
+
+    // Create tracing context for resumed execution
+    const { traceContext: loopContext } = startAgentLoopSpan({
+      agentId: state.agentId,
+      taskId: state.taskId,
+      contextId: state.contextId,
+      prompt: state.messages?.at(-1)?.content,
+      parentContext: context.parentContext || otelContext.active(),
+    });
+
+    return loop.runLoop(loopState, loopContext);
   }
 
   /**
    * Prepare initial execution state
    */
-  private async prepareExecution(context: Context): Promise<LoopState> {
+  private async prepareTurnLoopState(context: AgentLoopContext): Promise<LoopState> {
     const taskId = context.taskId || generateTaskId();
     const contextId = context.contextId;
-
-    // Create thought tools provider for this execution (if enabled)
-    this.thoughtToolProvider =
-      this.eventEmitter && this.config.enableThoughtTools
-        ? thoughtTools({
-            eventEmitter: this.eventEmitter,
-            taskId,
-            contextId,
-            enabled: true,
-          })
-        : null;
 
     // Gather tools from all providers (including thought tools if enabled)
     const allProviders = this.thoughtToolProvider
@@ -261,7 +260,6 @@ export class AgentLoop {
       iteration: 0,
       maxIterations: context.maxIterations || this.config.maxIterations,
       context,
-      traceContext: context.traceContext,
       authContext: context.authContext,
       taskStateStore: this.config.taskStateStore,
       artifactStore: this.config.artifactStore,
@@ -273,7 +271,7 @@ export class AgentLoop {
    */
   private async restoreState(
     persisted: PersistedLoopState,
-    context: Partial<Context>
+    context: Partial<AgentLoopContext>
   ): Promise<LoopState> {
     return {
       ...persisted,
@@ -286,6 +284,7 @@ export class AgentLoop {
         contextId: persisted.contextId,
         taskId: persisted.taskId,
         ...context,
+        parentContext: context.parentContext || otelContext.active(),
       },
       taskStateStore: this.config.taskStateStore,
       artifactStore: this.config.artifactStore,
@@ -296,7 +295,10 @@ export class AgentLoop {
    * Run the main agent loop.
    * Collects LLM events from all iterations and merges them with state events.
    */
-  private runLoop(initialState: LoopState): Observable<AgentEvent> {
+  private runLoop(
+    initialState: LoopState,
+    loopContext: import('@opentelemetry/api').Context
+  ): Observable<AgentEvent> {
     // Emit initial events
     const taskEvent = createTaskEvent(
       initialState.taskId,
@@ -334,7 +336,7 @@ export class AgentLoop {
       }
 
       // Execute iteration (returns state$ and events$ which includes LLM + tool events)
-      const { state$, events$ } = this.executeIteration(state);
+      const { state$, events$ } = this.executeIteration(state, loopContext);
 
       // Subscribe to iteration events (LLM + tool) and forward to collector
       events$.subscribe({
@@ -376,34 +378,44 @@ export class AgentLoop {
    * Execute a single iteration.
    * Returns both state observable and events observables (LLM + tool + checkpoint).
    */
-  private executeIteration(state: LoopState): {
+  private executeIteration(
+    state: LoopState,
+    loopContext: import('@opentelemetry/api').Context
+  ): {
     state$: Observable<LoopState>;
     events$: Observable<AgentEvent>;
   } {
     const nextIteration = state.iteration + 1;
-    const spanRef = { current: null as Span | null };
+    const { span: iterationSpan, traceContext: iterationContext } = startIterationSpan(
+      state,
+      nextIteration,
+      this.config.logger,
+      loopContext
+    );
 
     const { state$: llmState$, events$: llmEvents$ } = this.callLLMAndProcessEvents(
       { ...state, iteration: nextIteration },
       nextIteration,
-      spanRef
+      iterationContext
     );
 
     // Subject to collect tool and checkpoint events
     const internalEventsCollector = new Subject<AgentEvent>();
 
     // Apply iteration span and continue state pipeline
-    const state$ = of(state).pipe(
-      map(startIterationSpan(spanRef, nextIteration, this.config.logger)),
-      switchMap(() => llmState$),
-      switchMap((s: LoopState) => this.processLLMResponse(s, internalEventsCollector)),
+    const state$ = llmState$.pipe(
+      // map(startIterationSpan(spanRef, nextIteration, this.config.logger, loopContext)),
+      // switchMap(() => llmState$),
+      switchMap((s: LoopState) =>
+        this.processLLMResponse(s, internalEventsCollector, iterationContext)
+      ),
       switchMap((s: LoopState) => this.checkpointIfNeeded(s, internalEventsCollector)),
-      map(completeIteration(spanRef, nextIteration, this.config.logger)),
+      map(completeIteration(iterationSpan, nextIteration, this.config.logger)),
       tap({
         complete: () => internalEventsCollector.complete(),
         error: (err) => internalEventsCollector.error(err),
       }),
-      catchError(catchIterationError(spanRef))
+      catchError(catchIterationError(iterationSpan))
     );
 
     // Merge LLM events with tool and checkpoint events
@@ -419,9 +431,13 @@ export class AgentLoop {
   private callLLMAndProcessEvents(
     state: LoopState,
     iteration: number,
-    spanRef: { current: Span | null }
+    iterationContext: import('@opentelemetry/api').Context
   ): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
-    const { state: preparedState, messages } = prepareLLMCall(spanRef, this.config.logger)(state);
+    const {
+      state: preparedState,
+      messages,
+      span,
+    } = prepareLLMCall(state, iterationContext, this.config.logger);
 
     // Get LLM event stream from provider (without contextId/taskId)
     const llmEvents$ = this.config.llmProvider
@@ -458,20 +474,17 @@ export class AgentLoop {
               taskId: state.taskId,
             }) as AgentEvent
         ),
-        tap((event) => {
-          if (!spanRef.current) return;
-
-          switch (event.kind) {
-            case 'llm-usage':
-              console.log(chalk.yellow(`[LLM Event] ${event.kind} for task ${state.taskId}`), spanRef.current);
-              addLLMUsageToSpan(spanRef.current, event);
-              break;
-          }
+        tap({
+          next: (event) => {
+            switch (event.kind) {
+              case 'llm-usage':
+                addLLMUsageToSpan(span, event);
+                break;
+            }
+          },
         })
       )
     );
-
-    // TODO handle LLM usage events to add to span
 
     // Extract final response and build LoopState
     const state$ = llmEvents$.pipe(
@@ -501,9 +514,9 @@ export class AgentLoop {
         };
       }),
       map(sanitizeLLMResponse),
-      tap(tapLLMResponse(spanRef, messages, this.config.logger)),
+      tap(tapLLMResponse(span, messages, this.config.logger)),
       map(mapLLMResponseToState(preparedState)),
-      catchError(catchLLMError(spanRef))
+      catchError(catchLLMError(span))
     );
 
     return { state$, events$ };
@@ -514,7 +527,8 @@ export class AgentLoop {
    */
   private processLLMResponse(
     state: LoopState,
-    toolEventsCollector: Subject<AgentEvent>
+    toolEventsCollector: Subject<AgentEvent>,
+    iterationContext: import('@opentelemetry/api').Context
   ): Observable<LoopState> {
     const response = state.lastLLMResponse;
 
@@ -534,7 +548,11 @@ export class AgentLoop {
         'Executing tool calls'
       );
 
-      const { results$, events$ } = this.executeToolsAndProcessEvents(response.toolCalls, state);
+      const { results$, events$ } = this.executeToolsAndProcessEvents(
+        response.toolCalls,
+        state,
+        iterationContext
+      );
 
       // Subscribe to tool events and forward to collector
       events$.subscribe({
@@ -618,13 +636,14 @@ export class AgentLoop {
    */
   private executeToolsAndProcessEvents(
     toolCalls: ToolCall[],
-    state: LoopState
+    state: LoopState,
+    parentContext: import('@opentelemetry/api').Context
   ): { results$: Observable<ToolResult[]>; events$: Observable<AgentEvent> } {
     const execContext: ExecutionContext = {
       taskId: state.taskId,
       contextId: state.contextId,
       agentId: state.agentId,
-      traceContext: state.traceContext,
+      parentContext,
       authContext: state.authContext,
     };
 
@@ -643,11 +662,11 @@ export class AgentLoop {
       // Execute tool and create events
       const execution$ = defer(async () => {
         // Start tool execution span
-        const span = startToolExecutionSpan({
+        const { span } = startToolExecutionSpan({
           agentId: state.agentId,
           taskId: state.taskId,
           toolCall,
-          traceContext: state.traceContext,
+          parentContext,
         });
 
         this.config.logger.trace(
@@ -836,14 +855,6 @@ export class AgentLoop {
    */
   private stateToEvents(state: LoopState): Observable<AgentEvent> {
     const events = stateToEvents(state);
-
-    // Attach root span to completed event so it can be completed in execute()
-    if (state.completed && (state as WithTraceContext)._rootSpan) {
-      const completedEvent = events[0];
-      if (completedEvent) {
-        (completedEvent as WithTraceContext)._rootSpan = (state as WithTraceContext)._rootSpan;
-      }
-    }
 
     return of(...events);
   }

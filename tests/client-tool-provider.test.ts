@@ -261,6 +261,7 @@ describe('ClientToolProvider', () => {
         type: 'function',
         function: {
           name: 'get_weather',
+          // biome-ignore lint/suspicious/noExplicitAny: simulate invalid for testing
           arguments: null as any, // simulate invalid
         },
       };
@@ -418,6 +419,7 @@ describe('ClientToolProvider', () => {
         type: 'function',
         function: {
           name: 'get_weather',
+          // biome-ignore lint/suspicious/noExplicitAny: simulate invalid for testing
           arguments: null as any,
         },
       };

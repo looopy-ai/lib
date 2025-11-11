@@ -6,6 +6,7 @@
  * To run: tsx examples/artifacts-agent.ts
  */
 
+import { context } from '@opentelemetry/api';
 import { type Observable, of } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { LLMProvider, Message, ToolDefinition } from '../src/core/types';
@@ -128,7 +129,9 @@ async function main() {
   const result$ = agent.execute({
     agentId: 'artifact-agent',
     contextId: 'example-context',
+    taskId: `task_${Date.now()}`,
     messages: [{ role: 'user', content: 'Create a sample report with sections' }],
+    parentContext: context.active(),
   });
 
   // Subscribe to execution events

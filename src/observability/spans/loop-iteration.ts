@@ -4,36 +4,22 @@
  * Tracing utilities for agent loop iterations
  */
 
-import {
-  context as otelContext,
-  type Span,
-  type Context as SpanContext,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
-import type { TraceContext } from '../../core/types';
-import { injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
+import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LoopIterationSpanParams {
   agentId: string;
   taskId: string;
   contextId: string;
   iteration: number;
-  traceContext?: TraceContext;
-  rootContext?: SpanContext; // Parent context for sibling spans
+  parentContext: import('@opentelemetry/api').Context; // Parent context for sibling spans
 }
 
 /**
  * Start loop iteration span
  */
-export function startLoopIterationSpan(params: LoopIterationSpanParams): {
-  span: Span;
-  traceContext: TraceContext;
-} {
+export const startLoopIterationSpan = (params: LoopIterationSpanParams) => {
   const tracer = trace.getTracer('looopy');
-
-  // Use root context if provided (makes iterations siblings, not nested)
-  const parentContext = params.rootContext || otelContext.active();
 
   const span = tracer.startSpan(
     SpanNames.LOOP_ITERATION,
@@ -46,18 +32,13 @@ export function startLoopIterationSpan(params: LoopIterationSpanParams): {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'chain',
       },
     },
-    parentContext
+    params.parentContext
   );
 
-  const spanContext = trace.setSpan(parentContext, span);
-  const traceContext = injectTraceContext(spanContext);
-
-  if (!traceContext) {
-    throw new Error('Failed to inject trace context');
-  }
+  const traceContext = trace.setSpan(params.parentContext, span);
 
   return { span, traceContext };
-}
+};
 
 /**
  * Complete iteration span with success

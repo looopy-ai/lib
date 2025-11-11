@@ -6,6 +6,7 @@
  * To run: tsx examples/basic-agent.ts
  */
 
+import { context } from '@opentelemetry/api';
 import { type Observable, of } from 'rxjs';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { LLMProvider, Message, ToolDefinition } from '../src/core/types';
@@ -102,7 +103,9 @@ async function main() {
   const events$ = agentLoop.execute({
     agentId: 'basic-agent',
     contextId: `ctx_${Date.now()}`,
+    taskId: `task_${Date.now()}`,
     messages: [{ role: 'user', content: prompt }],
+    parentContext: context.active(),
   });
 
   // Subscribe to events

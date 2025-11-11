@@ -210,16 +210,15 @@ export class FileSystemMessageStore implements MessageStore {
 
   private toMessage(stored: StoredMessage): Message {
     // Remove storage-specific fields
-    // biome-ignore lint/correctness/noUnusedVariables: Destructuring to remove fields
     const {
-      id,
-      contextId,
-      index,
-      timestamp,
-      tokens,
-      tags,
-      compacted,
-      summarizedRange,
+      id: _id,
+      contextId: _contextId,
+      index: _index,
+      timestamp: _timestamp,
+      tokens: _tokens,
+      tags: _tags,
+      compacted: _compacted,
+      summarizedRange: _summarizedRange,
       ...message
     } = stored;
     return message;

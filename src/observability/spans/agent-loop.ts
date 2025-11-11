@@ -4,30 +4,23 @@
  * Tracing utilities for the main agent loop span
  */
 
-import { context as otelContext, type Span, trace } from '@opentelemetry/api';
-import type { TraceContext } from '../../core/types';
+import { type Context, type Span, trace } from '@opentelemetry/api';
 import type { LLMUsageEvent } from '../../events/types';
-import { extractTraceContext, injectTraceContext, SpanAttributes, SpanNames } from '../tracing';
+import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface AgentLoopSpanParams {
   agentId: string;
   taskId: string;
   contextId: string;
   prompt?: string;
-  traceContext?: TraceContext;
+  parentContext: Context;
 }
 
 /**
  * Start agent loop span
  */
-export function startAgentLoopSpan(params: AgentLoopSpanParams): {
-  span: Span;
-  traceContext: TraceContext;
-} {
+export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
   const tracer = trace.getTracer('looopy');
-  const parentContext = params.traceContext ? extractTraceContext(params.traceContext) : undefined;
-
-  const activeContext = parentContext || otelContext.active();
 
   const span = tracer.startSpan(
     SpanNames.LOOP_START,
@@ -40,18 +33,31 @@ export function startAgentLoopSpan(params: AgentLoopSpanParams): {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'event',
       },
     },
-    activeContext
+    params.parentContext
   );
 
-  const spanContext = trace.setSpan(activeContext, span);
-  const traceContext = injectTraceContext(spanContext);
+  const traceContext = trace.setSpan(params.parentContext, span);
 
-  if (!traceContext) {
-    throw new Error('Failed to inject trace context');
-  }
-
-  return { span, traceContext };
-}
+  return {
+    span,
+    traceContext,
+    setOutput: (output?: string) => {
+      if (!output) return;
+      span.setAttribute('output', output);
+    },
+    setUsage(usage: LLMUsageEvent) {
+      addLLMUsageToSpan(span, usage);
+    },
+    setSuccess: () => {
+      span.end();
+    },
+    setError: (err: Error) => {
+      span.recordException(err);
+      span.setStatus({ code: 2, message: err.message });
+      span.end();
+    },
+  };
+};
 
 export function addLLMUsageToSpan(span: Span, usage: LLMUsageEvent): void {
   span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, usage.model);

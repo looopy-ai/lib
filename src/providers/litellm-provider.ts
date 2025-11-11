@@ -24,6 +24,7 @@ import {
   usage,
 } from '../core/operators/chat-completions';
 import type { LLMProvider, Message, ToolDefinition } from '../core/types';
+import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 import type {
   AnyEvent,
   ContentCompleteEvent,
@@ -33,7 +34,6 @@ import type {
   ThoughtVerbosity,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
-import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;
@@ -378,12 +378,16 @@ export class LiteLLMProvider implements LLMProvider {
       source.pipe(
         tap(async (event) => {
           try {
+            if (!this.config.debugLogPath) {
+              return;
+            }
+
             // Ensure directory exists on first write
             if (!this.debugLogInitialized) {
-              await fs.mkdir(dirname(this.config.debugLogPath!), { recursive: true });
+              await fs.mkdir(dirname(this.config.debugLogPath), { recursive: true });
               // Write header on first use
               await fs.writeFile(
-                this.config.debugLogPath!,
+                this.config.debugLogPath,
                 `# LLM Event Debug Log\n# Started: ${new Date().toISOString()}\n# Model: ${this.config.model}\n\n`,
                 { flag: 'w' }
               );
@@ -398,7 +402,7 @@ export class LiteLLMProvider implements LLMProvider {
               '', // blank line separator
             ].join('\n');
 
-            await fs.appendFile(this.config.debugLogPath!, `${logEntry}\n`);
+            await fs.appendFile(this.config.debugLogPath, `${logEntry}\n`);
           } catch (error) {
             // Log error but don't disrupt the stream
             this.logger.warn({ error, eventType }, 'Failed to write debug log');

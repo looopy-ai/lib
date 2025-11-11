@@ -11,7 +11,7 @@ import { z } from 'zod';
 /**
  * JSON Schema property definition with recursive support
  */
-export const JsonSchemaPropertySchema: z.ZodType<any> = z.lazy(() =>
+export const JsonSchemaPropertySchema: z.ZodType<unknown> = z.lazy(() =>
   z.object({
     type: z.enum(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null']),
     description: z.string().optional(),

@@ -5,22 +5,21 @@
  */
 
 import { context as otelContext, type Span, SpanStatusCode, trace } from '@opentelemetry/api';
-import type { ToolCall, ToolResult, TraceContext } from '../../core/types';
-import { extractTraceContext, SpanAttributes, SpanNames } from '../tracing';
+import type { ToolCall, ToolResult } from '../../core/types';
+import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface ToolExecutionSpanParams {
   agentId: string;
   taskId: string;
   toolCall: ToolCall;
-  traceContext?: TraceContext;
+  parentContext?: import('@opentelemetry/api').Context;
 }
 
 /**
  * Start tool execution span
  */
-export function startToolExecutionSpan(params: ToolExecutionSpanParams): Span {
+export const startToolExecutionSpan = (params: ToolExecutionSpanParams) => {
   const tracer = trace.getTracer('looopy');
-  const parentContext = params.traceContext ? extractTraceContext(params.traceContext) : undefined;
 
   const span = tracer.startSpan(
     SpanNames.TOOL_EXECUTE,
@@ -34,11 +33,13 @@ export function startToolExecutionSpan(params: ToolExecutionSpanParams): Span {
         input: JSON.stringify(params.toolCall.function.arguments),
       },
     },
-    parentContext || otelContext.active()
+    params.parentContext
   );
 
-  return span;
-}
+  const traceContext = trace.setSpan(params.parentContext || otelContext.active(), span);
+
+  return { span, traceContext };
+};
 
 /**
  * Complete tool execution span with success

@@ -8,6 +8,8 @@
  * ./_agent_store/agent={agentId}/context={contextId}/context.lock
  */
 
+/** biome-ignore-all lint/style/noNonNullAssertion: non-prod code */
+
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ContextState, ContextStore } from '../../core/types';

@@ -7,6 +7,7 @@
  * Design Reference: design/agent-lifecycle.md
  */
 
+import type { Context } from '@opentelemetry/api';
 import { catchError, concat, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
 import {
@@ -198,17 +199,17 @@ export class Agent {
    * Initialize agent state by loading existing messages
    * Called automatically on first startTurn() if not already initialized
    *
-   * @param parentSpan - Optional parent span to nest the initialization span within
+   * @param parentContext - Parent context to nest the initialization span within
    */
-  private async initialize(parentSpan?: import('@opentelemetry/api').Span): Promise<void> {
+  private async initialize(parentContext: Context): Promise<void> {
     if (this._state.status !== 'created') {
       return; // Already initialized
     }
 
-    const span = startAgentInitializeSpan({
+    const { span } = startAgentInitializeSpan({
       agentId: this.config.agentId,
       contextId: this.config.contextId,
-      parentSpan,
+      parentContext,
     });
 
     try {
@@ -273,7 +274,7 @@ export class Agent {
     const taskId = options?.taskId || `${this.config.contextId}-turn-${turnNumber}-${Date.now()}`;
 
     // Create span for the entire turn execution (including initialization and validation)
-    const span = startAgentTurnSpan({
+    const { span: rootSpan, traceContext: rootContext } = startAgentTurnSpan({
       agentId: this.config.agentId,
       taskId,
       contextId: this.config.contextId,
@@ -289,7 +290,7 @@ export class Agent {
     try {
       // Auto-initialize on first turn (will be nested within this span)
       if (this._state.status === 'created') {
-        await this.initialize(span);
+        await this.initialize(rootContext);
       }
 
       // Validate state
@@ -297,7 +298,7 @@ export class Agent {
         const error = new Error('Cannot execute turn: Agent has been shutdown');
         this.config.logger.error({ contextId: this.config.contextId }, error.message);
 
-        failAgentTurnSpan(span, error);
+        failAgentTurnSpan(rootSpan, error);
 
         return of(
           createTaskStatusEvent({
@@ -316,7 +317,7 @@ export class Agent {
         );
         this.config.logger.error({ contextId: this.config.contextId }, error.message);
 
-        failAgentTurnSpan(span, error);
+        failAgentTurnSpan(rootSpan, error);
 
         return of(
           createTaskStatusEvent({
@@ -333,7 +334,7 @@ export class Agent {
         const error = new Error('Cannot execute turn: Agent is already executing a turn');
         this.config.logger.error({ contextId: this.config.contextId }, error.message);
 
-        failAgentTurnSpan(span, error);
+        failAgentTurnSpan(rootSpan, error);
 
         return of(
           createTaskStatusEvent({
@@ -348,14 +349,14 @@ export class Agent {
 
       this.config.logger.info(
         { contextId: this.config.contextId, taskId, userMessage },
-        'Executing turn'
+        'Starting turn'
       );
 
       this._state.status = 'busy';
       this._state.lastActivity = new Date();
 
       // Load conversation history and execute turn
-      return this.executeInternal(userMessage, taskId, options?.authContext, span);
+      return this.executeInternal(userMessage, taskId, options?.authContext, rootSpan, rootContext);
     } catch (error) {
       const err = error as Error;
       this.config.logger.error(
@@ -363,7 +364,7 @@ export class Agent {
         'Failed to start turn'
       );
 
-      failAgentTurnSpan(span, err);
+      failAgentTurnSpan(rootSpan, err);
 
       return of(
         createTaskStatusEvent({
@@ -383,23 +384,17 @@ export class Agent {
    * @param userMessage - User's message (or null for continuation)
    * @param taskId - Task ID for this turn
    * @param authContext - Authentication context (refreshed token, user credentials)
-   * @param span - Parent span created in startTurn()
+   * @param turnSpan - Parent span created in startTurn()
+   * @param turnContext - Parent context for tracing
    */
   private executeInternal(
     userMessage: string | null,
     taskId: string,
     authContext: import('./types').AuthContext | undefined,
-    span: import('@opentelemetry/api').Span
+    turnSpan: import('@opentelemetry/api').Span,
+    turnContext: import('@opentelemetry/api').Context
   ): Observable<AgentEvent> {
     const turnNumber = this._state.turnCount + 1;
-
-    // Extract trace context from the span for propagation to AgentLoop
-    const spanContext = span.spanContext();
-    const traceContext = {
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      traceFlags: spanContext.traceFlags,
-    };
 
     return concat(
       // Load messages, execute turn, save results
@@ -408,7 +403,7 @@ export class Agent {
           try {
             // 1. Load conversation history
             const messages = await this.loadMessages();
-            addMessagesLoadedEvent(span, messages.length);
+            addMessagesLoadedEvent(turnSpan, messages.length);
 
             // 2. Append user message if provided
             if (userMessage) {
@@ -437,13 +432,13 @@ export class Agent {
 
             // 3. Execute turn via AgentLoop with trace context
             const turnEvents$ = this.agentLoop
-              .startTurn(messages, {
+              .startTurnLoop(messages, {
                 contextId: this.config.contextId,
                 taskId,
                 turnNumber,
                 artifacts: await this.getArtifacts(),
                 authContext,
-                traceContext, // Propagate trace context for nested spans
+                parentContext: turnContext,
               })
               .pipe(
                 tap(async (event) => {
@@ -488,7 +483,7 @@ export class Agent {
                       break;
                     case 'task-complete':
                       if (event.content) {
-                        setTurnOutputAttribute(span, event.content);
+                        setTurnOutputAttribute(turnSpan, event.content);
                         this.config.logger.trace(
                           { messageContent: event.content },
                           `Added assistant message output to agent[${this.config.agentId}] span`
@@ -513,7 +508,7 @@ export class Agent {
                   'Turn execution failed'
                 );
 
-                failAgentTurnSpan(span, error);
+                failAgentTurnSpan(turnSpan, error);
                 observer.error(error);
               },
               complete: async () => {
@@ -523,12 +518,12 @@ export class Agent {
                   this._state.lastActivity = new Date();
                   this._state.status = 'ready';
 
-                  setTurnCountAttribute(span, this._state.turnCount);
+                  setTurnCountAttribute(turnSpan, this._state.turnCount);
 
                   // Check if compaction needed
                   if (this.config.autoCompact) {
                     await this.checkAndCompact();
-                    addMessagesCompactedEvent(span);
+                    addMessagesCompactedEvent(turnSpan);
                   }
 
                   this.config.logger.info(
@@ -536,7 +531,7 @@ export class Agent {
                     'Turn completed'
                   );
 
-                  completeAgentTurnSpan(span);
+                  completeAgentTurnSpan(turnSpan);
                   observer.complete();
                 } catch (error) {
                   this.config.logger.error(
@@ -544,7 +539,7 @@ export class Agent {
                     'Failed to save turn results'
                   );
 
-                  failAgentTurnSpan(span, error as Error);
+                  failAgentTurnSpan(turnSpan, error as Error);
                   observer.error(error);
                 }
               },
@@ -555,7 +550,7 @@ export class Agent {
               'Failed to prepare turn'
             );
 
-            failAgentTurnSpan(span, error as Error);
+            failAgentTurnSpan(turnSpan, error as Error);
             observer.error(error);
           }
         };
@@ -567,7 +562,7 @@ export class Agent {
           this._state.error = error;
 
           // Fail the span for any errors caught in the pipeline
-          failAgentTurnSpan(span, error);
+          failAgentTurnSpan(turnSpan, error);
 
           return of(
             createTaskStatusEvent({

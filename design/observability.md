@@ -9,6 +9,31 @@ Looopy uses OpenTelemetry for comprehensive observability, providing:
 3. **Logging**: Structured, correlated logs
 4. **Context Propagation**: Trace context flows through all operations
 
+## Recent Architecture Changes
+
+The tracing system has been refactored to use **explicit context passing** instead of mutable span references:
+
+### Key Improvements
+
+**Before (Span Refs)**:
+- Mutable `spanRef` objects passed through operator factories
+- Implicit parent-child relationships via active context
+- Harder to test and reason about
+
+**After (Explicit Context)**:
+- OpenTelemetry `Context` objects passed explicitly
+- Span helper functions return `{ span, traceContext }` tuples
+- Clear parent-child relationships via `parentContext` parameter
+- Pure functions without mutable shared state
+
+### Benefits
+
+- ✅ **Explicit Context Flow**: Trace context visible in function signatures
+- ✅ **Type Safety**: OpenTelemetry Context types ensure proper propagation
+- ✅ **Testability**: Pure functions easier to test
+- ✅ **Correct Nesting**: Parent-child span relationships are explicit
+- ✅ **Better Documentation**: Context flow self-documenting in code
+
 ## OpenTelemetry Integration
 
 ### Architecture
@@ -155,58 +180,31 @@ function injectTraceContext(
 
 ### Agent Loop Spans
 
+**New Architecture**: Explicit context passing with span helper functions
+
 ```typescript
 const executeAgentLoop$ = (
   prompt: string,
-  context: ExecutionContext
+  context: AgentLoopContext
 ): Observable<string> => {
-  // Start root span
-  const span = tracer.startSpan('agent.loop', {
-    attributes: {
-      'agent.id': context.agentId,
-      'task.id': context.taskId,
-      'prompt.length': prompt.length
-    }
+  // Start root span with parent context (from Agent)
+  const { span, traceContext: loopContext, setOutput, setUsage } = startAgentLoopSpan({
+    agentId: context.agentId,
+    taskId: context.taskId,
+    contextId: context.contextId,
+    prompt,
+    parentContext: context.parentContext  // Explicit parent
   });
 
-  // Create context
-  const ctx = trace.setSpan(trace.context.active(), span);
+  return defer(() => prepareTurnLoopState(context)).pipe(
+    // Run loop with explicit loop context
+    switchMap((state: LoopState) => runLoop(state, loopContext)),
 
-  return of({ prompt, context }).pipe(
-    // Execute within trace context
-    map(data => trace.setSpan(trace.context.active(), span)),
-
-    expand(state => {
-      if (state.completed) return EMPTY;
-
-      // Create iteration span
-      const iterSpan = tracer.startSpan(
-        'agent.loop.iteration',
-        {
-          attributes: {
-            'iteration.number': state.iteration
-          }
-        },
-        ctx
-      );
-
-      return of(state).pipe(
-        switchMap(s => executeLLMCall$(s, iterSpan)),
-        switchMap(s => executeTools$(s, iterSpan)),
-        tap(() => iterSpan.end())
-      );
-    }),
-
-    // Final result
-    map(state => state.llmResponse.content),
-
-    // Record completion
-    tap(result => {
-      span.setAttributes({
-        'result.length': result.length,
-        'iterations.total': context.iteration
-      });
-      span.setStatus({ code: SpanStatusCode.OK });
+    // Set output on completion
+    tap(event => {
+      if (event.kind === 'task-complete') {
+        setOutput(event.message?.content);
+      }
     }),
 
     // Handle errors
@@ -223,27 +221,64 @@ const executeAgentLoop$ = (
     finalize(() => span.end())
   );
 };
+
+// runLoop receives explicit loop context
+function runLoop(
+  state: LoopState,
+  loopContext: Context  // OpenTelemetry Context
+): Observable<AgentEvent> {
+  // Each iteration receives loop context as parent
+  const { state$, events$ } = executeIteration(state, loopContext);
+
+  return merge(state$, events$);
+}
+
+// Each iteration creates child span with explicit parent
+function executeIteration(
+  state: LoopState,
+  loopContext: Context  // Parent context
+): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
+  // Create iteration span as child of loop
+  const { span, traceContext: iterationContext } = startLoopIterationSpan({
+    agentId: state.agentId,
+    taskId: state.taskId,
+    contextId: state.contextId,
+    iteration: state.iteration + 1,
+    parentContext: loopContext  // Explicit parent
+  });
+
+  // LLM and tool operations use iteration context
+  const llmState$ = callLLM(state, iterationContext);
+
+  return {
+    state$: llmState$.pipe(
+      tap(() => span.end())
+    ),
+    events$: /* ... */
+  };
+}
 ```
 
 ### LLM Call Spans
 
+**New Architecture**: Explicit context passing
+
 ```typescript
 const callLLM$ = (
   state: LoopState,
-  parentSpan: Span
+  iterationContext: Context  // Explicit parent context
 ): Observable<LLMResponse> => {
-  const span = tracer.startSpan(
-    'llm.call',
-    {
-      attributes: {
-        'llm.provider': 'openai',
-        'llm.model': 'gpt-4',
-        'llm.messages.count': state.messages.length,
-        'llm.tools.count': state.availableTools.length
-      }
-    },
-    trace.setSpan(trace.context.active(), parentSpan)
-  );
+  // Start LLM span with iteration context as parent
+  const { span, traceContext: llmContext } = startLLMCallSpan({
+    agentId: state.agentId,
+    taskId: state.taskId,
+    contextId: state.contextId,
+    provider: 'openai',
+    model: 'gpt-4',
+    messagesCount: state.messages.length,
+    toolsCount: state.availableTools.length,
+    parentContext: iterationContext  // Explicit parent
+  });
 
   return llmProvider.call({
     messages: state.messages,
@@ -269,23 +304,21 @@ const callLLM$ = (
 
 ### Tool Execution Spans
 
+**New Architecture**: Explicit context passing
+
 ```typescript
 const executeTool$ = (
   toolCall: ToolCall,
   context: ExecutionContext,
-  parentSpan: Span
+  iterationContext: Context  // Explicit parent context
 ): Observable<ToolResult> => {
-  const span = tracer.startSpan(
-    'tool.execute',
-    {
-      attributes: {
-        'tool.name': toolCall.function.name,
-        'tool.call_id': toolCall.id,
-        'tool.provider': toolRouter.getProvider(toolCall.function.name)
-      }
-    },
-    trace.setSpan(trace.context.active(), parentSpan)
-  );
+  // Start tool span with iteration context as parent
+  const { span, traceContext: toolContext } = startToolExecutionSpan({
+    toolName: toolCall.function.name,
+    toolCallId: toolCall.id,
+    taskId: context.taskId,
+    parentContext: iterationContext  // Explicit parent
+  });
 
   const startTime = Date.now();
 

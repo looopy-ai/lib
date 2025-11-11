@@ -214,8 +214,10 @@ export class ClientToolProvider implements ToolProvider {
     for (const [paramName, paramValue] of Object.entries(args)) {
       const schema = tool.parameters.properties[paramName];
       if (!schema) continue; // Skip if additionalProperties is allowed
+      const type = (schema as { type?: string }).type;
+      if (!type) continue;
 
-      const typeError = this.checkParamType(paramName, paramValue, schema.type);
+      const typeError = this.checkParamType(paramName, paramValue, type);
       if (typeError) {
         errors.push(typeError);
       }

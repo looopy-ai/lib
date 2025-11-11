@@ -30,4 +30,3 @@ export {
   validateToolDefinitions,
 } from './interfaces';
 export * from './local-tools';
-export * from './thought-tools';

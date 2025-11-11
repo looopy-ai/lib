@@ -10,6 +10,7 @@
  * To run: tsx examples/litellm-agent.ts
  */
 
+import { context } from '@opentelemetry/api';
 import dotenv from 'dotenv';
 import { AgentLoop } from '../src/core/agent-loop';
 import { createLogger } from '../src/core/logger';
@@ -95,7 +96,9 @@ async function main() {
   const events$ = agentLoop.execute({
     agentId: 'litellm-agent',
     contextId: `ctx_${Date.now()}`,
+    taskId: `task_${Date.now()}`,
     messages: [{ role: 'user', content: selectedPrompt }],
+    parentContext: context.active(),
   });
 
   // Track events

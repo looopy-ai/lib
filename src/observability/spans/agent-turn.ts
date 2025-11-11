@@ -4,7 +4,7 @@
  * Tracing utilities for agent turn execution (multi-turn conversation spans)
  */
 
-import { context, type Span, trace } from '@opentelemetry/api';
+import { type Context, context, type Span, trace } from '@opentelemetry/api';
 import { SpanAttributes } from '../tracing';
 
 export interface AgentTurnSpanParams {
@@ -20,7 +20,7 @@ const safeName = (name: string) => name.replace(/[^a-zA-Z0-9_-]+/g, '-');
 /**
  * Start agent turn span
  */
-export function startAgentTurnSpan(params: AgentTurnSpanParams): Span {
+export const startAgentTurnSpan = (params: AgentTurnSpanParams) => {
   const tracer = trace.getTracer('looopy-agent');
 
   const span = tracer.startSpan(`agent[${safeName(params.agentId)}]`, {
@@ -34,9 +34,10 @@ export function startAgentTurnSpan(params: AgentTurnSpanParams): Span {
       ...(params.userMessage ? { input: params.userMessage } : {}),
     },
   });
+  const traceContext = trace.setSpan(context.active(), span);
 
-  return span;
-}
+  return { span, traceContext };
+};
 
 /**
  * Add span event for messages loaded
@@ -89,11 +90,11 @@ export function failAgentTurnSpan(span: Span, error: Error): void {
 /**
  * Start agent initialization span
  */
-export function startAgentInitializeSpan(params: {
+export const startAgentInitializeSpan = (params: {
   agentId: string;
   contextId: string;
-  parentSpan?: Span;
-}): Span {
+  parentContext: Context;
+}) => {
   const tracer = trace.getTracer('looopy-agent');
 
   const spanOptions: import('@opentelemetry/api').SpanOptions = {
@@ -103,14 +104,11 @@ export function startAgentInitializeSpan(params: {
     },
   };
 
-  // If parent span provided, create child span using context
-  if (params.parentSpan) {
-    const ctx = trace.setSpan(context.active(), params.parentSpan);
-    return tracer.startSpan(`agent.initialize`, spanOptions, ctx);
-  }
+  const span = tracer.startSpan(`agent.initialize`, spanOptions, params.parentContext);
+  const traceContext = trace.setSpan(params.parentContext, span);
 
-  return tracer.startSpan(`agent.initialize[${params.agentId}]`, spanOptions);
-}
+  return { span, traceContext };
+};
 
 /**
  * Set resume attributes on initialization span

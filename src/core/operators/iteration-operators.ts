@@ -13,46 +13,38 @@ import {
 } from '../../observability/spans';
 import type { LoopState } from '../types';
 
-type WithTraceContext = {
-  _rootContext?: import('@opentelemetry/api').Context;
-};
-
 /**
  * Factory for starting iteration span
  *
  * Creates a new iteration span and returns updated state with trace context
  */
 export const startIterationSpan = (
-  spanRef: { current: Span | null },
+  state: LoopState,
   nextIteration: number,
-  logger: Logger
+  logger: Logger,
+  parentContext: import('@opentelemetry/api').Context
 ) => {
-  return (state: LoopState) => {
-    logger.debug(
-      {
-        taskId: state.taskId,
-        iteration: nextIteration,
-      },
-      'Starting iteration'
-    );
-
-    // Start iteration span
-    const { span, traceContext } = startLoopIterationSpan({
-      agentId: state.agentId,
+  logger.debug(
+    {
       taskId: state.taskId,
-      contextId: state.contextId,
       iteration: nextIteration,
-      traceContext: state.traceContext,
-      rootContext: (state as WithTraceContext)._rootContext,
-    });
+    },
+    'Starting iteration'
+  );
 
-    spanRef.current = span;
+  // Start iteration span
+  const { span, traceContext } = startLoopIterationSpan({
+    agentId: state.agentId,
+    taskId: state.taskId,
+    contextId: state.contextId,
+    iteration: nextIteration,
+    parentContext,
+  });
 
-    // Inject iteration context into state so child operations can use it
-    return {
-      ...state,
-      traceContext,
-    };
+  // Inject iteration context into state so child operations can use it
+  return {
+    span,
+    traceContext,
   };
 };
 
@@ -61,11 +53,7 @@ export const startIterationSpan = (
  *
  * Updates iteration number and completes the span
  */
-export const completeIteration = (
-  spanRef: { current: Span | null },
-  nextIteration: number,
-  logger: Logger
-) => {
+export const completeIteration = (span: Span, nextIteration: number, logger: Logger) => {
   return (state: LoopState) => {
     logger.trace(
       {
@@ -77,9 +65,7 @@ export const completeIteration = (
     );
 
     // Complete span successfully
-    if (spanRef.current) {
-      completeIterationSpan(spanRef.current);
-    }
+    completeIterationSpan(span);
 
     return { ...state, iteration: nextIteration };
   };
@@ -90,12 +76,10 @@ export const completeIteration = (
  *
  * Fails the iteration span with error details
  */
-export const catchIterationError = (spanRef: { current: Span | null }) => {
+export const catchIterationError = (span: Span) => {
   return (error: Error) => {
     // Fail span with error
-    if (spanRef.current) {
-      failIterationSpan(spanRef.current, error);
-    }
+    failIterationSpan(span, error);
     throw error;
   };
 };
