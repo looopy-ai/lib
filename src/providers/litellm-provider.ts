@@ -13,7 +13,7 @@ import { appendFileSync, promises as fs, mkdirSync, writeFileSync } from 'node:f
 import { dirname } from 'node:path';
 import pino from 'pino';
 import { merge, Observable } from 'rxjs';
-import { filter, map, shareReplay, tap } from 'rxjs/operators';
+import { concatWith, filter, map, shareReplay, tap } from 'rxjs/operators';
 import {
   aggregateChoice,
   aggregateLLMUsage,
@@ -183,23 +183,6 @@ export class LiteLLMProvider implements LLMProvider {
   call(request: {
     messages: Message[];
     tools?: ToolDefinition[];
-    stream?: boolean;
-    sessionId?: string;
-  }): Observable<LLMEvent<AnyEvent>> {
-    return this.streamEvents(request);
-  }
-
-  /**
-   * Stream LLM events using the operator pipeline
-   *
-   * Emits three types of events (all without contextId/taskId):
-   * 1. ContentDeltaEvent - incremental text chunks
-   * 2. ThoughtStreamEvent - extracted <thinking> tags
-   * 3. ContentCompleteEvent - final complete message with tool calls
-   */
-  private streamEvents(request: {
-    messages: Message[];
-    tools?: ToolDefinition[];
     sessionId?: string;
   }): Observable<LLMEvent<AnyEvent>> {
     const rawStream$ = this.createSSEStream(request);
@@ -322,7 +305,7 @@ export class LiteLLMProvider implements LLMProvider {
     );
 
     // Merge all event streams
-    return merge(contentDeltas$, thoughts$, contentComplete$, usageComplete$);
+    return merge(contentDeltas$, thoughts$, usageComplete$).pipe(concatWith(contentComplete$));
   }
 
   /**

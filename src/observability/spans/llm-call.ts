@@ -5,12 +5,14 @@
  */
 
 import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
-import type { LLMResponse, Message } from '../../core/types';
+import type { Message } from '../../core/types';
+import type { ContentCompleteEvent, LLMEvent } from '../../events/types';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LLMCallSpanParams {
   agentId: string;
   taskId: string;
+  messages: Message[];
   parentContext: import('@opentelemetry/api').Context;
 }
 
@@ -26,6 +28,7 @@ export const startLLMCallSpan = (params: LLMCallSpanParams) => {
       attributes: {
         [SpanAttributes.AGENT_ID]: params.agentId,
         [SpanAttributes.TASK_ID]: params.taskId,
+        [SpanAttributes.GEN_AI_PROMPT]: JSON.stringify(params.messages),
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
       },
     },
@@ -40,51 +43,22 @@ export const startLLMCallSpan = (params: LLMCallSpanParams) => {
 /**
  * Set LLM response attributes on span
  */
-export function setLLMResponseAttributes(
-  span: Span,
-  response: LLMResponse,
-  messages: Message[]
-): void {
+export function setLLMResponseAttributes(span: Span, event: LLMEvent<ContentCompleteEvent>): void {
   // Set finish reason
-  span.setAttribute(SpanAttributes.LLM_FINISH_REASON, response.finishReason || 'unknown');
-
-  // Set input/output for Langfuse
-  span.setAttribute(SpanAttributes.GEN_AI_PROMPT, JSON.stringify(messages));
+  span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');
 
   // Only set completion if there's actual content (don't set empty string for tool calls)
-  const hasContent = response.message.content && response.message.content.trim().length > 0;
+  const hasContent = event.content && event.content.trim().length > 0;
   if (hasContent) {
-    span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, response.message.content);
-  }
-
-  // Set model information
-  if (response.model) {
-    span.setAttribute(SpanAttributes.GEN_AI_REQUEST_MODEL, response.model);
-    span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, response.model);
-  }
-
-  // Set usage information
-  if (response.usage) {
-    if (response.usage.promptTokens) {
-      span.setAttribute(SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS, response.usage.promptTokens);
-    }
-    if (response.usage.completionTokens) {
-      span.setAttribute(
-        SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS,
-        response.usage.completionTokens
-      );
-    }
-    if (response.usage.totalTokens) {
-      span.setAttribute(SpanAttributes.GEN_AI_USAGE_TOTAL_TOKENS, response.usage.totalTokens);
-    }
+    span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, event.content);
   }
 }
 
 /**
  * Complete LLM call span with success
  */
-export function completeLLMCallSpan(span: Span, response: LLMResponse, messages: Message[]): void {
-  setLLMResponseAttributes(span, response, messages);
+export function completeLLMCallSpan(span: Span, event: LLMEvent<ContentCompleteEvent>): void {
+  setLLMResponseAttributes(span, event);
   span.setStatus({ code: SpanStatusCode.OK });
   span.end();
 }

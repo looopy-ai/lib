@@ -43,10 +43,7 @@ export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
     traceContext,
     setOutput: (output?: string) => {
       if (!output) return;
-      span.setAttribute('output', output);
-    },
-    setUsage(usage: LLMUsageEvent) {
-      addLLMUsageToSpan(span, usage);
+      span.setAttribute(SpanAttributes.OUTPUT, output);
     },
     setSuccess: () => {
       span.end();

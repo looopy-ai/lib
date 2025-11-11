@@ -304,6 +304,7 @@ export const SpanAttributes = {
   LLM_FINISH_REASON: 'llm.finish_reason',
   SUB_AGENT_ID: 'agent.sub_agent.id',
   SUB_AGENT_TASK_ID: 'agent.sub_agent.task_id',
+  OUTPUT: 'output',
 
   // Langfuse observation type (tells Langfuse how to display the span)
   // Types: "generation", "span", "event", "agent", "tool", "chain", "retriever", "evaluator", "embedding", "guardrail"

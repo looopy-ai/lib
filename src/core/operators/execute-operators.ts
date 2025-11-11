@@ -6,7 +6,6 @@
 
 import type { Span } from '@opentelemetry/api';
 import type { Logger } from 'pino';
-import type { LLMUsageEvent } from '../../events/types';
 import { completeAgentExecuteSpan } from '../../observability/spans';
 import { createFailedEvent } from '../events';
 import type { AgentEvent, AgentLoopContext } from '../types';
@@ -16,16 +15,8 @@ import type { AgentEvent, AgentLoopContext } from '../types';
  *
  * Completes the root span when task finishes
  */
-export const tapAfterTurn = (
-  setOutput: (output?: string) => void,
-  setUsage: (usage: LLMUsageEvent) => void
-) => {
+export const tapAfterTurn = (setOutput: (output?: string) => void) => {
   return (event: AgentEvent) => {
-    if (event.kind === 'llm-usage') {
-      setUsage(event);
-      return;
-    }
-
     // Only process completion events
     if (event.kind !== 'task-complete' && event.kind !== 'task-status') {
       return;

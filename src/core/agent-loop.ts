@@ -13,6 +13,7 @@ import { catchError, filter, finalize, map, shareReplay, switchMap, tap } from '
 import type { ContentCompleteEvent, LLMEvent } from '../events/types';
 import {
   addLLMUsageToSpan,
+  completeLLMCallSpan,
   completeToolExecutionSpan,
   failToolExecutionSpan,
   failToolExecutionSpanWithException,
@@ -31,7 +32,6 @@ import {
   prepareLLMCall,
   startIterationSpan,
   tapAfterTurn,
-  tapLLMResponse,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
 import { sanitizeLLMResponse } from './sanitize';
@@ -123,7 +123,6 @@ export class AgentLoop {
     const {
       traceContext: loopContext,
       setOutput,
-      setUsage,
       setSuccess,
       setError,
     } = startAgentLoopSpan({
@@ -150,7 +149,7 @@ export class AgentLoop {
         this.config.logger.trace({ taskId: state.taskId }, 'switchMap to runLoop');
         return this.runLoop(state, loopContext);
       }),
-      tap(tapAfterTurn(setOutput, setUsage)),
+      tap(tapAfterTurn(setOutput)),
       catchError(catchTurnError(rootSpanRef, context, this.config.logger, execId)),
       // Complete event emitter on execution completion
       tap({
@@ -480,6 +479,9 @@ export class AgentLoop {
               case 'llm-usage':
                 addLLMUsageToSpan(span, event);
                 break;
+              case 'content-complete':
+                completeLLMCallSpan(span, event);
+                break;
             }
           },
         })
@@ -514,7 +516,6 @@ export class AgentLoop {
         };
       }),
       map(sanitizeLLMResponse),
-      tap(tapLLMResponse(span, messages, this.config.logger)),
       map(mapLLMResponseToState(preparedState)),
       catchError(catchLLMError(span))
     );

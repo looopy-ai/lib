@@ -674,13 +674,7 @@ describe('AgentLoop', () => {
         llmProvider,
       });
 
-      const traceContext = {
-        traceId: 'trace-123',
-        spanId: 'span-456',
-        traceFlags: 1,
-      };
-
-      const events$ = loop.execute(createTestContext('Test', { traceContext }));
+      const events$ = loop.execute(createTestContext('Test', {}));
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events.length).toBeGreaterThan(0);

@@ -6,8 +6,8 @@
 
 import type { Span } from '@opentelemetry/api';
 import type { Logger } from 'pino';
-import { completeLLMCallSpan, failLLMCallSpan, startLLMCallSpan } from '../../observability/spans';
-import type { LLMResponse, LoopState, Message } from '../types';
+import { failLLMCallSpan, startLLMCallSpan } from '../../observability/spans';
+import type { LLMResponse, LoopState } from '../types';
 
 /**
  * Factory for preparing LLM call
@@ -40,31 +40,11 @@ export const prepareLLMCall = (
   const { span, traceContext } = startLLMCallSpan({
     agentId: state.agentId,
     taskId: state.taskId,
+    messages,
     parentContext,
   });
 
   return { state, messages, span, traceContext };
-};
-
-/**
- * Factory for processing LLM response
- *
- * Sanitizes, logs response and completes the span with metrics
- */
-export const tapLLMResponse = (span: Span, messages: Message[], logger: Logger) => {
-  return (response: LLMResponse) => {
-    logger.debug(
-      {
-        finishReason: response.finishReason,
-        hasToolCalls: !!response.toolCalls?.length,
-        toolCallCount: response.toolCalls?.length || 0,
-      },
-      'LLM response received'
-    );
-
-    // Complete span with response
-    completeLLMCallSpan(span, response, messages);
-  };
 };
 
 /**
