@@ -43,7 +43,7 @@ export const startLLMCallSpan = (params: LLMCallSpanParams) => {
 /**
  * Set LLM response attributes on span
  */
-export function setLLMResponseAttributes(span: Span, event: LLMEvent<ContentCompleteEvent>): void {
+export function setContentCompleteEventAttributes(span: Span, event: LLMEvent<ContentCompleteEvent>): void {
   // Set finish reason
   span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');
 
@@ -58,7 +58,7 @@ export function setLLMResponseAttributes(span: Span, event: LLMEvent<ContentComp
  * Complete LLM call span with success
  */
 export function completeLLMCallSpan(span: Span, event: LLMEvent<ContentCompleteEvent>): void {
-  setLLMResponseAttributes(span, event);
+  setContentCompleteEventAttributes(span, event);
   span.setStatus({ code: SpanStatusCode.OK });
   span.end();
 }

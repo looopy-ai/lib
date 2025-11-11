@@ -515,7 +515,7 @@ export class AgentLoop {
         };
       }),
       map(mapLLMResponseToState(preparedState)),
-      catchError(catchLLMError(span))
+      catchError(catchLLMError(span)) // TODO align error handling with completion (from events above)
     );
 
     return { state$, events$ };
