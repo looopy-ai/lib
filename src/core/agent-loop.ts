@@ -34,7 +34,6 @@ import {
   tapAfterTurn,
 } from './operators';
 import { LoopEventEmitter } from './operators/event-emitter';
-import { sanitizeLLMResponse } from './sanitize';
 import type {
   AgentEvent,
   AgentLoopContext,
@@ -515,7 +514,6 @@ export class AgentLoop {
           finishReason: event.finishReason || (toolCalls?.length ? 'tool_calls' : 'stop'),
         };
       }),
-      map(sanitizeLLMResponse),
       map(mapLLMResponseToState(preparedState)),
       catchError(catchLLMError(span))
     );
