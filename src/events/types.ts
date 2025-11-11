@@ -499,7 +499,6 @@ export interface InternalLLMCallEvent {
   contextId: string;
   taskId: string;
   iteration: number; // Which iteration in loop
-  model: string;
   messageCount: number;
   toolCount: number;
   timestamp: string;

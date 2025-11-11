@@ -16,7 +16,6 @@ export function emitLLMCallEvent(
   taskId: string,
   contextId: string,
   iteration: number,
-  model: string,
   messages: Message[],
   toolCount: number,
   eventBuffer: import('../../events').AnyEvent[]
@@ -26,7 +25,6 @@ export function emitLLMCallEvent(
       contextId,
       taskId,
       iteration,
-      model,
       messageCount: messages.length,
       toolCount,
     })

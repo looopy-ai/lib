@@ -453,7 +453,6 @@ export class AgentLoop {
       contextId: state.contextId,
       taskId: state.taskId,
       iteration,
-      model: 'llm', // TODO: Get actual model name from provider
       messageCount: messages.length,
       toolCount: preparedState.availableTools.length,
       timestamp: new Date().toISOString(),

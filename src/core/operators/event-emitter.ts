@@ -60,11 +60,10 @@ export class LoopEventEmitter {
     taskId: string,
     contextId: string,
     iteration: number,
-    model: string,
     messages: Message[],
     toolCount: number
   ): void {
-    emitLLMCallEvent(taskId, contextId, iteration, model, messages, toolCount, this.eventBuffer);
+    emitLLMCallEvent(taskId, contextId, iteration, messages, toolCount, this.eventBuffer);
     this.flushBuffer();
   }
 

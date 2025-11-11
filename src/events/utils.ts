@@ -590,7 +590,6 @@ export interface CreateInternalLLMCallEventOptions {
   contextId: string;
   taskId: string;
   iteration: number;
-  model: string;
   messageCount: number;
   toolCount: number;
 }
@@ -603,7 +602,6 @@ export function createInternalLLMCallEvent(
     contextId: options.contextId,
     taskId: options.taskId,
     iteration: options.iteration,
-    model: options.model,
     messageCount: options.messageCount,
     toolCount: options.toolCount,
     timestamp: new Date().toISOString(),
