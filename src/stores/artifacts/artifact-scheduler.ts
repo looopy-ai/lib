@@ -13,7 +13,7 @@
  * Design: design/artifact-management.md
  */
 
-import type { ArtifactPart, ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
+import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
 
 type Operation<T> = () => Promise<T>;
 
@@ -56,17 +56,20 @@ export class ArtifactScheduler implements ArtifactStore {
   }
 
   async appendFileChunk(
+    contextId: string,
     artifactId: string,
     chunk: string,
     options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' }
   ): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.appendFileChunk(artifactId, chunk, options)
+      this.store.appendFileChunk(contextId, artifactId, chunk, options)
     );
   }
 
-  async getFileContent(artifactId: string): Promise<string> {
-    return this.scheduleOperation(artifactId, () => this.store.getFileContent(artifactId));
+  async getFileContent(contextId: string, artifactId: string): Promise<string> {
+    return this.scheduleOperation(artifactId, () =>
+      this.store.getFileContent(contextId, artifactId)
+    );
   }
 
   // ============================================================================
@@ -84,12 +87,20 @@ export class ArtifactScheduler implements ArtifactStore {
     return this.scheduleOperation(params.artifactId, () => this.store.createDataArtifact(params));
   }
 
-  async writeData(artifactId: string, data: Record<string, unknown>): Promise<void> {
-    return this.scheduleOperation(artifactId, () => this.store.writeData(artifactId, data));
+  async writeData(
+    contextId: string,
+    artifactId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    return this.scheduleOperation(artifactId, () =>
+      this.store.writeData(contextId, artifactId, data)
+    );
   }
 
-  async getDataContent(artifactId: string): Promise<Record<string, unknown>> {
-    return this.scheduleOperation(artifactId, () => this.store.getDataContent(artifactId));
+  async getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>> {
+    return this.scheduleOperation(artifactId, () =>
+      this.store.getDataContent(contextId, artifactId)
+    );
   }
 
   // ============================================================================
@@ -111,17 +122,20 @@ export class ArtifactScheduler implements ArtifactStore {
   }
 
   async appendDatasetBatch(
+    contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
     options?: { isLastBatch?: boolean }
   ): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.appendDatasetBatch(artifactId, rows, options)
+      this.store.appendDatasetBatch(contextId, artifactId, rows, options)
     );
   }
 
-  async getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]> {
-    return this.scheduleOperation(artifactId, () => this.store.getDatasetRows(artifactId));
+  async getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]> {
+    return this.scheduleOperation(artifactId, () =>
+      this.store.getDatasetRows(contextId, artifactId)
+    );
   }
 
   // ============================================================================
@@ -131,94 +145,23 @@ export class ArtifactScheduler implements ArtifactStore {
   /**
    * Get artifact metadata (scheduled for consistency)
    */
-  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
-    return this.scheduleOperation(artifactId, () => this.store.getArtifact(artifactId));
+  async getArtifact(contextId: string, artifactId: string): Promise<StoredArtifact | null> {
+    return this.scheduleOperation(artifactId, () => this.store.getArtifact(contextId, artifactId));
   }
 
   /**
-   * List all artifacts for a task (no scheduling - read-only query)
+   * List all artifacts for a context, optionally filtered by task (no scheduling - read-only query)
    */
-  async getTaskArtifacts(taskId: string): Promise<string[]> {
-    return this.store.getTaskArtifacts(taskId);
-  }
-
-  /**
-   * Query artifacts by context (no scheduling - read-only query)
-   */
-  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
-    return this.store.queryArtifacts(params);
-  }
-
-  /**
-   * Get artifact by context (scheduled for consistency)
-   */
-  async getArtifactByContext(
-    contextId: string,
-    artifactId: string
-  ): Promise<StoredArtifact | null> {
-    return this.scheduleOperation(artifactId, () =>
-      this.store.getArtifactByContext(contextId, artifactId)
-    );
+  async listArtifacts(contextId: string, taskId?: string): Promise<string[]> {
+    return this.store.listArtifacts(contextId, taskId);
   }
 
   /**
    * Delete an artifact (scheduled)
    */
-  async deleteArtifact(artifactId: string): Promise<void> {
-    return this.scheduleOperation(artifactId, () => this.store.deleteArtifact(artifactId));
-  }
-
-  // ============================================================================
-  // Legacy Methods (scheduled)
-  // ============================================================================
-
-  /**
-   * @deprecated Use createFileArtifact, createDataArtifact, or createDatasetArtifact
-   */
-  async createArtifact(params: {
-    artifactId: string;
-    taskId: string;
-    contextId: string;
-    type: 'file' | 'data' | 'dataset';
-    name?: string;
-    description?: string;
-    mimeType?: string;
-    schema?: DatasetSchema;
-  }): Promise<string> {
-    const method = this.store.createArtifact;
-    if (!method) {
-      throw new Error('createArtifact is not implemented in underlying store');
-    }
-    return this.scheduleOperation(params.artifactId, () => method.call(this.store, params));
-  }
-
-  /**
-   * @deprecated Use getFileContent, getDataContent, or getDatasetRows
-   */
-  async getArtifactContent(
-    artifactId: string
-  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
-    const method = this.store.getArtifactContent;
-    if (!method) {
-      throw new Error('getArtifactContent is not implemented in underlying store');
-    }
-    return this.scheduleOperation(artifactId, () => method.call(this.store, artifactId));
-  }
-
-  /**
-   * @deprecated Use type-specific methods
-   */
-  async appendPart(
-    artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk?: boolean
-  ): Promise<void> {
-    const method = this.store.appendPart;
-    if (!method) {
-      throw new Error('appendPart is not implemented in underlying store');
-    }
+  async deleteArtifact(contextId: string, artifactId: string): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      method.call(this.store, artifactId, part, isLastChunk)
+      this.store.deleteArtifact(contextId, artifactId)
     );
   }
 

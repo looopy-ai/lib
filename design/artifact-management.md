@@ -9,6 +9,41 @@ Artifact management is a critical component of the agent loop that enables agent
 3. **Streamed** over A2A protocol as `artifact-update` events
 4. **Resumable** after disconnection or failure
 
+## ⚠️ API Update (November 2025)
+
+**The artifact store API has been updated to use context-scoped, type-specific methods:**
+
+### Key Changes
+
+1. **Context Scoping**: All methods now require `contextId` as the first parameter
+   - Old: `getArtifact(artifactId)`
+   - New: `getArtifact(contextId, artifactId)`
+
+2. **Type-Specific Creation**: Separate creation methods for each artifact type
+   - Old: `createArtifact({ type: 'file', ... })`
+   - New: `createFileArtifact(...)`, `createDataArtifact(...)`, `createDatasetArtifact(...)`
+
+3. **Type-Specific Content Methods**: Separate methods for reading content by type
+   - Old: `getArtifactContent(artifactId)` (generic)
+   - New: `getFileContent(contextId, artifactId)`, `getDataContent(contextId, artifactId)`, `getDatasetRows(contextId, artifactId)`
+
+4. **Type-Specific Update Methods**: Separate methods for updating each type
+   - Old: `appendPart(artifactId, part)`
+   - New: `appendFileChunk(contextId, artifactId, chunk)`, `writeData(contextId, artifactId, data)`, `appendDatasetBatch(contextId, artifactId, rows)`
+
+5. **Removed Deprecated Methods**:
+   - ❌ `createArtifact()` - Use type-specific `createFileArtifact()`, `createDataArtifact()`, or `createDatasetArtifact()`
+   - ❌ `appendPart()` - Use type-specific `appendFileChunk()`, `writeData()`, or `appendDatasetBatch()`
+   - ❌ `replacePart()` - Not supported in new API
+   - ❌ `replaceParts()` - Not supported in new API
+   - ❌ `getArtifactParts()` - Use type-specific content methods
+   - ❌ `getArtifactContent()` - Use type-specific `getFileContent()`, `getDataContent()`, or `getDatasetRows()`
+   - ❌ `getTaskArtifacts()` - Use `listArtifacts(contextId, taskId)`
+   - ❌ `queryArtifacts()` - Use `listArtifacts(contextId, taskId?)`
+   - ❌ `getArtifactByContext()` - Use `getArtifact(contextId, artifactId)`
+
+**Note**: Code examples in this document may still reference the old API and should be updated as a reference. See `src/stores/artifacts/memory-artifact-store.ts` for the current implementation.
+
 ## Core Principles
 
 ### 1. Store-First Architecture
@@ -44,7 +79,13 @@ emitA2AEvent({
 });
 ```
 
-### 3. State Synchronization
+## State Synchronization
+
+> **Note**: The code examples in this section use the deprecated API for historical context.
+> The current implementation uses type-specific methods with context scoping. See the
+> "API Update" section at the top of this document for the current API.
+
+### Client-Side State Management
 
 Task state maintains artifact references for resumption:
 
@@ -193,90 +234,151 @@ When a task is resumed, artifacts are:
              → A2A event: append=true, lastChunk=true
 ```
 
-## Artifact Store Interface
+## Artifact Store Interface (Current)
 
 ### Core Operations
 
 ```typescript
 interface ArtifactStore {
+  // ============================================================================
+  // File Artifact Methods (streaming text/binary content)
+  // ============================================================================
+
   /**
-   * Create a new artifact
-   *
-   * @param params.artifactId - Unique identifier for the artifact (provided by LLM/client)
-   * @returns The same artifactId that was provided
+   * Create a new file artifact for streaming content
+   * Context-scoped: artifacts are isolated by contextId
    */
-  createArtifact(params: {
+  createFileArtifact(params: {
     artifactId: string;
     taskId: string;
     contextId: string;
     name?: string;
     description?: string;
+    mimeType?: string;
+    encoding?: 'utf-8' | 'base64';
+    override?: boolean;  // If true, replaces existing artifact
   }): Promise<string>;
 
   /**
-   * Append a new part to an artifact
+   * Append a chunk to a file artifact
    * Triggers A2A artifact-update event
    */
-  appendPart(
+  appendFileChunk(
+    contextId: string,
     artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk?: boolean
+    chunk: string,
+    options?: {
+      isLastChunk?: boolean;
+    }
   ): Promise<void>;
 
   /**
-   * Replace a specific part (for edits)
-   * Triggers A2A artifact-update event
+   * Get complete file content as a string
    */
-  replacePart(
-    artifactId: string,
-    partIndex: number,
-    part: Omit<ArtifactPart, 'index'>
-  ): Promise<void>;
+  getFileContent(
+    contextId: string,
+    artifactId: string
+  ): Promise<string>;
+
+  // ============================================================================
+  // Data Artifact Methods (structured JSON objects)
+  // ============================================================================
 
   /**
-   * Get artifact metadata
+   * Create a new data artifact for JSON objects
    */
-  getArtifact(artifactId: string): Promise<StoredArtifact | null>;
-
-  /**
-   * Get all parts of an artifact
-   * If resolveExternal=true, loads content from external storage
-   */
-  getArtifactParts(
-    artifactId: string,
-    resolveExternal?: boolean
-  ): Promise<ArtifactPart[]>;
-
-  /**
-   * Get all artifact IDs for a task
-   */
-  getTaskArtifacts(taskId: string): Promise<string[]>;
-
-  /**
-   * Query artifacts by context and optionally task
-   */
-  queryArtifacts(params: {
+  createDataArtifact(params: {
+    artifactId: string;
+    taskId: string;
     contextId: string;
-    taskId?: string;
-  }): Promise<string[]>;
+    name?: string;
+    description?: string;
+    override?: boolean;
+  }): Promise<string>;
 
   /**
-   * Get artifact by context and artifact ID
+   * Write/update data artifact content (atomic operation)
+   * Triggers A2A artifact-update event
    */
-  getArtifactByContext(
+  writeData(
+    contextId: string,
+    artifactId: string,
+    data: Record<string, unknown>
+  ): Promise<void>;
+
+  /**
+   * Get data artifact content
+   */
+  getDataContent(
+    contextId: string,
+    artifactId: string
+  ): Promise<Record<string, unknown>>;
+
+  // ============================================================================
+  // Dataset Artifact Methods (tabular data with batching)
+  // ============================================================================
+
+  /**
+   * Create a new dataset artifact for tabular data
+   */
+  createDatasetArtifact(params: {
+    artifactId: string;
+    taskId: string;
+    contextId: string;
+    name?: string;
+    description?: string;
+    schema?: DatasetSchema;
+    override?: boolean;
+  }): Promise<string>;
+
+  /**
+   * Append a batch of rows to a dataset
+   * Triggers A2A artifact-update event
+   */
+  appendDatasetBatch(
+    contextId: string,
+    artifactId: string,
+    rows: Record<string, unknown>[],
+    options?: {
+      isLastBatch?: boolean;
+    }
+  ): Promise<void>;
+
+  /**
+   * Get all dataset rows
+   */
+  getDatasetRows(
+    contextId: string,
+    artifactId: string
+  ): Promise<Record<string, unknown>[]>;
+
+  // ============================================================================
+  // Common Methods
+  // ============================================================================
+
+  /**
+   * Get artifact metadata (context-scoped)
+   */
+  getArtifact(
     contextId: string,
     artifactId: string
   ): Promise<StoredArtifact | null>;
 
   /**
-   * Delete artifact and external storage
+   * List artifacts by context and optionally filter by task
    */
-  deleteArtifact(artifactId: string): Promise<void>;
+  listArtifacts(
+    contextId: string,
+    taskId?: string
+  ): Promise<string[]>;
 
   /**
-   * Get complete artifact content
+   * Delete artifact (context-scoped)
    */
-  getArtifactContent(artifactId: string): Promise<string | object>;
+  deleteArtifact(
+    contextId: string,
+    artifactId: string
+  ): Promise<void>;
 }
 ```
 
@@ -346,6 +448,11 @@ interface ArtifactOperation {
 ```
 
 ## A2A Event Emission
+
+> **Note**: The code examples in this section use the deprecated API for historical context.
+> The current implementation uses type-specific methods (`createFileArtifact`, `createDataArtifact`,
+> `createDatasetArtifact`, etc.) with context scoping (contextId as first parameter). See the
+> "API Update" section at the top of this document for the current API.
 
 ### Event Emitter Decorator Pattern
 
@@ -688,6 +795,10 @@ const createArtifactWithTracking$ = (
 
 ## Agent Loop Integration
 
+> **Note**: The code examples in this section use the deprecated API for historical context.
+> The current implementation uses type-specific methods with context scoping. See the
+> "API Update" section at the top of this document for the current API.
+
 ### Creating Artifacts from LLM Responses
 
 ```typescript
@@ -971,6 +1082,10 @@ await tool_call('artifact_update', {
 ```
 
 ## Resumption and Resubscription
+
+> **Note**: The code examples in this section use the deprecated API for historical context.
+> The current implementation uses type-specific methods with context scoping. See the
+> "API Update" section at the top of this document for the current API.
 
 ### Loading Artifacts on Resume
 

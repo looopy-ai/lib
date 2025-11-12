@@ -10,7 +10,7 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { ArtifactPart, ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
+import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
 import {
   type CreateDatasetWriteEventOptions,
   type CreateDataWriteEventOptions,
@@ -92,6 +92,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
   }
 
   async appendFileChunk(
+    contextId: string,
     artifactId: string,
     chunk: string,
     options?: {
@@ -100,11 +101,11 @@ export class InternalEventArtifactStore implements ArtifactStore {
     }
   ): Promise<void> {
     // Execute the operation
-    await this.delegate.appendFileChunk(artifactId, chunk, options);
+    await this.delegate.appendFileChunk(contextId, artifactId, chunk, options);
 
     // Emit event if enabled
     if (this.enableEvents) {
-      const artifact = await this.delegate.getArtifact(artifactId);
+      const artifact = await this.delegate.getArtifact(contextId, artifactId);
       if (artifact && artifact.type === 'file') {
         const chunkIndex = artifact.chunks.length - 1; // Last chunk index
 
@@ -131,8 +132,8 @@ export class InternalEventArtifactStore implements ArtifactStore {
     }
   }
 
-  async getFileContent(artifactId: string): Promise<string> {
-    return this.delegate.getFileContent(artifactId);
+  async getFileContent(contextId: string, artifactId: string): Promise<string> {
+    return this.delegate.getFileContent(contextId, artifactId);
   }
 
   // ============================================================================
@@ -149,13 +150,17 @@ export class InternalEventArtifactStore implements ArtifactStore {
     return this.delegate.createDataArtifact(params);
   }
 
-  async writeData(artifactId: string, data: Record<string, unknown>): Promise<void> {
+  async writeData(
+    contextId: string,
+    artifactId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     // Execute the operation
-    await this.delegate.writeData(artifactId, data);
+    await this.delegate.writeData(contextId, artifactId, data);
 
     // Emit event if enabled
     if (this.enableEvents) {
-      const artifact = await this.delegate.getArtifact(artifactId);
+      const artifact = await this.delegate.getArtifact(contextId, artifactId);
       if (artifact && artifact.type === 'data') {
         const eventOptions: CreateDataWriteEventOptions = {
           contextId: artifact.contextId,
@@ -175,8 +180,8 @@ export class InternalEventArtifactStore implements ArtifactStore {
     }
   }
 
-  async getDataContent(artifactId: string): Promise<Record<string, unknown>> {
-    return this.delegate.getDataContent(artifactId);
+  async getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>> {
+    return this.delegate.getDataContent(contextId, artifactId);
   }
 
   // ============================================================================
@@ -195,6 +200,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
   }
 
   async appendDatasetBatch(
+    contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
     options?: {
@@ -202,11 +208,11 @@ export class InternalEventArtifactStore implements ArtifactStore {
     }
   ): Promise<void> {
     // Execute the operation
-    await this.delegate.appendDatasetBatch(artifactId, rows, options);
+    await this.delegate.appendDatasetBatch(contextId, artifactId, rows, options);
 
     // Emit event if enabled
     if (this.enableEvents) {
-      const artifact = await this.delegate.getArtifact(artifactId);
+      const artifact = await this.delegate.getArtifact(contextId, artifactId);
       if (artifact && artifact.type === 'dataset') {
         const batchIndex = artifact.totalChunks - 1; // Last batch index
 
@@ -248,207 +254,23 @@ export class InternalEventArtifactStore implements ArtifactStore {
     }
   }
 
-  async getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]> {
-    return this.delegate.getDatasetRows(artifactId);
+  async getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]> {
+    return this.delegate.getDatasetRows(contextId, artifactId);
   }
 
   // ============================================================================
   // Common Methods
   // ============================================================================
 
-  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
-    return this.delegate.getArtifact(artifactId);
+  async getArtifact(contextId: string, artifactId: string): Promise<StoredArtifact | null> {
+    return this.delegate.getArtifact(contextId, artifactId);
   }
 
-  async getTaskArtifacts(taskId: string): Promise<string[]> {
-    return this.delegate.getTaskArtifacts(taskId);
+  async listArtifacts(contextId: string, taskId?: string): Promise<string[]> {
+    return this.delegate.listArtifacts(contextId, taskId);
   }
 
-  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
-    return this.delegate.queryArtifacts(params);
-  }
-
-  async getArtifactByContext(
-    contextId: string,
-    artifactId: string
-  ): Promise<StoredArtifact | null> {
-    return this.delegate.getArtifactByContext(contextId, artifactId);
-  }
-
-  async deleteArtifact(artifactId: string): Promise<void> {
-    return this.delegate.deleteArtifact(artifactId);
-  }
-
-  // ============================================================================
-  // Legacy Methods (for backward compatibility)
-  // ============================================================================
-
-  async createArtifact(params: {
-    artifactId: string;
-    taskId: string;
-    contextId: string;
-    type: 'file' | 'data' | 'dataset';
-    name?: string;
-    description?: string;
-    mimeType?: string;
-    schema?: DatasetSchema;
-  }): Promise<string> {
-    if (this.delegate.createArtifact) {
-      return this.delegate.createArtifact(params);
-    }
-
-    // Fallback to type-specific methods
-    switch (params.type) {
-      case 'file':
-        return this.createFileArtifact({
-          artifactId: params.artifactId,
-          taskId: params.taskId,
-          contextId: params.contextId,
-          name: params.name,
-          description: params.description,
-          mimeType: params.mimeType,
-        });
-      case 'data':
-        return this.createDataArtifact({
-          artifactId: params.artifactId,
-          taskId: params.taskId,
-          contextId: params.contextId,
-          name: params.name,
-          description: params.description,
-        });
-      case 'dataset':
-        return this.createDatasetArtifact({
-          artifactId: params.artifactId,
-          taskId: params.taskId,
-          contextId: params.contextId,
-          name: params.name,
-          description: params.description,
-          schema: params.schema,
-        });
-      default: {
-        const exhaustiveCheck: never = params.type;
-        throw new Error(`Unknown artifact type: ${exhaustiveCheck}`);
-      }
-    }
-  }
-
-  async getArtifactContent(
-    artifactId: string
-  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
-    if (this.delegate.getArtifactContent) {
-      return this.delegate.getArtifactContent(artifactId);
-    }
-
-    // Fallback: determine type and call appropriate method
-    const artifact = await this.delegate.getArtifact(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    switch (artifact.type) {
-      case 'file':
-        return this.getFileContent(artifactId);
-      case 'data':
-        return this.getDataContent(artifactId);
-      case 'dataset':
-        return this.getDatasetRows(artifactId);
-    }
-  }
-
-  async appendPart(
-    artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk?: boolean
-  ): Promise<void> {
-    // Always use type-specific methods to ensure events are emitted
-    const artifact = await this.delegate.getArtifact(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    switch (artifact.type) {
-      case 'file':
-        if (part.content !== undefined) {
-          return this.appendFileChunk(artifactId, part.content, { isLastChunk });
-        }
-        throw new Error('File part must have content');
-      case 'data':
-        if (part.data !== undefined) {
-          return this.writeData(artifactId, part.data);
-        }
-        throw new Error('Data part must have data');
-      case 'dataset':
-        if (part.data !== undefined) {
-          // Assume data is a single row
-          return this.appendDatasetBatch(artifactId, [part.data], { isLastBatch: isLastChunk });
-        }
-        throw new Error('Dataset part must have data');
-    }
-  }
-
-  async getArtifactParts(artifactId: string, resolveExternal?: boolean): Promise<ArtifactPart[]> {
-    if (this.delegate.getArtifactParts) {
-      return this.delegate.getArtifactParts(artifactId, resolveExternal);
-    }
-
-    // Fallback: convert from new format to legacy format
-    const artifact = await this.delegate.getArtifact(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    switch (artifact.type) {
-      case 'file':
-        return artifact.chunks.map((chunk, index) => ({
-          index,
-          kind: 'file' as const,
-          content: chunk.data,
-          metadata: {
-            mimeType: artifact.mimeType,
-            size: chunk.size,
-            checksum: chunk.checksum,
-          },
-        }));
-      case 'data':
-        return [
-          {
-            index: 0,
-            kind: 'data' as const,
-            data: artifact.data,
-          },
-        ];
-      case 'dataset':
-        return [
-          {
-            index: 0,
-            kind: 'data' as const,
-            data: { rows: artifact.rows },
-          },
-        ];
-    }
-  }
-
-  async replacePart(
-    artifactId: string,
-    partIndex: number,
-    part: Omit<ArtifactPart, 'index'>
-  ): Promise<void> {
-    if (this.delegate.replacePart) {
-      return this.delegate.replacePart(artifactId, partIndex, part);
-    }
-
-    throw new Error('replacePart not implemented in delegate store');
-  }
-
-  async replaceParts(
-    artifactId: string,
-    parts: Omit<ArtifactPart, 'index'>[],
-    isLastChunk?: boolean
-  ): Promise<void> {
-    if (this.delegate.replaceParts) {
-      return this.delegate.replaceParts(artifactId, parts, isLastChunk);
-    }
-
-    throw new Error('replaceParts not implemented in delegate store');
+  async deleteArtifact(contextId: string, artifactId: string): Promise<void> {
+    return this.delegate.deleteArtifact(contextId, artifactId);
   }
 }

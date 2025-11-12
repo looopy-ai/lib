@@ -431,8 +431,10 @@ export interface ArtifactStore {
 
   /**
    * Append a chunk to a file artifact (streaming)
+   * Requires contextId to ensure artifact exists within the context
    */
   appendFileChunk(
+    contextId: string,
     artifactId: string,
     chunk: string,
     options?: {
@@ -443,13 +445,16 @@ export interface ArtifactStore {
 
   /**
    * Write or update data artifact (atomic)
+   * Requires contextId to ensure artifact exists within the context
    */
-  writeData(artifactId: string, data: Record<string, unknown>): Promise<void>;
+  writeData(contextId: string, artifactId: string, data: Record<string, unknown>): Promise<void>;
 
   /**
    * Append a batch of rows to a dataset artifact (streaming)
+   * Requires contextId to ensure artifact exists within the context
    */
   appendDatasetBatch(
+    contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
     options?: {
@@ -458,86 +463,40 @@ export interface ArtifactStore {
   ): Promise<void>;
 
   /**
-   * Get artifact metadata
+   * Get artifact metadata (context-scoped lookup)
+   * Requires contextId to ensure artifact exists within the context
    */
-  getArtifact(artifactId: string): Promise<StoredArtifact | null>;
+  getArtifact(contextId: string, artifactId: string): Promise<StoredArtifact | null>;
 
   /**
    * Get file artifact content (full text)
+   * Requires contextId to ensure artifact exists within the context
    */
-  getFileContent(artifactId: string): Promise<string>;
+  getFileContent(contextId: string, artifactId: string): Promise<string>;
 
   /**
    * Get data artifact content
+   * Requires contextId to ensure artifact exists within the context
    */
-  getDataContent(artifactId: string): Promise<Record<string, unknown>>;
+  getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>>;
 
   /**
    * Get dataset artifact rows
+   * Requires contextId to ensure artifact exists within the context
    */
-  getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]>;
+  getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]>;
 
   /**
-   * List all artifacts for a task
+   * List all artifacts for a context
+   * Optionally filter by taskId within that context
    */
-  getTaskArtifacts(taskId: string): Promise<string[]>;
-
-  /**
-   * Query artifacts by context and optional task
-   */
-  queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]>;
-
-  /**
-   * Get artifact by context (scoped lookup)
-   */
-  getArtifactByContext(contextId: string, artifactId: string): Promise<StoredArtifact | null>;
+  listArtifacts(contextId: string, taskId?: string): Promise<string[]>;
 
   /**
    * Delete an artifact and its external storage
+   * Requires contextId to ensure artifact exists within the context
    */
-  deleteArtifact(artifactId: string): Promise<void>;
-
-  // Legacy methods for backward compatibility
-  /** @deprecated Use createFileArtifact, createDataArtifact, or createDatasetArtifact instead */
-  createArtifact?(params: {
-    artifactId: string;
-    taskId: string;
-    contextId: string;
-    type: ArtifactType;
-    name?: string;
-    description?: string;
-    mimeType?: string;
-    schema?: DatasetSchema;
-  }): Promise<string>;
-
-  /** @deprecated Use getFileContent, getDataContent, or getDatasetRows instead */
-  getArtifactContent?(
-    artifactId: string
-  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]>;
-
-  /** @deprecated Use appendFileChunk, writeData, or appendDatasetBatch instead */
-  appendPart?(
-    artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk?: boolean
-  ): Promise<void>;
-
-  /** @deprecated Use type-specific methods instead */
-  getArtifactParts?(artifactId: string, resolveExternal?: boolean): Promise<ArtifactPart[]>;
-
-  /** @deprecated Use type-specific methods instead */
-  replacePart?(
-    artifactId: string,
-    partIndex: number,
-    part: Omit<ArtifactPart, 'index'>
-  ): Promise<void>;
-
-  /** @deprecated Use type-specific methods instead */
-  replaceParts?(
-    artifactId: string,
-    parts: Omit<ArtifactPart, 'index'>[],
-    isLastChunk?: boolean
-  ): Promise<void>;
+  deleteArtifact(contextId: string, artifactId: string): Promise<void>;
 }
 
 /**

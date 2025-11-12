@@ -38,14 +38,8 @@ class MockArtifactStore implements ArtifactStore {
   async getDatasetRows(): Promise<Record<string, unknown>[]> {
     return [];
   }
-  async getTaskArtifacts(): Promise<string[]> {
+  async listArtifacts(): Promise<string[]> {
     return [];
-  }
-  async queryArtifacts(): Promise<string[]> {
-    return [];
-  }
-  async getArtifactByContext(): Promise<null> {
-    return null;
   }
   async deleteArtifact(): Promise<void> {}
 }

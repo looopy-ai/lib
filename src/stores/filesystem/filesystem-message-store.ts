@@ -30,6 +30,7 @@ export interface FileSystemMessageStoreConfig {
 export class FileSystemMessageStore implements MessageStore {
   private basePath: string;
   private agentId: string;
+  private messageIndex = 0;
 
   constructor(config: FileSystemMessageStoreConfig) {
     this.basePath = config.basePath || './_agent_store';
@@ -68,7 +69,7 @@ export class FileSystemMessageStore implements MessageStore {
     options?: {
       maxMessages?: number;
       maxTokens?: number;
-    }
+    },
   ): Promise<Message[]> {
     const allMessages = await this.loadMessages(contextId);
 
@@ -182,7 +183,7 @@ export class FileSystemMessageStore implements MessageStore {
   private getMessageFilename(timestamp: string, index: number): string {
     // Use safe ISO timestamp format for filename
     const safeTimestamp = timestamp.replace(/:/g, '-').replace(/\./g, '_');
-    return `${safeTimestamp}-${String(index).padStart(6, '0')}.json`;
+    return `${safeTimestamp}-${String(index).padStart(3, '0')}-${String(this.messageIndex++).padStart(6, '0')}.json`;
   }
 
   private async loadMessages(contextId: string): Promise<StoredMessage[]> {

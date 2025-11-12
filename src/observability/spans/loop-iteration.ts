@@ -9,8 +9,8 @@ import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LoopIterationSpanParams {
   agentId: string;
-  taskId: string;
   contextId: string;
+  taskId: string;
   iteration: number;
   parentContext: import('@opentelemetry/api').Context; // Parent context for sibling spans
 }

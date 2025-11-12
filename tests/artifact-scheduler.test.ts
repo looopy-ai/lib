@@ -33,7 +33,7 @@ describe('ArtifactScheduler', () => {
         mimeType: 'text/plain',
       });
 
-      const appendPromise = scheduler.appendFileChunk(artifactId, 'Hello World', {
+      const appendPromise = scheduler.appendFileChunk(contextId, artifactId, 'Hello World', {
         isLastChunk: true,
       });
 
@@ -41,7 +41,7 @@ describe('ArtifactScheduler', () => {
       await Promise.all([createPromise, appendPromise]);
 
       // Verify content
-      const content = await scheduler.getFileContent(artifactId);
+      const content = await scheduler.getFileContent(contextId, artifactId);
       expect(content).toBe('Hello World');
     });
 
@@ -57,14 +57,14 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.appendFileChunk(artifactId, 'First '),
-        scheduler.appendFileChunk(artifactId, 'Second '),
-        scheduler.appendFileChunk(artifactId, 'Third', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, artifactId, 'First '),
+        scheduler.appendFileChunk(contextId, artifactId, 'Second '),
+        scheduler.appendFileChunk(contextId, artifactId, 'Third', { isLastChunk: true }),
       ];
 
       await Promise.all(operations);
 
-      const content = await scheduler.getFileContent(artifactId);
+      const content = await scheduler.getFileContent(contextId, artifactId);
       expect(content).toBe('First Second Third');
     });
 
@@ -82,10 +82,10 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.writeData(artifactId, data),
+        scheduler.writeData(contextId, artifactId, data),
       ]);
 
-      const retrieved = await scheduler.getDataContent(artifactId);
+      const retrieved = await scheduler.getDataContent(contextId, artifactId);
       expect(retrieved).toEqual(data);
     });
 
@@ -106,10 +106,10 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.appendDatasetBatch(artifactId, rows, { isLastBatch: true }),
+        scheduler.appendDatasetBatch(contextId, artifactId, rows, { isLastBatch: true }),
       ]);
 
-      const retrieved = await scheduler.getDatasetRows(artifactId);
+      const retrieved = await scheduler.getDatasetRows(contextId, artifactId);
       expect(retrieved).toEqual(rows);
     });
   });
@@ -131,7 +131,7 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.appendFileChunk(artifact1, 'Content 1', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, artifact1, 'Content 1', { isLastChunk: true }),
 
         // Artifact 2 operations (parallel)
         scheduler.createFileArtifact({
@@ -139,7 +139,7 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.appendFileChunk(artifact2, 'Content 2', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, artifact2, 'Content 2', { isLastChunk: true }),
       ]);
 
       const endTime = Date.now();
@@ -148,8 +148,8 @@ describe('ArtifactScheduler', () => {
       // Should complete quickly since they run in parallel
       expect(duration).toBeLessThan(100);
 
-      const content1 = await scheduler.getFileContent(artifact1);
-      const content2 = await scheduler.getFileContent(artifact2);
+      const content1 = await scheduler.getFileContent(contextId, artifact1);
+      const content2 = await scheduler.getFileContent(contextId, artifact2);
 
       expect(content1).toBe('Content 1');
       expect(content2).toBe('Content 2');
@@ -159,7 +159,7 @@ describe('ArtifactScheduler', () => {
   describe('Error handling', () => {
     it('should propagate errors from operations', async () => {
       // Try to append without creating first
-      await expect(scheduler.appendFileChunk('nonexistent', 'data')).rejects.toThrow(
+      await expect(scheduler.appendFileChunk('none', 'nonexistent', 'data')).rejects.toThrow(
         'Artifact not found'
       );
     });
@@ -177,17 +177,17 @@ describe('ArtifactScheduler', () => {
 
       // Queue multiple operations, one with wrong type
       const operations = [
-        scheduler.appendFileChunk(fileArtifactId, 'Valid'),
-        scheduler.writeData(fileArtifactId, { data: 'wrong type' }).catch(() => {
+        scheduler.appendFileChunk(contextId, fileArtifactId, 'Valid'),
+        scheduler.writeData(contextId, fileArtifactId, { data: 'wrong type' }).catch(() => {
           // Expected to fail
         }),
-        scheduler.appendFileChunk(fileArtifactId, ' content', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, fileArtifactId, ' content', { isLastChunk: true }),
       ];
 
       await Promise.allSettled(operations);
 
       // Should still have processed valid operations
-      const content = await scheduler.getFileContent(fileArtifactId);
+      const content = await scheduler.getFileContent(contextId, fileArtifactId);
       expect(content).toBe('Valid content');
     });
   });
@@ -210,11 +210,7 @@ describe('ArtifactScheduler', () => {
         contextId,
       });
 
-      // Query methods should work immediately
-      const taskArtifacts = await scheduler.getTaskArtifacts(taskId);
-      expect(taskArtifacts).toHaveLength(2);
-
-      const contextArtifacts = await scheduler.queryArtifacts({ contextId });
+      const contextArtifacts = await scheduler.listArtifacts(contextId);
       expect(contextArtifacts).toHaveLength(2);
     });
   });
@@ -239,20 +235,20 @@ describe('ArtifactScheduler', () => {
           name: 'response.txt',
           mimeType: 'text/plain',
         }),
-        scheduler.appendFileChunk(artifactId, 'Based on '),
-        scheduler.appendFileChunk(artifactId, 'the analysis, '),
-        scheduler.appendFileChunk(artifactId, 'I recommend...', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, artifactId, 'Based on '),
+        scheduler.appendFileChunk(contextId, artifactId, 'the analysis, '),
+        scheduler.appendFileChunk(contextId, artifactId, 'I recommend...', { isLastChunk: true }),
       ];
 
       // Execute all in parallel (as agent-loop would)
       await Promise.all(toolCalls);
 
       // Verify correct final content
-      const content = await scheduler.getFileContent(artifactId);
+      const content = await scheduler.getFileContent(contextId, artifactId);
       expect(content).toBe('Based on the analysis, I recommend...');
 
       // Verify artifact status
-      const artifact = await scheduler.getArtifact(artifactId);
+      const artifact = await scheduler.getArtifact(contextId, artifactId);
       expect(artifact).not.toBeNull();
       expect(artifact?.status).toBe('complete');
       if (artifact?.type === 'file') {
@@ -273,14 +269,14 @@ describe('ArtifactScheduler', () => {
           contextId,
           name: 'response.txt',
         }),
-        scheduler.appendFileChunk(artifactId, 'Content here'),
-        scheduler.appendFileChunk(artifactId, '', { isLastChunk: true }), // Empty final chunk
+        scheduler.appendFileChunk(contextId, artifactId, 'Content here'),
+        scheduler.appendFileChunk(contextId, artifactId, '', { isLastChunk: true }), // Empty final chunk
       ]);
 
-      const content = await scheduler.getFileContent(artifactId);
+      const content = await scheduler.getFileContent(contextId, artifactId);
       expect(content).toBe('Content here');
 
-      const artifact = await scheduler.getArtifact(artifactId);
+      const artifact = await scheduler.getArtifact(contextId, artifactId);
       expect(artifact?.status).toBe('complete');
       if (artifact?.type === 'file') {
         expect(artifact.chunks).toHaveLength(1); // Only 1 chunk (empty ignored)
@@ -300,13 +296,13 @@ describe('ArtifactScheduler', () => {
           contextId,
           name: 'empty.txt',
         }),
-        scheduler.appendFileChunk(artifactId, '', { isLastChunk: true }),
+        scheduler.appendFileChunk(contextId, artifactId, '', { isLastChunk: true }),
       ]);
 
-      const content = await scheduler.getFileContent(artifactId);
+      const content = await scheduler.getFileContent(contextId, artifactId);
       expect(content).toBe('');
 
-      const artifact = await scheduler.getArtifact(artifactId);
+      const artifact = await scheduler.getArtifact(contextId, artifactId);
       expect(artifact?.status).toBe('complete');
       if (artifact?.type === 'file') {
         expect(artifact.chunks).toHaveLength(0); // No chunks added
@@ -324,14 +320,14 @@ describe('ArtifactScheduler', () => {
           taskId,
           contextId,
         }),
-        scheduler.appendDatasetBatch(artifactId, [{ id: 1, name: 'Alice' }]),
-        scheduler.appendDatasetBatch(artifactId, [], { isLastBatch: true }), // Empty final batch
+        scheduler.appendDatasetBatch(contextId, artifactId, [{ id: 1, name: 'Alice' }]),
+        scheduler.appendDatasetBatch(contextId, artifactId, [], { isLastBatch: true }), // Empty final batch
       ]);
 
-      const rows = await scheduler.getDatasetRows(artifactId);
+      const rows = await scheduler.getDatasetRows(contextId, artifactId);
       expect(rows).toEqual([{ id: 1, name: 'Alice' }]);
 
-      const artifact = await scheduler.getArtifact(artifactId);
+      const artifact = await scheduler.getArtifact(contextId, artifactId);
       expect(artifact?.status).toBe('complete');
       if (artifact?.type === 'dataset') {
         expect(artifact.rows).toHaveLength(1);

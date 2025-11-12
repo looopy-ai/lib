@@ -9,8 +9,25 @@
 
 import { context as otelContext, type Span } from '@opentelemetry/api';
 import { concat, defer, merge, type Observable, of, Subject } from 'rxjs';
-import { catchError, filter, finalize, map, shareReplay, switchMap, tap } from 'rxjs/operators';
-import type { ContentCompleteEvent, LLMEvent } from '../events/types';
+import {
+  catchError,
+  concatWith,
+  filter,
+  finalize,
+  map,
+  mergeMap,
+  shareReplay,
+  switchMap,
+  tap,
+} from 'rxjs/operators';
+import { runLoop } from '../core-v2/loop';
+import type {
+  ContentCompleteEvent,
+  LLMEvent,
+  ToolCallEvent,
+  ToolCompleteEvent,
+  ToolExecutionEvent,
+} from '../events/types';
 import {
   addLLMUsageToSpan,
   completeLLMCallSpan,
@@ -96,19 +113,37 @@ export class AgentLoop {
       authContext?: import('./types').AuthContext;
       parentContext: import('@opentelemetry/api').Context;
       metadata?: Record<string, unknown>;
-    }
+    },
   ): Observable<AgentEvent> {
+    return runLoop(
+      {
+        agentId: this.config.agentId,
+        contextId: context.contextId,
+        taskId: context.taskId || `turn-${context.turnNumber}`,
+        authContext: context.authContext,
+        parentContext: context.parentContext,
+        toolProviders: this.config.toolProviders,
+        logger: this.config.logger,
+        turnNumber: context.turnNumber,
+      },
+      {
+        llmProvider: this.config.llmProvider,
+        maxIterations: this.config.maxIterations,
+        stopOnToolError: false,
+      },
+      messages,
+    );
     // Pass full message history through context
     // This allows the LLM to see the entire conversation
-    return this.execute({
-      agentId: this.config.agentId,
-      contextId: context.contextId,
-      taskId: context.taskId || `turn-${context.turnNumber}`,
-      authContext: context.authContext,
-      parentContext: context.parentContext,
-      messages, // Pass full conversation history
-      ...context.metadata,
-    });
+    // return this.execute({
+    //   agentId: this.config.agentId,
+    //   contextId: context.contextId,
+    //   taskId: context.taskId || `turn-${context.turnNumber}`,
+    //   authContext: context.authContext,
+    //   parentContext: context.parentContext,
+    //   messages, // Pass full conversation history
+    //   ...context.metadata,
+    // });
   }
 
   /**
@@ -164,7 +199,7 @@ export class AgentLoop {
             this.eventEmitter.error(err);
           }
         },
-      })
+      }),
     );
 
     // Merge execution events with internal protocol events
@@ -174,7 +209,7 @@ export class AgentLoop {
       // - Only one execution happens regardless of subscriber count
       // - Late subscribers get all events from the beginning
       // - The observable stays "hot" and shared
-      shareReplay()
+      shareReplay(),
     );
   }
 
@@ -184,7 +219,7 @@ export class AgentLoop {
   static async resume(
     taskId: string,
     config: AgentLoopConfig,
-    context: Partial<AgentLoopContext> = {}
+    context: Partial<AgentLoopContext> = {},
   ): Promise<Observable<AgentEvent>> {
     const logger = config.logger || getLogger({ component: 'AgentLoop' });
     logger.info({ taskId }, 'Resuming agent execution');
@@ -199,13 +234,13 @@ export class AgentLoop {
     if (state.completed) {
       logger.info({ taskId }, 'Task already completed');
       return of(
-        createCompletedEvent(state.taskId, state.contextId, state.lastLLMResponse?.message)
+        createCompletedEvent(state.taskId, state.contextId, state.lastLLMResponse?.message),
       );
     }
 
     logger.debug(
       { taskId, iteration: state.iteration },
-      'Restoring state and continuing execution'
+      'Restoring state and continuing execution',
     );
 
     const loop = new AgentLoop(config);
@@ -269,7 +304,7 @@ export class AgentLoop {
    */
   private async restoreState(
     persisted: PersistedLoopState,
-    context: Partial<AgentLoopContext>
+    context: Partial<AgentLoopContext>,
   ): Promise<LoopState> {
     return {
       ...persisted,
@@ -295,13 +330,13 @@ export class AgentLoop {
    */
   private runLoop(
     initialState: LoopState,
-    loopContext: import('@opentelemetry/api').Context
+    loopContext: import('@opentelemetry/api').Context,
   ): Observable<AgentEvent> {
     // Emit initial events
     const taskEvent = createTaskEvent(
       initialState.taskId,
       initialState.contextId,
-      initialState.messages
+      initialState.messages,
     );
     const workingEvent = createWorkingEvent(initialState.taskId, initialState.contextId);
 
@@ -316,7 +351,7 @@ export class AgentLoop {
           iteration: state.iteration,
           completed: state.completed,
         },
-        'iterate() called'
+        'iterate() called',
       );
 
       // Check termination conditions
@@ -328,7 +363,7 @@ export class AgentLoop {
             iteration: state.iteration,
             maxIterations: state.maxIterations,
           },
-          'Loop done - terminating'
+          'Loop done - terminating',
         );
         return of(state);
       }
@@ -351,10 +386,10 @@ export class AgentLoop {
               iteration: nextState.iteration,
               completed: nextState.completed,
             },
-            'Continuing to next iteration'
+            'Continuing to next iteration',
           );
           return iterate(nextState);
-        })
+        }),
       );
     };
 
@@ -365,7 +400,7 @@ export class AgentLoop {
       // Convert final state to status events
       switchMap((state: LoopState) => this.stateToEvents(state)),
       // Complete the LLM events collector when state loop completes
-      finalize(() => llmEventsCollector.complete())
+      finalize(() => llmEventsCollector.complete()),
     );
 
     // Merge initial events, LLM events from iterations, and final state events
@@ -378,7 +413,7 @@ export class AgentLoop {
    */
   private executeIteration(
     state: LoopState,
-    loopContext: import('@opentelemetry/api').Context
+    loopContext: import('@opentelemetry/api').Context,
   ): {
     state$: Observable<LoopState>;
     events$: Observable<AgentEvent>;
@@ -388,13 +423,13 @@ export class AgentLoop {
       state,
       nextIteration,
       this.config.logger,
-      loopContext
+      loopContext,
     );
 
     const { state$: llmState$, events$: llmEvents$ } = this.callLLMAndProcessEvents(
       { ...state, iteration: nextIteration },
       nextIteration,
-      iterationContext
+      iterationContext,
     );
 
     // Subject to collect tool and checkpoint events
@@ -405,7 +440,7 @@ export class AgentLoop {
       // map(startIterationSpan(spanRef, nextIteration, this.config.logger, loopContext)),
       // switchMap(() => llmState$),
       switchMap((s: LoopState) =>
-        this.processLLMResponse(s, internalEventsCollector, iterationContext)
+        this.processLLMResponse(s, internalEventsCollector, iterationContext),
       ),
       switchMap((s: LoopState) => this.checkpointIfNeeded(s, internalEventsCollector)),
       map(completeIteration(iterationSpan, nextIteration, this.config.logger)),
@@ -413,7 +448,7 @@ export class AgentLoop {
         complete: () => internalEventsCollector.complete(),
         error: (err) => internalEventsCollector.error(err),
       }),
-      catchError(catchIterationError(iterationSpan))
+      catchError(catchIterationError(iterationSpan)),
     );
 
     // Merge LLM events with tool and checkpoint events
@@ -429,7 +464,7 @@ export class AgentLoop {
   private callLLMAndProcessEvents(
     state: LoopState,
     iteration: number,
-    iterationContext: import('@opentelemetry/api').Context
+    iterationContext: import('@opentelemetry/api').Context,
   ): { state$: Observable<LoopState>; events$: Observable<AgentEvent> } {
     const {
       state: preparedState,
@@ -469,7 +504,7 @@ export class AgentLoop {
               ...event,
               contextId: state.contextId,
               taskId: state.taskId,
-            }) as AgentEvent
+            }) as AgentEvent,
         ),
         tap({
           next: (event) => {
@@ -482,8 +517,12 @@ export class AgentLoop {
                 break;
             }
           },
-        })
-      )
+        }),
+      ),
+      llmEvents$.pipe(
+        filter((event): event is LLMEvent<ToolCallEvent> => event.kind === 'tool-call'),
+        mergeMap((event) => this.executeToolAndProcessEvents(event, state, iterationContext)),
+      ),
     );
 
     // Extract final response and build LoopState
@@ -514,7 +553,7 @@ export class AgentLoop {
         };
       }),
       map(mapLLMResponseToState(preparedState)),
-      catchError(catchLLMError(span)) // TODO align error handling with completion (from events above)
+      catchError(catchLLMError(span)), // TODO align error handling with completion (from events above)
     );
 
     return { state$, events$ };
@@ -525,8 +564,8 @@ export class AgentLoop {
    */
   private processLLMResponse(
     state: LoopState,
-    toolEventsCollector: Subject<AgentEvent>,
-    iterationContext: import('@opentelemetry/api').Context
+    _toolEventsCollector: Subject<AgentEvent>,
+    _iterationContext: import('@opentelemetry/api').Context,
   ): Observable<LoopState> {
     const response = state.lastLLMResponse;
 
@@ -535,76 +574,84 @@ export class AgentLoop {
       return of({ ...state, completed: true });
     }
 
-    // Execute tool calls if present (priority over finish check)
-    if (response.toolCalls && response.toolCalls.length > 0) {
-      this.config.logger.info(
-        {
-          taskId: state.taskId,
-          toolCallCount: response.toolCalls.length,
-          tools: response.toolCalls.map((tc) => tc.function.name),
-        },
-        'Executing tool calls'
-      );
+    this.config.logger.debug(
+      {
+        taskId: state.taskId,
+        response,
+      },
+      'LLM response',
+    );
 
-      const { results$, events$ } = this.executeToolsAndProcessEvents(
-        response.toolCalls,
-        state,
-        iterationContext
-      );
+    // // Execute tool calls if present (priority over finish check)
+    // if (response.toolCalls && response.toolCalls.length > 0) {
+    //   this.config.logger.info(
+    //     {
+    //       taskId: state.taskId,
+    //       toolCallCount: response.toolCalls.length,
+    //       tools: response.toolCalls.map((tc) => tc.function.name),
+    //     },
+    //     'Executing tool calls'
+    //   );
 
-      // Subscribe to tool events and forward to collector
-      events$.subscribe({
-        next: (event: AgentEvent) => toolEventsCollector.next(event),
-        error: (err: Error) => toolEventsCollector.error(err),
-      });
+    //   const { results$, events$ } = this.executeToolsAndProcessEvents(
+    //     response.toolCalls,
+    //     state,
+    //     iterationContext
+    //   );
 
-      return results$.pipe(
-        tap((toolResults: ToolResult[]) => {
-          this.config.logger.trace(
-            {
-              taskId: state.taskId,
-              results: toolResults.map((r) => ({
-                tool: r.toolName,
-                success: r.success,
-                error: r.error,
-              })),
-            },
-            'Tool execution complete'
-          );
-        }),
-        map((toolResults: ToolResult[]) => {
-          // Add assistant message and tool results to conversation
-          const newMessages: Message[] = [
-            response.message,
-            ...toolResults.map((result: ToolResult) => ({
-              role: 'tool' as const,
-              content: JSON.stringify(result.result),
-              toolCallId: result.toolCallId,
-              name: result.toolName,
-            })),
-          ];
+    //   // Subscribe to tool events and forward to collector
+    //   events$.subscribe({
+    //     next: (event: AgentEvent) => toolEventsCollector.next(event),
+    //     error: (err: Error) => toolEventsCollector.error(err),
+    //   });
 
-          // Store tool results
-          const updatedResults = toolResults.reduce(
-            (acc, r: ToolResult) => acc.set(r.toolCallId, r),
-            new Map(state.toolResults)
-          );
+    //   return results$.pipe(
+    //     tap((toolResults: ToolResult[]) => {
+    //       this.config.logger.debug(
+    //         {
+    //           taskId: state.taskId,
+    //           toolResults,
+    //         },
+    //         'Tool results'
+    //       );
+    //     }),
+    //     map((toolResults: ToolResult[]) => {
+    //       // Add assistant message and tool results to conversation
+    //       const newMessages: Message[] = [
+    //         response.message,
+    //         ...toolResults.map((result: ToolResult) => ({
+    //           role: 'tool' as const,
+    //           content: JSON.stringify({
+    //             success: result.success,
+    //             result: result.result,
+    //             error: result.error,
+    //           }),
+    //           toolCallId: result.toolCallId,
+    //           name: result.toolName,
+    //         })),
+    //       ];
 
-          // Don't mark as completed - we need to call LLM again with tool results
-          this.config.logger.trace(
-            { taskId: state.taskId },
-            'Tool results added to conversation, continuing loop'
-          );
+    //       // Store tool results
+    //       const updatedResults = toolResults.reduce(
+    //         (acc, r: ToolResult) => acc.set(r.toolCallId, r),
+    //         new Map(state.toolResults)
+    //       );
 
-          return {
-            ...state,
-            messages: [...state.messages, ...newMessages],
-            toolResults: updatedResults,
-            completed: false, // Continue loop to process tool results
-          };
-        })
-      );
-    }
+    //       // Don't mark as completed - we need to call LLM again with tool results
+    //       this.config.logger.trace(
+    //         { taskId: state.taskId },
+    //         'Tool results added to conversation, continuing loop'
+    //       );
+
+    //       return {
+    //         ...state,
+    //         messages: [...state.messages, ...newMessages],
+    //         toolResults: updatedResults,
+    //         completed: false, // Continue loop to process tool results
+    //       };
+    //     })
+    //   );
+    // }
 
     // Check if finished (only if no tool calls)
     if (response.finished || response.finishReason === 'stop') {
@@ -613,18 +660,18 @@ export class AgentLoop {
           taskId: state.taskId,
           finishReason: response.finishReason,
         },
-        'Task completed'
+        'Task completed',
       );
       return of({ ...state, completed: true });
     }
 
     // No tools and not finished, continue
-    this.config.logger.trace(
+    this.config.logger.debug(
       {
         taskId: state.taskId,
         finishReason: response.finishReason,
       },
-      'Continuing loop (no tools, not finished)'
+      'Continuing loop (no tools, not finished)',
     );
     return of(state);
   }
@@ -632,11 +679,11 @@ export class AgentLoop {
   /**
    * Execute tool calls and return both results and events
    */
-  private executeToolsAndProcessEvents(
-    toolCalls: ToolCall[],
+  private executeToolAndProcessEvents(
+    toolCall: LLMEvent<ToolCallEvent>,
     state: LoopState,
-    parentContext: import('@opentelemetry/api').Context
-  ): { results$: Observable<ToolResult[]>; events$: Observable<AgentEvent> } {
+    parentContext: import('@opentelemetry/api').Context,
+  ): Observable<ToolExecutionEvent> {
     const execContext: ExecutionContext = {
       taskId: state.taskId,
       contextId: state.contextId,
@@ -645,136 +692,138 @@ export class AgentLoop {
       authContext: state.authContext,
     };
 
-    // Create observables for each tool execution
-    const toolExecutions = toolCalls.map((toolCall) => {
-      // Create tool-start event
-      const toolStartEvent: AgentEvent = {
-        kind: 'internal:tool-start',
-        contextId: state.contextId,
-        taskId: state.taskId,
-        toolCallId: toolCall.id,
-        toolName: toolCall.function.name,
-        timestamp: new Date().toISOString(),
-      };
+    // Create tool-start event
+    const toolStartEvent: ToolExecutionEvent = {
+      kind: 'tool-start',
+      contextId: state.contextId,
+      taskId: state.taskId,
+      toolCallId: toolCall.toolCallId,
+      toolName: toolCall.toolName,
+      arguments: toolCall.arguments,
+      timestamp: new Date().toISOString(),
+    };
 
-      // Execute tool and create events
-      const execution$ = defer(async () => {
-        // Start tool execution span
-        const { span } = startToolExecutionSpan({
-          agentId: state.agentId,
+    // Execute tool and create events
+    const toolResultEvents$ = defer(async () => {
+      // Start tool execution span
+      const { span } = startToolExecutionSpan({
+        agentId: state.agentId,
+        taskId: state.taskId,
+        toolCall: {
+          id: toolCall.toolCallId,
+          type: 'function',
+          function: {
+            name: toolCall.toolName,
+            arguments: toolCall.arguments,
+          },
+        }, // TODO use event
+        parentContext,
+      });
+
+      this.config.logger.trace(
+        {
           taskId: state.taskId,
-          toolCall,
-          parentContext,
-        });
+          toolName: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+        },
+        'Executing tool',
+      );
+
+      // Find provider that can handle this tool (check thought tools first, then regular providers)
+      const provider = this.thoughtToolProvider?.canHandle(toolCall.toolName)
+        ? this.thoughtToolProvider
+        : this.config.toolProviders.find((p) => p.canHandle(toolCall.toolName));
+
+      if (!provider) {
+        this.config.logger.warn(
+          {
+            taskId: state.taskId,
+            toolName: toolCall.toolName,
+          },
+          'No provider found for tool',
+        );
+
+        const errorMessage = `No provider found for tool: ${toolCall.toolName}`;
+        failToolExecutionSpan(span, errorMessage);
+
+        return {
+          kind: 'tool-complete',
+          contextId: state.contextId,
+          taskId: state.taskId,
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          success: false,
+          result: null,
+          error: errorMessage,
+          timestamp: new Date().toISOString(),
+        } satisfies ToolCompleteEvent;
+      }
+
+      try {
+        const result = await provider.execute(
+          {
+            id: toolCall.toolCallId,
+            type: 'function',
+            function: {
+              name: toolCall.toolName,
+              arguments: toolCall.arguments,
+            },
+          },
+          execContext,
+        ); // TODO use event
 
         this.config.logger.trace(
           {
             taskId: state.taskId,
-            toolName: toolCall.function.name,
-            toolCallId: toolCall.id,
+            toolName: toolCall.toolName,
+            success: result.success,
           },
-          'Executing tool'
+          'Tool execution complete',
         );
 
-        // Find provider that can handle this tool (check thought tools first, then regular providers)
-        const provider = this.thoughtToolProvider?.canHandle(toolCall.function.name)
-          ? this.thoughtToolProvider
-          : this.config.toolProviders.find((p) => p.canHandle(toolCall.function.name));
+        // Complete span with result
+        completeToolExecutionSpan(span, result);
 
-        if (!provider) {
-          this.config.logger.warn(
-            {
-              taskId: state.taskId,
-              toolName: toolCall.function.name,
-            },
-            'No provider found for tool'
-          );
-
-          const errorMessage = `No provider found for tool: ${toolCall.function.name}`;
-          failToolExecutionSpan(span, errorMessage);
-
-          return {
-            toolCallId: toolCall.id,
-            toolName: toolCall.function.name,
-            success: false,
-            result: null,
-            error: errorMessage,
-          };
-        }
-
-        try {
-          const result = await provider.execute(toolCall, execContext);
-          this.config.logger.trace(
-            {
-              taskId: state.taskId,
-              toolName: toolCall.function.name,
-              success: result.success,
-            },
-            'Tool execution complete'
-          );
-
-          // Complete span with result
-          completeToolExecutionSpan(span, result);
-
-          return result;
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          this.config.logger.error(
-            {
-              taskId: state.taskId,
-              toolName: toolCall.function.name,
-              error: err.message,
-              stack: err.stack,
-            },
-            'Tool execution failed'
-          );
-
-          // Fail span with exception
-          failToolExecutionSpanWithException(span, err);
-
-          return {
-            toolCallId: toolCall.id,
-            toolName: toolCall.function.name,
-            success: false,
-            result: null,
-            error: err.message,
-          };
-        }
-      }).pipe(shareReplay());
-
-      // Create tool-complete event from result
-      const toolCompleteEvent$ = execution$.pipe(
-        map(
-          (result): AgentEvent => ({
-            kind: 'internal:tool-complete',
-            contextId: state.contextId,
+        return {
+          kind: 'tool-complete',
+          contextId: state.contextId,
+          taskId: state.taskId,
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          success: true,
+          result: result.result,
+          timestamp: new Date().toISOString(),
+        } satisfies ToolCompleteEvent;
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.config.logger.error(
+          {
             taskId: state.taskId,
-            toolCallId: result.toolCallId,
-            toolName: result.toolName,
-            success: result.success,
-            error: result.error,
-            timestamp: new Date().toISOString(),
-          })
-        )
-      );
+            toolName: toolCall.toolName,
+            error: err.message,
+            stack: err.stack,
+          },
+          'Tool execution failed',
+        );
 
-      // Merge start and complete events for this tool
-      const toolEvents$ = merge(of(toolStartEvent), toolCompleteEvent$);
+        // Fail span with exception
+        failToolExecutionSpanWithException(span, err);
 
-      return { result$: execution$, events$: toolEvents$ };
-    });
+        return {
+          kind: 'tool-complete',
+          contextId: state.contextId,
+          taskId: state.taskId,
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          success: false,
+          result: null,
+          error: err.message,
+          timestamp: new Date().toISOString(),
+        } satisfies ToolCompleteEvent;
+      }
+    }).pipe(shareReplay());
 
-    // Collect all results
-    const results$ = defer(async () => {
-      const results = await Promise.all(toolExecutions.map((t) => t.result$.toPromise()));
-      // Filter out undefined values (shouldn't happen, but for type safety)
-      return results.filter((r): r is ToolResult => r !== undefined);
-    });
-
-    // Merge all tool events
-    const events$ = merge(...toolExecutions.map((t) => t.events$));
-
-    return { results$, events$ };
+    return of(toolStartEvent).pipe(concatWith(toolResultEvents$));
   }
 
   /**
@@ -782,7 +831,7 @@ export class AgentLoop {
    */
   private checkpointIfNeeded(
     state: LoopState,
-    checkpointEventsCollector: Subject<AgentEvent>
+    checkpointEventsCollector: Subject<AgentEvent>,
   ): Observable<LoopState> {
     if (!this.config.enableCheckpoints) {
       return of(state);
@@ -802,7 +851,7 @@ export class AgentLoop {
         taskId: state.taskId,
         iteration: state.iteration,
       },
-      'Checkpointing state'
+      'Checkpointing state',
     );
 
     return defer(async () => {

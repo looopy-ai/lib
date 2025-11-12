@@ -26,7 +26,7 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
 
       expect(artifactId).toBe('file-1');
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact).toBeTruthy();
       expect(artifact?.type).toBe('file');
       expect(artifact?.artifactId).toBe('file-1');
@@ -74,9 +74,9 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendFileChunk(artifactId, 'Hello, ');
+      await store.appendFileChunk('ctx-1', artifactId, 'Hello, ');
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact?.type).toBe('file');
       if (artifact?.type === 'file') {
         expect(artifact.chunks).toHaveLength(1);
@@ -92,11 +92,11 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendFileChunk(artifactId, 'Final chunk', {
+      await store.appendFileChunk('ctx-1', artifactId, 'Final chunk', {
         isLastChunk: true,
       });
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact?.status).toBe('complete');
       expect(artifact?.completedAt).toBeTruthy();
     });
@@ -108,11 +108,11 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendFileChunk(artifactId, 'Part 1');
-      await store.appendFileChunk(artifactId, 'Part 2');
-      await store.appendFileChunk(artifactId, 'Part 3');
+      await store.appendFileChunk('ctx-1', artifactId, 'Part 1');
+      await store.appendFileChunk('ctx-1', artifactId, 'Part 2');
+      await store.appendFileChunk('ctx-1', artifactId, 'Part 3');
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       if (artifact?.type === 'file') {
         expect(artifact.chunks).toHaveLength(3);
         expect(artifact.chunks[0].data).toBe('Part 1');
@@ -128,7 +128,7 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.appendFileChunk(artifactId, 'test')).rejects.toThrow();
+      await expect(store.appendFileChunk('ctx-1', artifactId, 'test')).rejects.toThrow();
     });
   });
 
@@ -140,10 +140,10 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendFileChunk(artifactId, 'Hello, ');
-      await store.appendFileChunk(artifactId, 'world!');
+      await store.appendFileChunk('ctx-1', artifactId, 'Hello, ');
+      await store.appendFileChunk('ctx-1', artifactId, 'world!');
 
-      const content = await store.getFileContent(artifactId);
+      const content = await store.getFileContent('ctx-1', artifactId);
       expect(content).toBe('Hello, world!');
     });
 
@@ -154,7 +154,7 @@ describe('InMemoryArtifactStore - File Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.getFileContent(artifactId)).rejects.toThrow();
+      await expect(store.getFileContent('ctx-1', artifactId)).rejects.toThrow();
     });
   });
 });
@@ -175,7 +175,7 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         name: 'Test Data',
       });
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact?.type).toBe('data');
       if (artifact?.type === 'data') {
         expect(artifact.data).toEqual({});
@@ -191,9 +191,9 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.writeData(artifactId, { result: 42, status: 'ok' });
+      await store.writeData('ctx-1', artifactId, { result: 42, status: 'ok' });
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       if (artifact?.type === 'data') {
         expect(artifact.data).toEqual({ result: 42, status: 'ok' });
       }
@@ -206,10 +206,10 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.writeData(artifactId, { version: 1 });
-      await store.writeData(artifactId, { version: 2, updated: true });
+      await store.writeData('ctx-1', artifactId, { version: 1 });
+      await store.writeData('ctx-1', artifactId, { version: 2, updated: true });
 
-      const content = await store.getDataContent(artifactId);
+      const content = await store.getDataContent('ctx-1', artifactId);
       expect(content).toEqual({ version: 2, updated: true });
     });
 
@@ -220,7 +220,7 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.writeData(artifactId, {})).rejects.toThrow();
+      await expect(store.writeData('ctx-1', artifactId, {})).rejects.toThrow();
     });
   });
 
@@ -232,9 +232,9 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.writeData(artifactId, { value: 123 });
+      await store.writeData('ctx-1', artifactId, { value: 123 });
 
-      const content = await store.getDataContent(artifactId);
+      const content = await store.getDataContent('ctx-1', artifactId);
       expect(content).toEqual({ value: 123 });
     });
 
@@ -245,7 +245,7 @@ describe('InMemoryArtifactStore - Data Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.getDataContent(artifactId)).rejects.toThrow();
+      await expect(store.getDataContent('ctx-1', artifactId)).rejects.toThrow();
     });
   });
 });
@@ -272,7 +272,7 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         },
       });
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact?.type).toBe('dataset');
       if (artifact?.type === 'dataset') {
         expect(artifact.rows).toEqual([]);
@@ -290,12 +290,12 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendDatasetBatch(artifactId, [
+      await store.appendDatasetBatch('ctx-1', artifactId, [
         { id: 1, name: 'Alice' },
         { id: 2, name: 'Bob' },
       ]);
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       if (artifact?.type === 'dataset') {
         expect(artifact.rows).toHaveLength(2);
         expect(artifact.rows[0]).toEqual({ id: 1, name: 'Alice' });
@@ -309,11 +309,11 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendDatasetBatch(artifactId, [{ id: 1 }]);
-      await store.appendDatasetBatch(artifactId, [{ id: 2 }]);
-      await store.appendDatasetBatch(artifactId, [{ id: 3 }, { id: 4 }]);
+      await store.appendDatasetBatch('ctx-1', artifactId, [{ id: 1 }]);
+      await store.appendDatasetBatch('ctx-1', artifactId, [{ id: 2 }]);
+      await store.appendDatasetBatch('ctx-1', artifactId, [{ id: 3 }, { id: 4 }]);
 
-      const rows = await store.getDatasetRows(artifactId);
+      const rows = await store.getDatasetRows('ctx-1', artifactId);
       expect(rows).toHaveLength(4);
     });
 
@@ -324,9 +324,9 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendDatasetBatch(artifactId, [{ final: true }], { isLastBatch: true });
+      await store.appendDatasetBatch('ctx-1', artifactId, [{ final: true }], { isLastBatch: true });
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact?.status).toBe('complete');
     });
 
@@ -337,7 +337,7 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.appendDatasetBatch(artifactId, [])).rejects.toThrow();
+      await expect(store.appendDatasetBatch('ctx-1', artifactId, [])).rejects.toThrow();
     });
   });
 
@@ -349,12 +349,12 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendDatasetBatch(artifactId, [
+      await store.appendDatasetBatch('ctx-1', artifactId, [
         { x: 1, y: 2 },
         { x: 3, y: 4 },
       ]);
 
-      const rows = await store.getDatasetRows(artifactId);
+      const rows = await store.getDatasetRows('ctx-1', artifactId);
       expect(rows).toHaveLength(2);
       expect(rows[0]).toEqual({ x: 1, y: 2 });
     });
@@ -366,7 +366,7 @@ describe('InMemoryArtifactStore - Dataset Artifacts', () => {
         contextId: 'ctx-1',
       });
 
-      await expect(store.getDatasetRows(artifactId)).rejects.toThrow();
+      await expect(store.getDatasetRows('ctx-1', artifactId)).rejects.toThrow();
     });
   });
 });
@@ -431,9 +431,9 @@ describe('InMemoryArtifactStore - Common Operations', () => {
         contextId: 'ctx-1',
       });
 
-      await store.deleteArtifact(artifactId);
+      await store.deleteArtifact('ctx-1', artifactId);
 
-      const artifact = await store.getArtifact(artifactId);
+      const artifact = await store.getArtifact('ctx-1', artifactId);
       expect(artifact).toBeNull();
 
       const taskArtifacts = await store.getTaskArtifacts('task-1');

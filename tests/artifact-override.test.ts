@@ -40,12 +40,12 @@ describe('Artifact Override Functionality', () => {
     });
 
     // Add some content
-    await store.appendFileChunk('test-artifact', 'Initial content', {
+    await store.appendFileChunk('ctx-1', 'test-artifact', 'Initial content', {
       isLastChunk: true,
     });
 
     // Verify initial state
-    const initial = await store.getArtifact('test-artifact');
+    const initial = await store.getArtifact('ctx-1', 'test-artifact');
     expect(initial).toBeDefined();
     expect(initial?.type).toBe('file');
     // Note: appendFileChunk increments version, so it's now 2
@@ -67,7 +67,7 @@ describe('Artifact Override Functionality', () => {
     });
 
     // Verify reset state
-    const reset = await store.getArtifact('test-artifact');
+    const reset = await store.getArtifact('ctx-1', 'test-artifact');
     expect(reset).toBeDefined();
     expect(reset?.type).toBe('file');
     // Version incremented from initial (2) + 1 = 3
@@ -89,11 +89,11 @@ describe('Artifact Override Functionality', () => {
     expect(reset?.createdAt).toBe(initial?.createdAt);
 
     // Add new content to reset artifact
-    await store.appendFileChunk('test-artifact', 'New content', {
+    await store.appendFileChunk('ctx-1', 'test-artifact', 'New content', {
       isLastChunk: true,
     });
 
-    const final = await store.getArtifact('test-artifact');
+    const final = await store.getArtifact('ctx-1', 'test-artifact');
     if (final?.type === 'file') {
       expect(final.chunks).toHaveLength(1);
       expect(final.status).toBe('complete');
@@ -111,9 +111,9 @@ describe('Artifact Override Functionality', () => {
       name: 'Test Data',
     });
 
-    await store.writeData('data-artifact', { value: 123 });
+    await store.writeData('ctx-1', 'data-artifact', { value: 123 });
 
-    const initial = await store.getArtifact('data-artifact');
+    const initial = await store.getArtifact('ctx-1', 'data-artifact');
     // Note: writeData increments version, so it's now 2
     expect(initial?.version).toBe(2);
 
@@ -126,7 +126,7 @@ describe('Artifact Override Functionality', () => {
       override: true,
     });
 
-    const reset = await store.getArtifact('data-artifact');
+    const reset = await store.getArtifact('ctx-1', 'data-artifact');
     // Version incremented from initial (2) + 1 = 3
     expect(reset?.version).toBe(3);
     expect(reset?.status).toBe('building');
@@ -153,11 +153,11 @@ describe('Artifact Override Functionality', () => {
       },
     });
 
-    await store.appendDatasetBatch('dataset-artifact', [{ id: 1 }, { id: 2 }], {
+    await store.appendDatasetBatch('ctx-1', 'dataset-artifact', [{ id: 1 }, { id: 2 }], {
       isLastBatch: true,
     });
 
-    const initial = await store.getArtifact('dataset-artifact');
+    const initial = await store.getArtifact('ctx-1', 'dataset-artifact');
     // Note: appendDatasetBatch increments version, so it's now 2
     expect(initial?.version).toBe(2);
     if (initial?.type === 'dataset') {
@@ -176,7 +176,7 @@ describe('Artifact Override Functionality', () => {
       override: true,
     });
 
-    const reset = await store.getArtifact('dataset-artifact');
+    const reset = await store.getArtifact('ctx-1', 'dataset-artifact');
     // Version incremented from initial (2) + 1 = 3
     expect(reset?.version).toBe(3);
     expect(reset?.status).toBe('building');
@@ -203,17 +203,23 @@ describe('Artifact Override Functionality', () => {
       name: 'Context 1 Artifact',
     });
 
-    // Note: Current implementation uses artifactId as the key globally,
-    // so this will throw even with different contextId
-    // This documents current behavior - might be intentional
-    await expect(
-      store.createFileArtifact({
-        artifactId: 'shared-id',
-        taskId: 'task-2',
-        contextId: 'ctx-2',
-        name: 'Context 2 Artifact',
-      })
-    ).rejects.toThrow('Artifact already exists: shared-id');
+    // Same artifactId in different context should succeed
+    // (artifacts are scoped by contextId)
+    const artifactId2 = await store.createFileArtifact({
+      artifactId: 'shared-id',
+      taskId: 'task-2',
+      contextId: 'ctx-2',
+      name: 'Context 2 Artifact',
+    });
+
+    expect(artifactId2).toBe('shared-id');
+
+    // Verify both artifacts exist independently
+    const artifact1 = await store.getArtifact('ctx-1', 'shared-id');
+    const artifact2 = await store.getArtifact('ctx-2', 'shared-id');
+
+    expect(artifact1?.name).toBe('Context 1 Artifact');
+    expect(artifact2?.name).toBe('Context 2 Artifact');
   });
 
   it('should work with override through ArtifactScheduler wrapper', async () => {
@@ -248,7 +254,7 @@ describe('Artifact Override Functionality', () => {
       override: true,
     });
 
-    const artifact = await scheduledStore.getArtifact('scheduled-artifact');
+    const artifact = await scheduledStore.getArtifact('ctx-1', 'scheduled-artifact');
     expect(artifact?.version).toBe(2);
     expect(artifact?.name).toBe('Test File Reset');
   });

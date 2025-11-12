@@ -60,7 +60,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
 
     // Check if artifact already exists
-    const existing = await this.loadArtifactByIdScan(artifactId);
+    const existing = await this.getArtifact(params.contextId, artifactId);
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
@@ -114,16 +114,17 @@ export class FileSystemArtifactStore implements ArtifactStore {
   }
 
   async appendFileChunk(
+    contextId: string,
     artifactId: string,
     chunk: string,
     options?: { isLastChunk?: boolean }
   ): Promise<void> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'file') {
-      throw new Error(`File artifact not found: ${artifactId}`);
+      throw new Error(`File artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
     const contentPath = join(artifactDir, 'content.txt');
     const chunkIndex = artifact.chunks.length;
 
@@ -158,13 +159,13 @@ export class FileSystemArtifactStore implements ArtifactStore {
     await this.saveMetadata(artifactDir, artifact);
   }
 
-  async getFileContent(artifactId: string): Promise<string> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+  async getFileContent(contextId: string, artifactId: string): Promise<string> {
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'file') {
-      throw new Error(`File artifact not found: ${artifactId}`);
+      throw new Error(`File artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
     const contentPath = join(artifactDir, 'content.txt');
 
     try {
@@ -195,7 +196,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
 
     // Check if artifact already exists
-    const existing = await this.loadArtifactByIdScan(artifactId);
+    const existing = await this.getArtifact(params.contextId, artifactId);
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
@@ -244,13 +245,17 @@ export class FileSystemArtifactStore implements ArtifactStore {
     return artifactId;
   }
 
-  async writeData(artifactId: string, data: Record<string, unknown>): Promise<void> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+  async writeData(
+    contextId: string,
+    artifactId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'data') {
-      throw new Error(`Data artifact not found: ${artifactId}`);
+      throw new Error(`Data artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
     const now = new Date().toISOString();
 
     // Write data to file
@@ -270,13 +275,13 @@ export class FileSystemArtifactStore implements ArtifactStore {
     await this.saveMetadata(artifactDir, artifact);
   }
 
-  async getDataContent(artifactId: string): Promise<Record<string, unknown>> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+  async getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>> {
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'data') {
-      throw new Error(`Data artifact not found: ${artifactId}`);
+      throw new Error(`Data artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
 
     try {
       const dataPath = join(artifactDir, 'data.json');
@@ -305,7 +310,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     const artifactDir = this.getArtifactDir(params.contextId, artifactId);
 
     // Check if artifact already exists
-    const existing = await this.loadArtifactByIdScan(artifactId);
+    const existing = await this.getArtifact(params.contextId, artifactId);
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
@@ -358,16 +363,17 @@ export class FileSystemArtifactStore implements ArtifactStore {
   }
 
   async appendDatasetBatch(
+    contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
     options?: { isLastBatch?: boolean }
   ): Promise<void> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'dataset') {
-      throw new Error(`Dataset artifact not found: ${artifactId}`);
+      throw new Error(`Dataset artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
     const now = new Date().toISOString();
 
     // Append rows to JSONL file
@@ -395,13 +401,13 @@ export class FileSystemArtifactStore implements ArtifactStore {
     await this.saveMetadata(artifactDir, artifact);
   }
 
-  async getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+  async getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]> {
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'dataset') {
-      throw new Error(`Dataset artifact not found: ${artifactId}`);
+      throw new Error(`Dataset artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
 
     try {
       const rowsPath = join(artifactDir, 'rows.jsonl');
@@ -421,35 +427,28 @@ export class FileSystemArtifactStore implements ArtifactStore {
   // Common Methods
   // ============================================================================
 
-  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
-    return this.loadArtifactByIdScan(artifactId);
+  async getArtifact(contextId: string, artifactId: string): Promise<StoredArtifact | null> {
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
+    return this.loadMetadata(artifactDir);
   }
 
-  async deleteArtifact(artifactId: string): Promise<void> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
+  async deleteArtifact(contextId: string, artifactId: string): Promise<void> {
+    const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
-    const artifactDir = this.getArtifactDir(artifact.contextId, artifactId);
+    const artifactDir = this.getArtifactDir(contextId, artifactId);
     await rm(artifactDir, { recursive: true, force: true });
   }
 
-  async queryArtifacts(query: {
-    taskId?: string;
-    contextId?: string;
-    status?: 'building' | 'complete' | 'failed';
-  }): Promise<string[]> {
+  async listArtifacts(contextId: string, taskId?: string): Promise<string[]> {
     const results: string[] = [];
-
-    if (!query.contextId) {
-      throw new Error('contextId is required for queryArtifacts');
-    }
 
     const contextDir = join(
       this.basePath,
       `agent=${this.agentId}`,
-      `context=${query.contextId}`,
+      `context=${contextId}`,
       'artifacts'
     );
 
@@ -457,11 +456,10 @@ export class FileSystemArtifactStore implements ArtifactStore {
       const entries = await readdir(contextDir);
 
       for (const artifactId of entries) {
-        const artifact = await this.getArtifact(artifactId);
+        const artifact = await this.getArtifact(contextId, artifactId);
         if (!artifact) continue;
 
-        if (query.taskId && artifact.taskId !== query.taskId) continue;
-        if (query.status && artifact.status !== query.status) continue;
+        if (taskId && artifact.taskId !== taskId) continue;
 
         results.push(artifactId);
       }
@@ -473,47 +471,24 @@ export class FileSystemArtifactStore implements ArtifactStore {
     return results;
   }
 
+  // Legacy compatibility methods
+  async queryArtifacts(query: {
+    taskId?: string;
+    contextId?: string;
+    status?: 'building' | 'complete' | 'failed';
+  }): Promise<string[]> {
+    if (!query.contextId) {
+      throw new Error('contextId is required for queryArtifacts');
+    }
+    return this.listArtifacts(query.contextId, query.taskId);
+  }
+
   async getTaskArtifacts(_taskId: string): Promise<string[]> {
     // This requires scanning all contexts - not efficient for filesystem
-    // Recommend using queryArtifacts with contextId instead
+    // Recommend using listArtifacts with contextId instead
     throw new Error(
-      'getTaskArtifacts not supported for filesystem store. Use queryArtifacts with contextId instead.'
+      'getTaskArtifacts not supported for filesystem store. Use listArtifacts with contextId instead.'
     );
-  }
-
-  async getArtifactByContext(
-    contextId: string,
-    artifactId: string
-  ): Promise<StoredArtifact | null> {
-    const artifactDir = this.getArtifactDir(contextId, artifactId);
-
-    try {
-      return await this.loadMetadata(artifactDir);
-    } catch {
-      return null;
-    }
-  }
-
-  async getArtifactContent(
-    artifactId: string
-  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
-    const artifact = await this.loadArtifactByIdScan(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    switch (artifact.type) {
-      case 'file':
-        return this.getFileContent(artifactId);
-      case 'data':
-        return this.getDataContent(artifactId);
-      case 'dataset':
-        return this.getDatasetRows(artifactId);
-      default: {
-        const _exhaustive: never = artifact;
-        throw new Error(`Unknown artifact type: ${String(_exhaustive)}`);
-      }
-    }
   }
 
   // ============================================================================
@@ -543,32 +518,5 @@ export class FileSystemArtifactStore implements ArtifactStore {
     } catch {
       return null;
     }
-  }
-
-  private async loadArtifactByIdScan(artifactId: string): Promise<StoredArtifact | null> {
-    // Scan all contexts to find the artifact
-    // This is inefficient but necessary without an index
-    const agentDir = join(this.basePath, `agent=${this.agentId}`);
-
-    try {
-      const contexts = await readdir(agentDir);
-
-      for (const contextDirName of contexts) {
-        if (!contextDirName.startsWith('context=')) continue;
-
-        const contextId = contextDirName.substring('context='.length);
-        const artifactDir = this.getArtifactDir(contextId, artifactId);
-
-        const artifact = await this.loadMetadata(artifactDir);
-        if (artifact) {
-          return artifact;
-        }
-      }
-    } catch {
-      // Agent directory doesn't exist
-      return null;
-    }
-
-    return null;
   }
 }

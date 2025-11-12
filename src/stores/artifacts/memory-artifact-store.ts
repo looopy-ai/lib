@@ -2,6 +2,7 @@
  * In-Memory Artifact Store
  *
  * Implementation using discriminated unions with separate types for each artifact kind.
+ * Artifacts are scoped per-context.
  *
  * Artifact Types:
  * - FileArtifact: Text or binary files with chunked streaming
@@ -14,7 +15,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
   ArtifactChunk,
-  ArtifactPart,
   ArtifactStore,
   DataArtifact,
   DatasetArtifact,
@@ -25,17 +25,28 @@ import type {
 
 /**
  * In-memory artifact store using discriminated unions
+ * Artifacts are stored per-context to ensure proper scoping
  */
 export class InMemoryArtifactStore implements ArtifactStore {
-  private artifacts = new Map<string, StoredArtifact>();
+  // Storage: contextId -> artifactId -> artifact
+  private artifacts = new Map<string, Map<string, StoredArtifact>>();
+
+  /**
+   * Get or create context storage
+   */
+  private getContextStore(contextId: string): Map<string, StoredArtifact> {
+    let contextStore = this.artifacts.get(contextId);
+    if (!contextStore) {
+      contextStore = new Map();
+      this.artifacts.set(contextId, contextStore);
+    }
+    return contextStore;
+  }
 
   // ============================================================================
   // File Artifact Methods
   // ============================================================================
 
-  /**
-   * Create a new file artifact
-   */
   async createFileArtifact(params: {
     artifactId: string;
     taskId: string;
@@ -46,12 +57,12 @@ export class InMemoryArtifactStore implements ArtifactStore {
     encoding?: 'utf-8' | 'base64';
     override?: boolean;
   }): Promise<string> {
-    const existing = this.artifacts.get(params.artifactId);
+    const contextStore = this.getContextStore(params.contextId);
+    const existing = contextStore.get(params.artifactId);
 
-    // Check if artifact already exists
     if (existing && !params.override) {
       throw new Error(
-        `Artifact already exists: ${params.artifactId}. ` +
+        `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
           `Use override: true to replace it, or use a different artifactId.`
       );
     }
@@ -84,21 +95,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
       updatedAt: now,
     };
 
-    this.artifacts.set(params.artifactId, artifact);
+    contextStore.set(params.artifactId, artifact);
     return params.artifactId;
   }
 
-  /**
-   * Append a chunk to a file artifact
-   */
   async appendFileChunk(
+    contextId: string,
     artifactId: string,
     chunk: string,
     options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' }
   ): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'file') {
@@ -107,7 +117,6 @@ export class InMemoryArtifactStore implements ArtifactStore {
 
     const now = new Date().toISOString();
 
-    // Only append chunk if there's content
     if (chunk && chunk.length > 0) {
       const encoding = options?.encoding || artifact.encoding || 'utf-8';
       const chunkSize = Buffer.byteLength(chunk, encoding);
@@ -131,24 +140,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
       });
     }
 
-    // Always update metadata
     artifact.updatedAt = now;
     artifact.version += 1;
 
-    // Mark as complete if requested (even with empty chunk)
     if (options?.isLastChunk) {
       artifact.status = 'complete';
       artifact.completedAt = now;
     }
   }
 
-  /**
-   * Get file content (concatenate all chunks)
-   */
-  async getFileContent(artifactId: string): Promise<string> {
-    const artifact = this.artifacts.get(artifactId);
+  async getFileContent(contextId: string, artifactId: string): Promise<string> {
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'file') {
@@ -162,9 +167,6 @@ export class InMemoryArtifactStore implements ArtifactStore {
   // Data Artifact Methods
   // ============================================================================
 
-  /**
-   * Create a new data artifact
-   */
   async createDataArtifact(params: {
     artifactId: string;
     taskId: string;
@@ -173,12 +175,12 @@ export class InMemoryArtifactStore implements ArtifactStore {
     description?: string;
     override?: boolean;
   }): Promise<string> {
-    const existing = this.artifacts.get(params.artifactId);
+    const contextStore = this.getContextStore(params.contextId);
+    const existing = contextStore.get(params.artifactId);
 
-    // Check if artifact already exists
     if (existing && !params.override) {
       throw new Error(
-        `Artifact already exists: ${params.artifactId}. ` +
+        `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
           `Use override: true to replace it, or use a different artifactId.`
       );
     }
@@ -207,17 +209,19 @@ export class InMemoryArtifactStore implements ArtifactStore {
       updatedAt: now,
     };
 
-    this.artifacts.set(params.artifactId, artifact);
+    contextStore.set(params.artifactId, artifact);
     return params.artifactId;
   }
 
-  /**
-   * Write or update data artifact (atomic replacement)
-   */
-  async writeData(artifactId: string, data: Record<string, unknown>): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
+  async writeData(
+    contextId: string,
+    artifactId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'data') {
@@ -226,7 +230,6 @@ export class InMemoryArtifactStore implements ArtifactStore {
 
     const now = new Date().toISOString();
 
-    // Atomic replacement
     artifact.data = data;
     artifact.updatedAt = now;
     artifact.version += 1;
@@ -240,13 +243,11 @@ export class InMemoryArtifactStore implements ArtifactStore {
     });
   }
 
-  /**
-   * Get data artifact content
-   */
-  async getDataContent(artifactId: string): Promise<Record<string, unknown>> {
-    const artifact = this.artifacts.get(artifactId);
+  async getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>> {
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'data') {
@@ -260,9 +261,6 @@ export class InMemoryArtifactStore implements ArtifactStore {
   // Dataset Artifact Methods
   // ============================================================================
 
-  /**
-   * Create a new dataset artifact
-   */
   async createDatasetArtifact(params: {
     artifactId: string;
     taskId: string;
@@ -272,12 +270,12 @@ export class InMemoryArtifactStore implements ArtifactStore {
     schema?: DatasetSchema;
     override?: boolean;
   }): Promise<string> {
-    const existing = this.artifacts.get(params.artifactId);
+    const contextStore = this.getContextStore(params.contextId);
+    const existing = contextStore.get(params.artifactId);
 
-    // Check if artifact already exists
     if (existing && !params.override) {
       throw new Error(
-        `Artifact already exists: ${params.artifactId}. ` +
+        `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
           `Use override: true to replace it, or use a different artifactId.`
       );
     }
@@ -309,21 +307,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
       updatedAt: now,
     };
 
-    this.artifacts.set(params.artifactId, artifact);
+    contextStore.set(params.artifactId, artifact);
     return params.artifactId;
   }
 
-  /**
-   * Append a batch of rows to a dataset artifact
-   */
   async appendDatasetBatch(
+    contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
     options?: { isLastBatch?: boolean }
   ): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'dataset') {
@@ -332,11 +329,10 @@ export class InMemoryArtifactStore implements ArtifactStore {
 
     const now = new Date().toISOString();
 
-    // Only append rows if there are any
     if (rows && rows.length > 0) {
       artifact.rows.push(...rows);
-      artifact.totalChunks += 1; // Batch count
-      artifact.totalSize = artifact.rows.length; // Total rows
+      artifact.totalChunks += 1;
+      artifact.totalSize = artifact.rows.length;
 
       artifact.operations.push({
         operationId: randomUUID(),
@@ -346,24 +342,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
       });
     }
 
-    // Always update metadata
     artifact.updatedAt = now;
     artifact.version += 1;
 
-    // Mark as complete if requested (even with empty batch)
     if (options?.isLastBatch) {
       artifact.status = 'complete';
       artifact.completedAt = now;
     }
   }
 
-  /**
-   * Get dataset rows
-   */
-  async getDatasetRows(artifactId: string): Promise<Record<string, unknown>[]> {
-    const artifact = this.artifacts.get(artifactId);
+  async getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]> {
+    const contextStore = this.getContextStore(contextId);
+    const artifact = contextStore.get(artifactId);
     if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+      throw new Error(`Artifact not found: ${artifactId} in context ${contextId}`);
     }
 
     if (artifact.type !== 'dataset') {
@@ -377,143 +369,54 @@ export class InMemoryArtifactStore implements ArtifactStore {
   // Common Methods
   // ============================================================================
 
-  /**
-   * Get artifact metadata
-   */
-  async getArtifact(artifactId: string): Promise<StoredArtifact | null> {
-    return this.artifacts.get(artifactId) || null;
+  async getArtifact(contextId: string, artifactId: string): Promise<StoredArtifact | null> {
+    const contextStore = this.getContextStore(contextId);
+    return contextStore.get(artifactId) || null;
   }
 
-  /**
-   * List all artifacts for a task
-   */
-  async getTaskArtifacts(taskId: string): Promise<string[]> {
+  async listArtifacts(contextId: string, taskId?: string): Promise<string[]> {
+    const contextStore = this.getContextStore(contextId);
     const ids: string[] = [];
-    for (const [id, artifact] of this.artifacts.entries()) {
-      if (artifact.taskId === taskId) {
+
+    for (const [id, artifact] of contextStore.entries()) {
+      if (!taskId || artifact.taskId === taskId) {
         ids.push(id);
       }
     }
+
     return ids;
   }
 
-  /**
-   * Query artifacts by context and optional task
-   */
-  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
-    const ids: string[] = [];
-    for (const [id, artifact] of this.artifacts.entries()) {
-      if (artifact.contextId === params.contextId) {
-        if (!params.taskId || artifact.taskId === params.taskId) {
-          ids.push(id);
-        }
-      }
-    }
-    return ids;
-  }
-
-  /**
-   * Get artifact by context (scoped lookup)
-   */
-  async getArtifactByContext(
-    contextId: string,
-    artifactId: string
-  ): Promise<StoredArtifact | null> {
-    const artifact = this.artifacts.get(artifactId);
-    if (artifact && artifact.contextId === contextId) {
-      return artifact;
-    }
-    return null;
-  }
-
-  /**
-   * Delete an artifact
-   */
-  async deleteArtifact(artifactId: string): Promise<void> {
-    this.artifacts.delete(artifactId);
+  async deleteArtifact(contextId: string, artifactId: string): Promise<void> {
+    const contextStore = this.getContextStore(contextId);
+    contextStore.delete(artifactId);
   }
 
   // ============================================================================
   // Legacy Methods (backward compatibility)
   // ============================================================================
 
-  /**
-   * @deprecated Use createFileArtifact, createDataArtifact, or createDatasetArtifact
-   */
-  async createArtifact(params: {
-    artifactId: string;
-    taskId: string;
-    contextId: string;
-    type: 'file' | 'data' | 'dataset';
-    name?: string;
-    description?: string;
-    mimeType?: string;
-    schema?: DatasetSchema;
-  }): Promise<string> {
-    if (params.type === 'file') {
-      return this.createFileArtifact({
-        ...params,
-        mimeType: params.mimeType,
-      });
-    } else if (params.type === 'data') {
-      return this.createDataArtifact(params);
-    } else if (params.type === 'dataset') {
-      return this.createDatasetArtifact({
-        ...params,
-        schema: params.schema,
-      });
-    }
-    throw new Error(`Unknown artifact type: ${params.type}`);
+  async queryArtifacts(params: { contextId: string; taskId?: string }): Promise<string[]> {
+    return this.listArtifacts(params.contextId, params.taskId);
   }
 
-  /**
-   * @deprecated Use getFileContent, getDataContent, or getDatasetRows
-   */
-  async getArtifactContent(
+  async getArtifactByContext(
+    contextId: string,
     artifactId: string
-  ): Promise<string | Record<string, unknown> | Record<string, unknown>[]> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
-    }
-
-    if (artifact.type === 'file') {
-      return this.getFileContent(artifactId);
-    } else if (artifact.type === 'data') {
-      return this.getDataContent(artifactId);
-    } else {
-      return this.getDatasetRows(artifactId);
-    }
+  ): Promise<StoredArtifact | null> {
+    return this.getArtifact(contextId, artifactId);
   }
 
-  /**
-   * @deprecated Use type-specific methods
-   */
-  async appendPart(
-    artifactId: string,
-    part: Omit<ArtifactPart, 'index'>,
-    isLastChunk?: boolean
-  ): Promise<void> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) {
-      throw new Error(`Artifact not found: ${artifactId}`);
+  async getTaskArtifacts(taskId: string): Promise<string[]> {
+    // Scan all contexts for this taskId (inefficient, but backward compatible)
+    const ids: string[] = [];
+    for (const contextStore of this.artifacts.values()) {
+      for (const [id, artifact] of contextStore.entries()) {
+        if (artifact.taskId === taskId) {
+          ids.push(id);
+        }
+      }
     }
-
-    // Map old part API to new type-specific methods
-    if (artifact.type === 'file' && part.kind === 'text' && part.content) {
-      await this.appendFileChunk(artifactId, part.content, { isLastChunk });
-    } else if (artifact.type === 'data' && part.kind === 'data' && part.data) {
-      await this.writeData(artifactId, part.data);
-    } else if (artifact.type === 'dataset' && part.kind === 'data' && part.data) {
-      // Assume data is an array of rows
-      const rows = Array.isArray(part.data) ? part.data : [part.data];
-      await this.appendDatasetBatch(artifactId, rows as Record<string, unknown>[], {
-        isLastBatch: isLastChunk,
-      });
-    } else {
-      throw new Error(
-        `Cannot append part of kind '${part.kind}' to artifact type '${artifact.type}'`
-      );
-    }
+    return ids;
   }
 }

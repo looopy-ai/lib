@@ -45,9 +45,9 @@ export class StateCleanupService {
         if (!state) continue;
 
         // Delete artifacts first
-        if (state.artifactIds) {
+        if (state.artifactIds && state.contextId) {
           for (const artifactId of state.artifactIds) {
-            await this.artifactStore.deleteArtifact(artifactId);
+            await this.artifactStore.deleteArtifact(state.contextId, artifactId);
           }
         }
 

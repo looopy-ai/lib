@@ -13,7 +13,7 @@ import { appendFileSync, promises as fs, mkdirSync, writeFileSync } from 'node:f
 import { dirname } from 'node:path';
 import pino from 'pino';
 import { merge, Observable } from 'rxjs';
-import { concatWith, filter, map, shareReplay, tap } from 'rxjs/operators';
+import { concatWith, filter, map, mergeMap, shareReplay, tap } from 'rxjs/operators';
 import {
   aggregateChoice,
   aggregateLLMUsage,
@@ -32,6 +32,7 @@ import type {
   ThoughtStreamEvent,
   ThoughtType,
   ThoughtVerbosity,
+  ToolCallEvent,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
 
@@ -304,8 +305,23 @@ export class LiteLLMProvider implements LLMProvider {
       this.debugLog('llm-usage')
     );
 
+    const toolCalls$ = contentComplete$.pipe(
+      mergeMap(
+        (event) =>
+          event.toolCalls?.map<LLMEvent<ToolCallEvent>>((tc) => ({
+            kind: 'tool-call',
+            toolCallId: tc.id,
+            toolName: tc.function.name,
+            arguments: tc.function.arguments,
+            timestamp: event.timestamp,
+          })) || []
+      )
+    );
+
     // Merge all event streams
-    return merge(contentDeltas$, thoughts$, usageComplete$).pipe(concatWith(contentComplete$));
+    return merge(contentDeltas$, thoughts$, usageComplete$, toolCalls$).pipe(
+      concatWith(contentComplete$)
+    );
   }
 
   /**

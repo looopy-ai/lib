@@ -92,7 +92,7 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn1$);
 
     // Verify artifact was created
-    let artifact = await artifactStore.getArtifact('test-file');
+    let artifact = await artifactStore.getArtifact('test-context', 'test-file');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('file');
     expect(artifact?.name).toBe('Test File');
@@ -124,7 +124,7 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn2$);
 
     // Verify artifact was overridden
-    artifact = await artifactStore.getArtifact('test-file');
+    artifact = await artifactStore.getArtifact('test-context', 'test-file');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('file');
     expect(artifact?.name).toBe('Updated Test File');
@@ -159,12 +159,12 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn1$);
 
     // Verify artifact was created
-    let artifact = await artifactStore.getArtifact('test-data');
+    let artifact = await artifactStore.getArtifact('test-context', 'test-data');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('data');
     const initialVersion = artifact?.version || 0;
 
-    let data = await artifactStore.getDataContent('test-data');
+    let data = await artifactStore.getDataContent('test-context', 'test-data');
     expect(data).toEqual({ value: 'original' });
 
     // Second turn: override with new data
@@ -192,12 +192,12 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn2$);
 
     // Verify artifact was overridden
-    artifact = await artifactStore.getArtifact('test-data');
+    artifact = await artifactStore.getArtifact('test-context', 'test-data');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('data');
     expect(artifact?.version).toBeGreaterThan(initialVersion); // Version incremented
 
-    data = await artifactStore.getDataContent('test-data');
+    data = await artifactStore.getDataContent('test-context', 'test-data');
     expect(data).toEqual({ value: 'updated' });
   });
 
@@ -236,7 +236,7 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn1$);
 
     // Verify artifact was created
-    let artifact = await artifactStore.getArtifact('test-dataset');
+    let artifact = await artifactStore.getArtifact('test-context', 'test-dataset');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('dataset');
     const initialVersion = artifact?.version || 0;
@@ -266,7 +266,7 @@ describe('Agent Artifact Tools Integration', () => {
     await lastValueFrom(turn2$);
 
     // Verify artifact was overridden
-    artifact = await artifactStore.getArtifact('test-dataset');
+    artifact = await artifactStore.getArtifact('test-context', 'test-dataset');
     expect(artifact).toBeDefined();
     expect(artifact?.type).toBe('dataset');
     expect(artifact?.name).toBe('Updated Dataset');

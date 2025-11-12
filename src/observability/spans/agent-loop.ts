@@ -33,7 +33,7 @@ export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'event',
       },
     },
-    params.parentContext
+    params.parentContext,
   );
 
   const traceContext = trace.setSpan(params.parentContext, span);
@@ -63,19 +63,19 @@ export function addLLMUsageToSpan(span: Span, usage: LLMUsageEvent): void {
   span.setAttribute(SpanAttributes.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens || 0);
   span.setAttribute(
     SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS,
-    JSON.stringify(usage.completion_tokens_details || {})
+    JSON.stringify(usage.completion_tokens_details || {}),
   );
   span.setAttribute(
     SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS,
-    JSON.stringify(usage.prompt_tokens_details || {})
+    JSON.stringify(usage.prompt_tokens_details || {}),
   );
   span.setAttribute(
     SpanAttributes.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
-    usage.cache_creation_input_tokens || 0
+    usage.cache_creation_input_tokens || 0,
   );
   span.setAttribute(
     SpanAttributes.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
-    usage.cache_read_input_tokens || 0
+    usage.cache_read_input_tokens || 0,
   );
 }
 
@@ -88,7 +88,7 @@ export function completeAgentExecuteSpan(
     state: 'completed' | 'failed';
     output?: string;
     error?: string;
-  }
+  },
 ): void {
   if (result.output) {
     span.setAttribute('output', result.output);

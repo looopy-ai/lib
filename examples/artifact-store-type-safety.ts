@@ -29,12 +29,12 @@ async function main() {
   });
 
   // Append chunks
-  await store.appendFileChunk(fileId, '# My Document\n');
-  await store.appendFileChunk(fileId, '\n## Introduction\n');
-  await store.appendFileChunk(fileId, '\nThis is a test.', { isLastChunk: true });
+  await store.appendFileChunk('ctx-1', fileId, '# My Document\n');
+  await store.appendFileChunk('ctx-1', fileId, '\n## Introduction\n');
+  await store.appendFileChunk('ctx-1', fileId, '\nThis is a test.', { isLastChunk: true });
 
   // Type narrowing with discriminated union
-  const fileArtifact = await store.getArtifact(fileId);
+  const fileArtifact = await store.getArtifact('ctx-1', fileId);
   if (fileArtifact && fileArtifact.type === 'file') {
     // TypeScript knows fileArtifact has 'chunks', 'mimeType', 'encoding'
     console.log(`File: ${fileArtifact.name}`);
@@ -45,7 +45,7 @@ async function main() {
     console.log(`Status: ${fileArtifact.status}\n`);
 
     // Type-safe access to file-specific content
-    const content = await store.getFileContent(fileId);
+    const content = await store.getFileContent('ctx-1', fileId);
     console.log(`Content:\n${content}\n`);
   }
 
@@ -63,7 +63,7 @@ async function main() {
   });
 
   // Write data atomically
-  await store.writeData(dataId, {
+  await store.writeData('ctx-1', dataId, {
     environment: 'production',
     database: {
       host: 'db.example.com',
@@ -76,7 +76,7 @@ async function main() {
   });
 
   // Type narrowing
-  const dataArtifact = await store.getArtifact(dataId);
+  const dataArtifact = await store.getArtifact('ctx-1', dataId);
   if (dataArtifact && dataArtifact.type === 'data') {
     // TypeScript knows dataArtifact has 'data' field
     console.log(`Data: ${dataArtifact.name}`);
@@ -84,7 +84,7 @@ async function main() {
     console.log(`Status: ${dataArtifact.status}`);
 
     // Type-safe access to data-specific content
-    const data = await store.getDataContent(dataId);
+    const data = await store.getDataContent('ctx-1', dataId);
     console.log(`Data Content:`, JSON.stringify(data, null, 2));
     console.log();
   }
@@ -110,12 +110,13 @@ async function main() {
   });
 
   // Append batches of rows
-  await store.appendDatasetBatch(datasetId, [
+  await store.appendDatasetBatch('ctx-1', datasetId, [
     { date: '2024-10-01', product: 'Widget A', revenue: 1500 },
     { date: '2024-10-02', product: 'Widget B', revenue: 2300 },
   ]);
 
   await store.appendDatasetBatch(
+    'ctx-1',
     datasetId,
     [
       { date: '2024-10-03', product: 'Widget A', revenue: 1800 },
@@ -125,7 +126,7 @@ async function main() {
   );
 
   // Type narrowing
-  const datasetArtifact = await store.getArtifact(datasetId);
+  const datasetArtifact = await store.getArtifact('ctx-1', datasetId);
   if (datasetArtifact && datasetArtifact.type === 'dataset') {
     // TypeScript knows datasetArtifact has 'rows', 'schema', 'totalChunks'
     console.log(`Dataset: ${datasetArtifact.name}`);
@@ -135,7 +136,7 @@ async function main() {
     console.log(`Status: ${datasetArtifact.status}`);
 
     // Type-safe access to dataset-specific content
-    const rows = await store.getDatasetRows(datasetId);
+    const rows = await store.getDatasetRows('ctx-1', datasetId);
     console.log(`Rows:`, JSON.stringify(rows, null, 2));
     console.log();
   }
@@ -147,7 +148,7 @@ async function main() {
   console.log('------------------------------------');
 
   // Get an artifact
-  const artifact = await store.getArtifact(fileId);
+  const artifact = await store.getArtifact('ctx-1', fileId);
 
   if (artifact) {
     // Without type narrowing, TypeScript doesn't allow access to type-specific fields

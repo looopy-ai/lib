@@ -33,7 +33,7 @@ describe('InternalEventArtifactStore', () => {
       });
 
       // Append first chunk
-      await store.appendFileChunk(artifactId, '# Hello\n');
+      await store.appendFileChunk('ctx-1', artifactId, '# Hello\n');
 
       // Should have emitted one file-write event
       expect(events).toHaveLength(1);
@@ -48,7 +48,7 @@ describe('InternalEventArtifactStore', () => {
       });
 
       // Append second chunk
-      await store.appendFileChunk(artifactId, '\n## World', { isLastChunk: true });
+      await store.appendFileChunk('ctx-1', artifactId, '\n## World', { isLastChunk: true });
 
       // Should have emitted second file-write event
       expect(events).toHaveLength(2);
@@ -79,7 +79,7 @@ describe('InternalEventArtifactStore', () => {
         contextId: 'ctx-1',
       });
 
-      await store.appendFileChunk(artifactId, 'test');
+      await store.appendFileChunk('ctx-1', artifactId, 'test');
 
       // Should not have emitted any events
       expect(events).toHaveLength(0);
@@ -108,7 +108,7 @@ describe('InternalEventArtifactStore', () => {
 
       // Write data
       const testData = { key: 'value', nested: { foo: 'bar' } };
-      await store.writeData(artifactId, testData);
+      await store.writeData('ctx-1', artifactId, testData);
 
       // Should have emitted one data-write event
       expect(events).toHaveLength(1);
@@ -153,7 +153,7 @@ describe('InternalEventArtifactStore', () => {
         { date: '2024-01-01', amount: 100 },
         { date: '2024-01-02', amount: 200 },
       ];
-      await store.appendDatasetBatch(artifactId, batch1);
+      await store.appendDatasetBatch('ctx-1', artifactId, batch1);
 
       // Should have emitted one dataset-write event
       expect(events).toHaveLength(1);
@@ -169,7 +169,7 @@ describe('InternalEventArtifactStore', () => {
 
       // Append second batch
       const batch2 = [{ date: '2024-01-03', amount: 300 }];
-      await store.appendDatasetBatch(artifactId, batch2, { isLastBatch: true });
+      await store.appendDatasetBatch('ctx-1', artifactId, batch2, { isLastBatch: true });
 
       // Should have emitted second dataset-write event
       expect(events).toHaveLength(2);
@@ -198,37 +198,13 @@ describe('InternalEventArtifactStore', () => {
       });
 
       // Append chunk
-      await store.appendFileChunk(artifactId, 'test');
+      await store.appendFileChunk('ctx-1', artifactId, 'test');
 
       // Should be retrievable from both stores
-      const content1 = await store.getFileContent(artifactId);
-      const content2 = await delegate.getFileContent(artifactId);
+      const content1 = await store.getFileContent('ctx-1', artifactId);
+      const content2 = await delegate.getFileContent('ctx-1', artifactId);
       expect(content1).toBe('test');
       expect(content2).toBe('test');
-    });
-
-    it('should support legacy methods', async () => {
-      const events: AnyEvent[] = [];
-      const store = new InternalEventArtifactStore({
-        delegate: new InMemoryArtifactStore(),
-        eventEmitter: { emit: (event) => events.push(event) },
-      });
-
-      // Use legacy createArtifact
-      const artifactId = await store.createArtifact({
-        artifactId: 'legacy',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
-        type: 'file',
-        name: 'legacy.txt',
-      });
-
-      // Use legacy appendPart (file artifacts use 'text' parts)
-      await store.appendPart(artifactId, { kind: 'text', content: 'test' });
-
-      // Should still emit events
-      expect(events).toHaveLength(1);
-      expect(events[0].kind).toBe('file-write');
     });
   });
 });

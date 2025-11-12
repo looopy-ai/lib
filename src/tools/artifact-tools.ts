@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import type { ArtifactStore, TaskStateStore, ToolProvider } from '../core/types';
+import type { ArtifactStore, StoredArtifact, TaskStateStore, ToolProvider } from '../core/types';
 import { localTools, tool } from './local-tools';
 
 /**
@@ -114,10 +114,15 @@ export function createArtifactTools(
           .default(false)
           .describe('Set to true on the final chunk to mark artifact as complete'),
       }),
-      async (params, _context) => {
-        await artifactStore.appendFileChunk(params.artifactId, params.content_chunk, {
-          isLastChunk: params.isLastChunk,
-        });
+      async (params, context) => {
+        await artifactStore.appendFileChunk(
+          context.contextId,
+          params.artifactId,
+          params.content_chunk,
+          {
+            isLastChunk: params.isLastChunk,
+          }
+        );
 
         return {
           artifactId: params.artifactId,
@@ -136,8 +141,8 @@ export function createArtifactTools(
       z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, _context) => {
-        const content = await artifactStore.getFileContent(params.artifactId);
+      async (params, context) => {
+        const content = await artifactStore.getFileContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           content,
@@ -175,7 +180,7 @@ export function createArtifactTools(
         });
 
         // Write the initial data
-        await artifactStore.writeData(params.artifactId, params.data);
+        await artifactStore.writeData(context.contextId, params.artifactId, params.data);
 
         // Track in state
         await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
@@ -198,13 +203,29 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to update'),
         data: z.record(z.string(), z.unknown()).describe('The new data object'),
       }),
-      async (params, _context) => {
-        await artifactStore.writeData(params.artifactId, params.data);
+      async (params, context) => {
+        await artifactStore.writeData(context.contextId, params.artifactId, params.data);
 
         return {
           artifactId: params.artifactId,
-          updated: true,
+          type: 'data',
+          status: 'complete',
           message: 'Data artifact updated successfully.',
+        };
+      }
+    ),
+
+    tool(
+      'get_data_content',
+      'Get the content of a data artifact',
+      z.object({
+        artifactId: z.string().describe('The artifact ID to retrieve'),
+      }),
+      async (params, context) => {
+        const data = await artifactStore.getDataContent(context.contextId, params.artifactId);
+        return {
+          artifactId: params.artifactId,
+          data,
         };
       }
     ),
@@ -215,8 +236,8 @@ export function createArtifactTools(
       z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, _context) => {
-        const data = await artifactStore.getDataContent(params.artifactId);
+      async (params, context) => {
+        const data = await artifactStore.getDataContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           data,
@@ -282,9 +303,9 @@ export function createArtifactTools(
         artifactId: z.string().describe('The dataset artifact ID'),
         row: z.record(z.string(), z.unknown()).describe('Row data matching the dataset schema'),
       }),
-      async (params, _context) => {
+      async (params, context) => {
         // Append as a batch of one row
-        await artifactStore.appendDatasetBatch(params.artifactId, [params.row]);
+        await artifactStore.appendDatasetBatch(context.contextId, params.artifactId, [params.row]);
 
         return {
           artifactId: params.artifactId,
@@ -302,8 +323,8 @@ export function createArtifactTools(
         rows: z.array(z.record(z.string(), z.unknown())).describe('Array of rows to append'),
         isLastBatch: z.boolean().optional().describe('Set to true on the final batch'),
       }),
-      async (params, _context) => {
-        await artifactStore.appendDatasetBatch(params.artifactId, params.rows, {
+      async (params, context) => {
+        await artifactStore.appendDatasetBatch(context.contextId, params.artifactId, params.rows, {
           isLastBatch: params.isLastBatch,
         });
 
@@ -321,8 +342,8 @@ export function createArtifactTools(
       z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
       }),
-      async (params, _context) => {
-        const rows = await artifactStore.getDatasetRows(params.artifactId);
+      async (params, context) => {
+        const rows = await artifactStore.getDatasetRows(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           rows,
@@ -337,32 +358,29 @@ export function createArtifactTools(
 
     tool(
       'list_artifacts',
-      'List all artifacts for the current context, optionally filtered by task',
+      'List all artifacts in the current context, optionally filtered by task',
       z.object({
-        taskId: z.string().optional().describe('Optional task ID to filter artifacts'),
+        taskId: z.string().optional().describe('Filter artifacts by task ID'),
       }),
       async (params, context) => {
-        const artifactIds = await artifactStore.queryArtifacts({
-          contextId: context.contextId,
-          taskId: params.taskId,
-        });
+        // Use the new listArtifacts method with context scoping
+        const artifactIds = await artifactStore.listArtifacts(context.contextId, params.taskId);
+        const artifacts = await Promise.all(
+          artifactIds.map((id) => artifactStore.getArtifact(context.contextId, id))
+        );
 
-        const artifacts = await Promise.all(artifactIds.map((id) => artifactStore.getArtifact(id)));
+        const validArtifacts = artifacts.filter((a): a is StoredArtifact => a !== null);
 
         return {
-          artifacts: artifacts
-            .filter((a) => a !== null)
-            .map((a) => ({
-              artifactId: a.artifactId,
-              type: a.type,
-              taskId: a.taskId,
-              name: a.name,
-              description: a.description,
-              status: a.status,
-              createdAt: a.createdAt,
-              updatedAt: a.updatedAt,
-            })),
-          totalCount: artifacts.length,
+          artifacts: validArtifacts.map((a) => ({
+            artifactId: a.artifactId,
+            type: a.type,
+            name: a.name,
+            taskId: a.taskId,
+            contextId: a.contextId,
+            createdAt: a.createdAt,
+          })),
+          totalCount: validArtifacts.length,
         };
       }
     ),
@@ -373,8 +391,8 @@ export function createArtifactTools(
       z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, _context) => {
-        const artifact = await artifactStore.getArtifact(params.artifactId);
+      async (params, context) => {
+        const artifact = await artifactStore.getArtifact(context.contextId, params.artifactId);
 
         if (!artifact) {
           throw new Error(`Artifact not found: ${params.artifactId}`);
@@ -410,8 +428,8 @@ export function createArtifactTools(
       z.object({
         artifactId: z.string().describe('The artifact ID to delete'),
       }),
-      async (params, _context) => {
-        await artifactStore.deleteArtifact(params.artifactId);
+      async (params, context) => {
+        await artifactStore.deleteArtifact(context.contextId, params.artifactId);
 
         return {
           artifactId: params.artifactId,

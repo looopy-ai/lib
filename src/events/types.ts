@@ -187,6 +187,22 @@ export type ContentStreamingEvent = ContentDeltaEvent | ContentCompleteEvent;
 // ============================================================================
 
 /**
+ * Tool execution requested by llm
+ */
+export interface ToolCallEvent {
+  kind: 'tool-call';
+  contextId: string;
+  taskId: string;
+  toolCallId: string; // Unique ID for this tool invocation
+  toolName: string;
+  arguments: Record<string, unknown>;
+  timestamp: string;
+  metadata?: {
+    [key: string]: unknown;
+  };
+}
+
+/**
  * Tool execution begins
  */
 export interface ToolStartEvent {
@@ -247,7 +263,11 @@ export interface ToolCompleteEvent {
 /**
  * Union of all tool execution events
  */
-export type ToolExecutionEvent = ToolStartEvent | ToolProgressEvent | ToolCompleteEvent;
+export type ToolExecutionEvent =
+  | ToolCallEvent
+  | ToolStartEvent
+  | ToolProgressEvent
+  | ToolCompleteEvent;
 
 // ============================================================================
 // 4. Input Request Events

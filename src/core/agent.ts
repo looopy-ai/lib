@@ -222,7 +222,7 @@ export class Agent {
       if (existingMessages.length > 0) {
         this.config.logger.info(
           { contextId: this.config.contextId, messageCount: existingMessages.length },
-          'Resuming agent with existing message history'
+          'Resuming agent with existing message history',
         );
 
         // Infer state from message count
@@ -235,7 +235,7 @@ export class Agent {
 
       this.config.logger.info(
         { contextId: this.config.contextId, status: this._state.status },
-        'Agent initialized'
+        'Agent initialized',
       );
 
       completeAgentInitializeSpan(span);
@@ -244,7 +244,7 @@ export class Agent {
       this._state.error = error as Error;
       this.config.logger.error(
         { contextId: this.config.contextId, error },
-        'Failed to initialize agent'
+        'Failed to initialize agent',
       );
 
       failAgentInitializeSpan(span, error as Error);
@@ -266,7 +266,7 @@ export class Agent {
     options?: {
       authContext?: import('./types').AuthContext;
       taskId?: string;
-    }
+    },
   ): Promise<Observable<AgentEvent>> {
     const turnNumber = this._state.turnCount + 1;
 
@@ -284,7 +284,7 @@ export class Agent {
 
     this.config.logger.trace(
       { userMessage, spanName: `agent.turn[${this.config.agentId}]` },
-      'Created agent turn span with input'
+      'Created agent turn span with input',
     );
 
     try {
@@ -307,13 +307,13 @@ export class Agent {
             status: 'failed',
             message: error.message,
             metadata: { error: error.message },
-          })
+          }),
         );
       }
 
       if (this._state.status === 'error') {
         const error = new Error(
-          `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`
+          `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`,
         );
         this.config.logger.error({ contextId: this.config.contextId }, error.message);
 
@@ -326,7 +326,7 @@ export class Agent {
             status: 'failed',
             message: error.message,
             metadata: { error: error.message },
-          })
+          }),
         );
       }
 
@@ -343,13 +343,13 @@ export class Agent {
             status: 'failed',
             message: error.message,
             metadata: { error: error.message },
-          })
+          }),
         );
       }
 
       this.config.logger.info(
         { contextId: this.config.contextId, taskId, userMessage },
-        'Starting turn'
+        'Starting turn',
       );
 
       this._state.status = 'busy';
@@ -361,7 +361,7 @@ export class Agent {
       const err = error as Error;
       this.config.logger.error(
         { contextId: this.config.contextId, error: err },
-        'Failed to start turn'
+        'Failed to start turn',
       );
 
       failAgentTurnSpan(rootSpan, err);
@@ -373,7 +373,7 @@ export class Agent {
           status: 'failed',
           message: err.message,
           metadata: { error: err.message },
-        })
+        }),
       );
     }
   }
@@ -392,7 +392,7 @@ export class Agent {
     taskId: string,
     authContext: import('./types').AuthContext | undefined,
     turnSpan: import('@opentelemetry/api').Span,
-    turnContext: import('@opentelemetry/api').Context
+    turnContext: import('@opentelemetry/api').Context,
   ): Observable<AgentEvent> {
     const turnNumber = this._state.turnCount + 1;
 
@@ -427,7 +427,7 @@ export class Agent {
                 messageCount: messages.length,
                 turnNumber,
               },
-              'Loaded messages for turn'
+              'Loaded messages for turn',
             );
 
             // 3. Execute turn via AgentLoop with trace context
@@ -461,39 +461,39 @@ export class Agent {
                         ]);
                       }
                       break;
+                    case 'tool-start':
+                      break;
                     case 'tool-complete':
-                      console.log('###### Captured tool message:', event);
-                      // TODO convert and save to message store
-                      // if (this.config.autoSave) {
-                      //   await this.config.messageStore.append(this.config.contextId, [
-                      //     {
-                      //       role: 'tool',
-                      //       content: 'Tool response',
-                      //       toolCallId: event.toolCallId,
-                      //       toolCalls: [
-                      //         {
-                      //           id: event.toolCallId,
-                      //           type: 'function',
-                      //           function: { name: event.toolName },
-                      //         },
-                      //       ],
-                      //     },
-                      //   ]);
-                      // }
+                      if (this.config.autoSave) {
+                        const message: Message = {
+                          role: 'tool',
+                          content: JSON.stringify({
+                            success: event.success,
+                            result: event.result,
+                            error: event.error,
+                          }),
+                          toolCallId: event.toolCallId,
+                        };
+                        this.config.logger.debug(
+                          { message },
+                          'Saving tool message to message store',
+                        );
+                        await this.config.messageStore.append(this.config.contextId, [message]);
+                      }
                       break;
                     case 'task-complete':
                       if (event.content) {
                         setTurnOutputAttribute(turnSpan, event.content);
                         this.config.logger.trace(
                           { messageContent: event.content },
-                          `Added assistant message output to agent[${this.config.agentId}] span`
+                          `Added assistant message output to agent[${this.config.agentId}] span`,
                         );
                       }
                       break;
                     default:
-                      return;
+                      break;
                   }
-                })
+                }),
               );
 
             // Subscribe to turn events
@@ -505,7 +505,7 @@ export class Agent {
               error: (error: Error) => {
                 this.config.logger.error(
                   { contextId: this.config.contextId, error },
-                  'Turn execution failed'
+                  'Turn execution failed',
                 );
 
                 failAgentTurnSpan(turnSpan, error);
@@ -528,7 +528,7 @@ export class Agent {
 
                   this.config.logger.info(
                     { contextId: this.config.contextId, turnCount: this._state.turnCount },
-                    'Turn completed'
+                    'Turn completed',
                   );
 
                   completeAgentTurnSpan(turnSpan);
@@ -536,7 +536,7 @@ export class Agent {
                 } catch (error) {
                   this.config.logger.error(
                     { contextId: this.config.contextId, error },
-                    'Failed to save turn results'
+                    'Failed to save turn results',
                   );
 
                   failAgentTurnSpan(turnSpan, error as Error);
@@ -547,7 +547,7 @@ export class Agent {
           } catch (error) {
             this.config.logger.error(
               { contextId: this.config.contextId, error },
-              'Failed to prepare turn'
+              'Failed to prepare turn',
             );
 
             failAgentTurnSpan(turnSpan, error as Error);
@@ -571,10 +571,10 @@ export class Agent {
               status: 'failed',
               message: error.message,
               metadata: { error: error.message },
-            })
+            }),
           );
-        })
-      )
+        }),
+      ),
     );
   }
 
@@ -597,7 +597,7 @@ export class Agent {
     } catch (error) {
       this.config.logger.error(
         { contextId: this.config.contextId, error },
-        'Failed to shutdown agent'
+        'Failed to shutdown agent',
       );
       throw error;
     }
@@ -617,20 +617,38 @@ export class Agent {
    * Get generated artifacts
    */
   async getArtifacts(): Promise<Array<{ id: string; content: unknown }>> {
-    // Use queryArtifacts to get all artifacts for this context
-    const artifactIds = await this.config.artifactStore.queryArtifacts({
-      contextId: this.config.contextId,
-    });
+    // Use listArtifacts to get all artifacts for this context
+    const artifactIds = await this.config.artifactStore.listArtifacts(this.config.contextId);
 
     const artifacts = await Promise.all(
       artifactIds.map(async (id: string) => {
-        // Use optional chaining for backward compatibility
-        const content = this.config.artifactStore.getArtifactContent
-          ? await this.config.artifactStore.getArtifactContent(id)
-          : null;
+        try {
+          // Get artifact to determine type
+          const artifact = await this.config.artifactStore.getArtifact(this.config.contextId, id);
+          if (!artifact) {
+            return { id, content: null };
+          }
 
-        return { id, content };
-      })
+          // Use type-specific content getter
+          let content: unknown = null;
+          switch (artifact.type) {
+            case 'file':
+              content = await this.config.artifactStore.getFileContent(this.config.contextId, id);
+              break;
+            case 'data':
+              content = await this.config.artifactStore.getDataContent(this.config.contextId, id);
+              break;
+            case 'dataset':
+              content = await this.config.artifactStore.getDatasetRows(this.config.contextId, id);
+              break;
+          }
+
+          return { id, content };
+        } catch {
+          // Silently skip artifacts that fail to load
+          return { id, content: null };
+        }
+      }),
     );
 
     return artifacts.filter((a: { id: string; content: unknown }) => a.content !== null) as Array<{
@@ -668,7 +686,7 @@ export class Agent {
         turnCount: this._state.turnCount,
         status: this._state.status,
       },
-      'Manual save called'
+      'Manual save called',
     );
 
     // Messages are already persisted via MessageStore.append() during startTurn()
@@ -695,7 +713,7 @@ export class Agent {
     } catch (error) {
       this.config.logger.error(
         { contextId: this.config.contextId, error },
-        'Failed to clear agent'
+        'Failed to clear agent',
       );
       throw error;
     }
@@ -723,7 +741,7 @@ export class Agent {
           messageCount: allMessages.length,
           maxMessages: this.config.maxMessages,
         },
-        'Auto-compacting message history'
+        'Auto-compacting message history',
       );
 
       await this.config.messageStore.compact(this.config.contextId, {

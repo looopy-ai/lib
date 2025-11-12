@@ -34,11 +34,11 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
+import chalk from 'chalk';
+import * as dotenv from 'dotenv';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import chalk from 'chalk';
-import * as dotenv from 'dotenv';
 import pino from 'pino';
 import { setDefaultLogger } from '../src/core';
 import { Agent } from '../src/core/agent';
@@ -97,18 +97,38 @@ function generateContextId(): string {
   return `session-${timestamp}`;
 }
 
-// Create logger
-const logger = pino({ level: 'error' });
-setDefaultLogger(logger);
+const { agentId, contextId: providedContextId } = parseArgs();
+const contextId = providedContextId || generateContextId();
+
+const storagePath = `${BASE_PATH}/agent=${agentId}/context=${contextId}`;
 
 // Main CLI interface
 async function main() {
+  // Ensure directory exists for SSE log
+  await fsPromises.mkdir(storagePath, { recursive: true });
+
+  // Create logger
+  const logger = pino(
+    {
+      level: 'debug',
+      base: undefined, // Omit pid and hostname
+      timestamp: false, // Omit time
+      formatters: {
+        log(object) {
+          // Filter out taskId from log objects
+          const { time: _time, taskId: _taskId, contextId: _contextId, ...rest } = object;
+          return rest;
+        },
+      },
+    },
+    pino.destination({
+      dest: `${storagePath}/logger.jsonl`,
+      sync: false,
+    }),
+  );
+  setDefaultLogger(logger);
+
   console.log('🚀 Looopy Kitchen Sink Example - Interactive CLI Agent\n');
-
-  const { agentId, contextId: providedContextId } = parseArgs();
-  const contextId = providedContextId || generateContextId();
-
-  const storagePath = `${BASE_PATH}/agent=${agentId}/context=${contextId}`;
 
   console.log(`Agent ID: ${agentId}`);
   console.log(`Context ID: ${contextId}`);
@@ -127,7 +147,7 @@ async function main() {
   const llmProvider = LiteLLM.novaLite(
     LITELLM_URL,
     LITELLM_API_KEY,
-    `${storagePath}/llm-debug.log`
+    `${storagePath}/llm-debug.log`,
   );
 
   // Initialize tools
@@ -254,19 +274,13 @@ Be concise and helpful in your responses.`;
   console.log('');
 
   // SSE Log File Path
-  const sseLogPath = path.join(
-    BASE_PATH,
-    `agent=${agentId}`,
-    `context=${contextId}`,
-    'sse-debug.log'
-  );
-
-  // Ensure directory exists for SSE log
-  await fsPromises.mkdir(path.dirname(sseLogPath), { recursive: true });
+  const sseLogPath = path.join(storagePath, 'sse-debug.log');
 
   // Helper to log events in SSE format
   async function logSSEEvent(event: import('../src/core/types').AgentEvent): Promise<void> {
     try {
+      if (event.kind === 'content-delta') return; // Skip content deltas
+
       const timestamp = new Date().toISOString();
 
       // Create a safe JSON string using the replacer function
@@ -386,12 +400,12 @@ Be concise and helpful in your responses.`;
 
     async '/artifacts'(): Promise<boolean> {
       console.log('\n📦 Artifacts:');
-      const artifactIds = await artifactStore.queryArtifacts({ contextId });
+      const artifactIds = await artifactStore.listArtifacts(contextId);
       if (artifactIds.length === 0) {
         console.log('  No artifacts found.');
       } else {
         for (const artifactId of artifactIds) {
-          const artifact = await artifactStore.getArtifact(artifactId);
+          const artifact = await artifactStore.getArtifact(contextId, artifactId);
           if (!artifact) continue;
 
           console.log(`  ${artifact.artifactId} - ${artifact.name || '(unnamed)'}`);
@@ -422,7 +436,7 @@ Be concise and helpful in your responses.`;
           const title = ctx.title ? ` - ${ctx.title}` : '';
           const lastActivity = new Date(ctx.lastActivityAt).toLocaleString();
           console.log(
-            `  ${ctx.contextId}${current}${title}\n    Status: ${ctx.status}, Turns: ${ctx.turnCount}, Last: ${lastActivity}`
+            `  ${ctx.contextId}${current}${title}\n    Status: ${ctx.status}, Turns: ${ctx.turnCount}, Last: ${lastActivity}`,
           );
         }
       }
@@ -542,9 +556,8 @@ Be concise and helpful in your responses.`;
         handleTaskStatus(event);
         break;
       case 'content-delta':
-        // Use synchronous write to preserve order
-        // fs.writeSync(process.stdout.fd, chalk.dim(event.delta));
-        console.log(chalk.dim(event.delta));
+        await fsPromises.writeFile('/dev/stdout', chalk.dim(event.delta));
+        // console.log(chalk.dim(event.delta));
         break;
       case 'content-complete':
         console.log(`\n\n📦 Content completed:\n${event.content}`);

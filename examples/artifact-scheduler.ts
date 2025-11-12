@@ -57,16 +57,16 @@ async function exampleDirectUsage() {
       contextId,
       name: 'report.txt',
     }),
-    scheduler.appendFileChunk(artifactId, 'First chunk\n'),
-    scheduler.appendFileChunk(artifactId, 'Second chunk\n'),
-    scheduler.appendFileChunk(artifactId, 'Final chunk', { isLastChunk: true }),
+    scheduler.appendFileChunk(contextId, artifactId, 'First chunk\n'),
+    scheduler.appendFileChunk(contextId, artifactId, 'Second chunk\n'),
+    scheduler.appendFileChunk(contextId, artifactId, 'Final chunk', { isLastChunk: true }),
   ];
 
   // Wait for all operations (scheduler ensures correct order)
   await Promise.all(operations);
 
   // Retrieve content
-  const content = await scheduler.getFileContent(artifactId);
+  const content = await scheduler.getFileContent(contextId, artifactId);
   console.log('Content:', content);
   // Output: "First chunk\nSecond chunk\nFinal chunk"
 }

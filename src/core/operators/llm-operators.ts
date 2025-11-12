@@ -30,8 +30,8 @@ export const prepareLLMCall = (
   logger.debug(
     {
       taskId: state.taskId,
-      messageCount: messages.length,
-      toolCount: state.availableTools.length,
+      messages: messages,
+      availableToolCount: state.availableTools.length,
     },
     'Calling LLM'
   );

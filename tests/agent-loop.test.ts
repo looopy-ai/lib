@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentLoop } from '../src/core/agent-loop';
 import type { AgentLoopConfig } from '../src/core/config';
 import type {
-  ArtifactPart,
   ArtifactStore,
   ExecutionContext,
   LLMProvider,
@@ -199,54 +198,17 @@ class MockArtifactStore implements ArtifactStore {
     return [];
   }
 
-  // Legacy methods (still used in agent.ts)
-  async createArtifact(): Promise<string> {
-    return `artifact-${Date.now()}`;
-  }
-
-  async appendPart(): Promise<void> {
-    // No-op for mock
-  }
-
-  async replacePart(): Promise<void> {
-    // No-op for mock
-  }
-
-  async replaceParts(): Promise<void> {
-    // No-op for mock
-  }
-
+  // Common methods
   async getArtifact(): Promise<StoredArtifact | null> {
     return null;
   }
 
-  async getArtifactParts(_artifactId: string, _resolveExternal?: boolean): Promise<ArtifactPart[]> {
+  async listArtifacts(): Promise<string[]> {
     return [];
-  }
-
-  async getTaskArtifacts(): Promise<string[]> {
-    return [];
-  }
-
-  async queryArtifacts(): Promise<string[]> {
-    return [];
-  }
-
-  async getArtifactByContext(
-    _contextId: string,
-    _artifactId: string
-  ): Promise<StoredArtifact | null> {
-    return null;
   }
 
   async deleteArtifact(): Promise<void> {
     // No-op for mock
-  }
-
-  async getArtifactContent(): Promise<
-    string | Record<string, unknown> | Record<string, unknown>[]
-  > {
-    return '';
   }
 }
 
