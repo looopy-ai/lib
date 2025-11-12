@@ -121,34 +121,34 @@ export type ToolCall = {
 /**
  * Result of tool execution
  */
-export interface ToolResult {
+export type ToolResult = {
   toolCallId: string;
   toolName: string;
   success: boolean;
   result: unknown;
   error?: string;
-}
+};
 
 /**
  * Execution context passed to tools
  */
-export interface ExecutionContext {
+export type ExecutionContext = {
   taskId: string;
   contextId: string;
   agentId: string;
   traceContext?: unknown;
   authContext?: unknown;
-}
+};
 
 /**
- * Tool provider interface
+ * Tool provider type
  *
  * Implementations:
  * - LocalToolProvider: Execute local TypeScript functions
  * - MCPToolProvider: Execute MCP server tools
  * - ClientToolProvider: Delegate to client via input-required
  */
-export interface ToolProvider {
+export type ToolProvider = {
   /**
    * Get available tools from this provider
    */
@@ -168,4 +168,4 @@ export interface ToolProvider {
    * Optional: Execute multiple tools in batch
    */
   executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
-}
+};

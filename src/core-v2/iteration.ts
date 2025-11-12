@@ -1,7 +1,7 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import type { AnyEvent } from '../events/types';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { ToolProvider } from '../tools/interfaces';
+import type { ToolProvider } from '../tools/types';
 import { runToolCall } from './tools';
 import type { IterationConfig, LoopContext, Message } from './types';
 

@@ -1,8 +1,8 @@
 import { evaluate } from 'mathjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import type { ExecutionContext } from '../src/tools/interfaces';
 import { localTools, tool } from '../src/tools/local-tools';
+import type { ExecutionContext } from '../src/tools/types';
 
 describe('local-tools', () => {
   describe('tool()', () => {

@@ -6,8 +6,8 @@
  */
 
 import { from } from 'rxjs';
-import { aggregateChoice } from '../src/core/operators/chat-completions/aggregate';
-import type { Choice } from '../src/core/operators/chat-completions/types';
+import { aggregateChoice } from '../src/providers/chat-completions/aggregate';
+import type { Choice } from '../src/providers/chat-completions/types';
 
 // Example 1: Aggregating content chunks
 async function aggregateContentExample() {

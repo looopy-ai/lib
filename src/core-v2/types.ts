@@ -1,6 +1,6 @@
 import type pino from 'pino';
 import type { LLMProvider } from '../core/types';
-import type { ToolProvider } from '../tools/interfaces';
+import type { ToolProvider } from '../tools/types';
 
 export type AgentContext = {
   agentId: string;

@@ -5,7 +5,7 @@
 import { from } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { describe, expect, it } from 'vitest';
-import { aggregateChoice, type Choice } from '../src/core/operators/chat-completions';
+import { aggregateChoice, type Choice } from '../src/providers/chat-completions';
 
 describe('LiteLLM Streaming Integration', () => {
   it('should correctly convert and aggregate LiteLLM chunks', async () => {

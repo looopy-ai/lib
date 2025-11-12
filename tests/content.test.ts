@@ -4,7 +4,7 @@
 
 import { lastValueFrom, Subject, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
-import { splitInlineXml } from '../src/core/operators/chat-completions/content';
+import { splitInlineXml } from '../src/providers/chat-completions/content';
 
 /**
  * Helper function to test splitInlineXml with chunks

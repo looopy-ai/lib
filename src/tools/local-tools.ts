@@ -7,13 +7,7 @@
  */
 
 import { z } from 'zod';
-import type {
-  ExecutionContext,
-  ToolCall,
-  ToolDefinition,
-  ToolProvider,
-  ToolResult,
-} from './interfaces';
+import type { ExecutionContext, ToolCall, ToolDefinition, ToolProvider, ToolResult } from './types';
 
 /**
  * Tool handler function with typed parameters

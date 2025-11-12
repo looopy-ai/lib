@@ -15,7 +15,7 @@ import {
   type ToolProvider,
   type ToolResult,
   validateToolDefinitions,
-} from './interfaces';
+} from './types';
 
 export interface ClientToolConfig {
   /**

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LLMProvider } from '../core/types';
 import type { AnyEvent } from '../events/types';
 import * as spans from '../observability/spans';
-import type { ToolProvider } from '../tools/interfaces';
+import type { ToolProvider } from '../tools/types';
 import { runIteration } from './iteration';
 import * as tools from './tools';
 import type { IterationConfig, LoopContext, Message } from './types';

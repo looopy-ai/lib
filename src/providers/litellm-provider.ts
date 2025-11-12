@@ -14,17 +14,7 @@ import { dirname } from 'node:path';
 import pino from 'pino';
 import { merge, Observable } from 'rxjs';
 import { concatWith, filter, map, mergeMap, shareReplay, tap } from 'rxjs/operators';
-import {
-  aggregateChoice,
-  aggregateLLMUsage,
-  type Choice,
-  choices,
-  getContent,
-  splitInlineXml,
-  usage,
-} from '../core/operators/chat-completions';
 import type { LLMProvider, Message, ToolDefinition } from '../core/types';
-import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 import type {
   AnyEvent,
   ContentCompleteEvent,
@@ -35,6 +25,16 @@ import type {
   ToolCallEvent,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
+import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
+import {
+  aggregateChoice,
+  aggregateLLMUsage,
+  type Choice,
+  choices,
+  getContent,
+  splitInlineXml,
+  usage,
+} from './chat-completions';
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;

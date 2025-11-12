@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ClientToolProvider } from '../src/tools/client-tool-provider';
-import type { ExecutionContext, ToolCall, ToolResult } from '../src/tools/interfaces';
+import type { ExecutionContext, ToolCall, ToolResult } from '../src/tools/types';
 
 describe('ClientToolProvider', () => {
   const mockContext: ExecutionContext = {

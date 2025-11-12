@@ -1,7 +1,7 @@
 import { from, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
-import { aggregateChoice } from '../src/core/operators/chat-completions/aggregate';
-import type { Choice } from '../src/core/operators/chat-completions/types';
+import { aggregateChoice } from '../src/providers/chat-completions/aggregate';
+import type { Choice } from '../src/providers/chat-completions/types';
 
 describe('aggregateChoice', () => {
   it('should aggregate content chunks into a single Choice', async () => {

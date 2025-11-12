@@ -3,7 +3,7 @@ import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolCallEvent } from '../events/types';
 import * as spanHelpers from '../observability/spans/tool';
-import type { ToolCall, ToolProvider } from '../tools/interfaces';
+import type { ToolCall, ToolProvider } from '../tools/types';
 import { runToolCall } from './tools';
 import type { IterationContext } from './types';
 
