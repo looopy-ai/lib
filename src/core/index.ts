@@ -8,14 +8,6 @@ export { Agent, type AgentConfig, type AgentState, type GetMessagesOptions } fro
 export { StateCleanupService } from './cleanup';
 export type { AgentLoopConfig } from './config';
 export {
-  createCheckpointEvent,
-  createCompletedEvent,
-  createFailedEvent,
-  createTaskEvent,
-  createWorkingEvent,
-  stateToEvents,
-} from './events';
-export {
   createLogger,
   getLogger,
   type LoggerConfig,
@@ -29,7 +21,6 @@ export type {
   A2APart,
   A2ATextPart,
   AgentEvent,
-  AgentLoopContext,
   ArtifactOperation,
   ArtifactPart,
   ArtifactStore,
@@ -41,12 +32,10 @@ export type {
   InternalEvent,
   LLMProvider,
   LLMResponse,
-  LoopState,
   Message,
   PersistedLoopState,
   StatusUpdateEvent,
   StoredArtifact,
-  SubAgentState,
   TaskEvent,
   TaskState,
   TaskStateStore,

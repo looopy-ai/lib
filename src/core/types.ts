@@ -7,22 +7,6 @@
 import type { Observable } from 'rxjs';
 
 /**
- * Context passed to agent loop execution
- */
-export interface AgentLoopContext {
-  taskId: string;
-  agentId: string;
-  contextId: string;
-  parentTaskId?: string;
-  systemPrompt?: string;
-  maxIterations?: number;
-  parentContext: import('@opentelemetry/api').Context;
-  authContext?: AuthContext;
-  messages?: Message[]; // Full conversation history (optional, for Agent integration)
-  metadata?: Record<string, unknown>;
-}
-
-/**
  * Authentication context
  */
 export interface AuthContext {
@@ -97,48 +81,6 @@ export interface LLMResponse {
     completionTokens?: number;
     totalTokens?: number;
   };
-}
-
-/**
- * Internal loop state
- */
-export interface LoopState {
-  taskId: string;
-  agentId: string;
-  parentTaskId?: string;
-  contextId: string;
-
-  messages: Message[];
-  systemPrompt: string;
-  availableTools: ToolDefinition[];
-  toolResults: Map<string, ToolResult>;
-
-  subAgents: SubAgentState[];
-  activeSubAgents: Set<string>;
-
-  completed: boolean;
-  iteration: number;
-  maxIterations: number;
-
-  context: AgentLoopContext;
-  authContext?: AuthContext;
-
-  lastLLMResponse?: LLMResponse;
-
-  // Injected dependencies
-  taskStateStore: TaskStateStore;
-  artifactStore: ArtifactStore;
-}
-
-/**
- * Sub-agent state tracking
- */
-export interface SubAgentState {
-  agentId: string;
-  taskId: string;
-  status: 'running' | 'completed' | 'failed';
-  result?: unknown;
-  error?: string;
 }
 
 /**
@@ -366,8 +308,6 @@ export interface PersistedLoopState {
   completedToolCalls: Record<string, ToolResult>;
 
   artifactIds: string[];
-
-  activeSubAgents: SubAgentState[];
 
   lastLLMResponse?: LLMResponse;
   lastActivity: string;
