@@ -5,7 +5,7 @@
   "main": "src/core/index.ts",
   "type": "module",
   "scripts": {
-    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --allowUnusedTypes --excludePathsFromReport='index'",
+    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
     "check:types": "tsc --noEmit",
     "test": "CI=true vitest",
     "test:watch": "vitest --watch",

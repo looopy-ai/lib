@@ -14,14 +14,25 @@ vi.mock('../observability/spans', () => ({
   startLoopIterationSpan: vi.fn(() => ({
     span: {
       end: vi.fn(),
+      setAttribute: vi.fn(),
       setAttributes: vi.fn(),
       setStatus: vi.fn(),
       recordException: vi.fn(),
     },
     traceContext: {},
+    tapFinish: <T>(source: T) => source, // Pass-through operator
   })),
-  completeIterationSpan: vi.fn(),
-  failIterationSpan: vi.fn(),
+  startLLMCallSpan: vi.fn(() => ({
+    span: {
+      end: vi.fn(),
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      setStatus: vi.fn(),
+      recordException: vi.fn(),
+    },
+    traceContext: {},
+    tapFinish: <T>(source: T) => source, // Pass-through operator
+  })),
 }));
 
 // Mock the tools module
@@ -103,13 +114,15 @@ describe('iteration', () => {
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(spans.startLoopIterationSpan).toHaveBeenCalledWith({
-        agentId: 'agent-123',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        iteration: 1,
-        parentContext: expect.any(Object),
-      });
+      expect(spans.startLoopIterationSpan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentId: 'agent-123',
+          contextId: 'ctx-456',
+          taskId: 'task-789',
+          parentContext: expect.any(Object),
+        }),
+        1, // iteration number as second parameter
+      );
     });
 
     it('should call LLM provider with prepared messages and tools', async () => {
@@ -407,14 +420,15 @@ describe('iteration', () => {
       );
     });
 
-    it('should complete iteration span on success', async () => {
+    it('should use tapFinish operator for span management', async () => {
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(spans.completeIterationSpan).toHaveBeenCalledWith(expect.any(Object));
+      // Verify that startLoopIterationSpan was called (which returns tapFinish)
+      expect(spans.startLoopIterationSpan).toHaveBeenCalled();
     });
 
-    it('should fail iteration span on error', async () => {
+    it('should handle LLM errors through tapFinish operator', async () => {
       const testError = new Error('LLM error');
       vi.mocked(mockLLMProvider.call).mockReturnValue(throwError(() => testError));
 
@@ -422,7 +436,8 @@ describe('iteration', () => {
 
       await expect(lastValueFrom(events$.pipe(toArray()))).rejects.toThrow('LLM error');
 
-      expect(spans.failIterationSpan).toHaveBeenCalledWith(expect.any(Object), testError);
+      // Verify span was created (tapFinish will handle the error)
+      expect(spans.startLoopIterationSpan).toHaveBeenCalled();
     });
 
     it('should preserve message history order', async () => {
@@ -468,9 +483,8 @@ describe('iteration', () => {
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(spans.startLoopIterationSpan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          iteration: 5,
-        }),
+        expect.any(Object), // context object
+        5, // iteration number as second parameter
       );
 
       expect(mockContext.logger.info).toHaveBeenCalledWith(

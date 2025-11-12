@@ -3,7 +3,7 @@
  * and verifies agent-level integration with artifact tools including override functionality.
  */
 
-import { lastValueFrom, of } from 'rxjs';
+import { concat, lastValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Agent } from '../src/core/agent';
 import type { LLMProvider } from '../src/core/types';
@@ -26,26 +26,64 @@ describe('Agent Artifact Tools Integration', () => {
     taskStateStore = new InMemoryStateStore();
   });
 
-  // Mock LLM provider that returns tool calls
+  // Mock LLM provider that returns tool calls on first call, then completes
   const createMockLLMProvider = (
     toolCalls?: Array<{ name: string; arguments: string }>,
-  ): LLMProvider => ({
-    call: () => {
-      return of({
-        kind: 'content-complete' as const,
-        content: toolCalls ? '' : 'Done',
-        toolCalls: toolCalls?.map((tc, idx) => ({
-          id: `call_${idx}`,
-          type: 'function' as const,
-          function: {
-            name: tc.name,
-            arguments: tc.arguments,
-          },
-        })),
-        timestamp: new Date().toISOString(),
-      });
-    },
-  });
+  ): LLMProvider => {
+    let callCount = 0;
+    return {
+      call: () => {
+        callCount++;
+
+        // First call: return tool calls if provided
+        if (callCount === 1 && toolCalls) {
+          const timestamp = new Date().toISOString();
+          const parsedToolCalls = toolCalls.map((tc, idx) => ({
+            id: `call_${idx}`,
+            type: 'function' as const,
+            function: {
+              name: tc.name,
+              arguments: JSON.parse(tc.arguments), // Parse the JSON string to object
+            },
+          }));
+
+          // Emit tool-call events first, then content-complete
+          // This matches how LiteLLM provider works
+          const toolCallEvents = parsedToolCalls.map((tc) => ({
+            kind: 'tool-call' as const,
+            contextId: 'test-context',
+            taskId: 'test-task',
+            toolCallId: tc.id,
+            toolName: tc.function.name,
+            arguments: tc.function.arguments,
+            timestamp,
+          }));
+
+          const contentComplete = {
+            kind: 'content-complete' as const,
+            contextId: 'test-context',
+            taskId: 'test-task',
+            content: '',
+            finishReason: 'tool_calls' as const,
+            toolCalls: parsedToolCalls,
+            timestamp,
+          };
+
+          return concat(...toolCallEvents.map((e) => of(e)), of(contentComplete));
+        }
+
+        // Second call (or first if no tool calls): return completion
+        return of({
+          kind: 'content-complete' as const,
+          contextId: 'test-context',
+          taskId: 'test-task',
+          content: 'Done',
+          finishReason: 'stop' as const,
+          timestamp: new Date().toISOString(),
+        });
+      },
+    };
+  };
 
   it('should accept pre-scheduled artifact store', async () => {
     const mockLLM = createMockLLMProvider();

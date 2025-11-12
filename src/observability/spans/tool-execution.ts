@@ -6,8 +6,8 @@
 
 import { context as otelContext, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { IterationContext } from '../../core-v2/types';
 import type { ToolCall } from '../../core/types';
+import type { IterationContext } from '../../core-v2/types';
 import type { ToolExecutionEvent, ToolStartEvent } from '../../events';
 import { SpanAttributes, SpanNames } from '../tracing';
 

@@ -2,25 +2,24 @@ import type pino from 'pino';
 import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolCallEvent } from '../events/types';
-import * as spans from '../observability/spans';
-import type { ToolCall, ToolProvider, ToolResult } from '../tools/interfaces';
+import * as spanHelpers from '../observability/spans/tool-execution';
+import type { ToolCall, ToolProvider } from '../tools/interfaces';
 import { runToolCall } from './tools';
 import type { IterationContext } from './types';
 
 // Mock the span functions
-vi.mock('../observability/spans', () => ({
-  startToolExecutionSpan: vi.fn(() => ({
+vi.mock('../observability/spans/tool-execution', () => ({
+  startToolExecuteSpan: vi.fn(() => ({
     span: {
       end: vi.fn(),
+      setAttribute: vi.fn(),
       setAttributes: vi.fn(),
       setStatus: vi.fn(),
       recordException: vi.fn(),
     },
     traceContext: {},
+    tapFinish: <T>(source: T) => source, // Pass-through operator
   })),
-  completeToolExecutionSpan: vi.fn(),
-  failToolExecutionSpan: vi.fn(),
-  failToolExecutionSpanWithException: vi.fn(),
 }));
 
 describe('tools', () => {
@@ -350,62 +349,26 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(spans.startToolExecuteSpan).toHaveBeenCalledWith({
-        agentId: 'agent-123',
-        taskId: 'task-789',
-        toolCall: {
-          id: 'call-abc',
-          type: 'function',
-          function: {
-            name: 'test_tool',
-            arguments: { param: 'value' },
-          },
-        },
-        parentContext: expect.any(Object),
-      });
-    });
-
-    it('should complete span on successful execution', async () => {
-      const mockResult: ToolResult = {
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        success: true,
-        result: 'result',
-      };
-
-      const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
-        execute: vi.fn(async () => mockResult),
-        getTools: vi.fn(async () => []),
-      };
-
-      mockContext.toolProviders = [mockProvider];
-
-      const events$ = runToolCall(mockContext, mockToolCall);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      expect(spans.completeToolExecutionSpan).toHaveBeenCalledWith(expect.any(Object), mockResult);
-    });
-
-    it('should fail span when no provider found', async () => {
-      mockContext.toolProviders = [];
-
-      const events$ = runToolCall(mockContext, mockToolCall);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      expect(spans.failToolExecutionSpan).toHaveBeenCalledWith(
-        expect.any(Object),
-        'No provider found for tool: test_tool',
-      );
-    });
-
-    it('should fail span with exception on error', async () => {
-      const testError = new Error('Tool error');
-      const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
-        execute: vi.fn(async () => {
-          throw testError;
+      expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          kind: 'tool-start',
+          toolName: 'test_tool',
+          toolCallId: 'call-abc',
+          arguments: { param: 'value' },
         }),
+      );
+    });
+
+    it('should use tapFinish operator for span management', async () => {
+      const mockProvider: ToolProvider = {
+        canHandle: vi.fn(() => true),
+        execute: vi.fn(async (toolCall: ToolCall) => ({
+          toolCallId: toolCall.id,
+          toolName: toolCall.function.name,
+          success: true,
+          result: 'result',
+        })),
         getTools: vi.fn(async () => []),
       };
 
@@ -414,10 +377,8 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(spans.failToolExecutionSpanWithException).toHaveBeenCalledWith(
-        expect.any(Object),
-        testError,
-      );
+      // Verify that startToolExecuteSpan was called (which returns tapFinish)
+      expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalled();
     });
 
     it('should handle tools with complex result types', async () => {

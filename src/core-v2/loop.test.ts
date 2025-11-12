@@ -1,5 +1,5 @@
 import type pino from 'pino';
-import { lastValueFrom, of, throwError, toArray } from 'rxjs';
+import { lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LLMProvider } from '../core/types';
 import type { AnyEvent } from '../events/types';
@@ -87,7 +87,10 @@ describe('loop', () => {
         taskId: 'task-789',
         initiator: 'user',
         timestamp: expect.any(String),
-        metadata: {},
+        metadata: {
+          historyLength: 1,
+        },
+        parentTaskId: undefined,
       });
     });
 
@@ -380,25 +383,26 @@ describe('loop', () => {
     });
 
     it('should finalize span when stream completes', async () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setAttributes: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-      };
+      const mockSetSuccess = vi.fn();
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
-        span: mockSpan as unknown as import('@opentelemetry/api').Span,
+        span: {
+          end: vi.fn(),
+          setAttributes: vi.fn(),
+          setStatus: vi.fn(),
+          recordException: vi.fn(),
+        } as unknown as import('@opentelemetry/api').Span,
         traceContext: {} as import('@opentelemetry/api').Context,
         setOutput: vi.fn(),
-        setSuccess: vi.fn(),
+        setSuccess: mockSetSuccess,
         setError: vi.fn(),
+        tapFinish: (source: Observable<AnyEvent>) => source,
       });
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockSpan.end).toHaveBeenCalled();
+      expect(mockSetSuccess).toHaveBeenCalled();
     });
 
     it('should handle multiple tool calls in same iteration', async () => {
@@ -799,19 +803,20 @@ describe('loop', () => {
     });
 
     it('should finalize span even if error occurs', async () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setAttributes: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-      };
+      const mockSetError = vi.fn();
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
-        span: mockSpan as unknown as import('@opentelemetry/api').Span,
+        span: {
+          end: vi.fn(),
+          setAttributes: vi.fn(),
+          setStatus: vi.fn(),
+          recordException: vi.fn(),
+        } as unknown as import('@opentelemetry/api').Span,
         traceContext: {} as import('@opentelemetry/api').Context,
         setOutput: vi.fn(),
         setSuccess: vi.fn(),
-        setError: vi.fn(),
+        setError: mockSetError,
+        tapFinish: (source: Observable<AnyEvent>) => source,
       });
 
       vi.mocked(iteration.runIteration).mockReturnValue(
@@ -822,7 +827,7 @@ describe('loop', () => {
 
       await expect(lastValueFrom(events$.pipe(toArray()))).rejects.toThrow('Iteration error');
 
-      expect(mockSpan.end).toHaveBeenCalled();
+      expect(mockSetError).toHaveBeenCalled();
     });
   });
 });

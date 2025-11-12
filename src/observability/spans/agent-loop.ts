@@ -4,8 +4,9 @@
  * Tracing utilities for the main agent loop span
  */
 
-import { type Context, type Span, trace } from '@opentelemetry/api';
-import type { LLMUsageEvent } from '../../events/types';
+import { type Context, SpanStatusCode, trace } from '@opentelemetry/api';
+import { tap } from 'rxjs/internal/operators/tap';
+import type { AnyEvent } from '../../events/types';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface AgentLoopSpanParams {
@@ -53,55 +54,25 @@ export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
       span.setStatus({ code: 2, message: err.message });
       span.end();
     },
+    tapFinish: tap<AnyEvent>({
+      next: (event) => {
+        switch (event.kind) {
+          case 'content-complete':
+            if (event.content) {
+              span.setAttribute(SpanAttributes.OUTPUT, event.content);
+            }
+            span.setStatus({ code: SpanStatusCode.OK });
+            break;
+          default:
+            break;
+        }
+      },
+      complete: () => span.end(),
+      error: (err) => {
+        span.recordException(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+        span.end();
+      },
+    }),
   };
 };
-
-export function addLLMUsageToSpan(span: Span, usage: LLMUsageEvent): void {
-  span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, usage.model);
-  span.setAttribute(SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS, usage.prompt_tokens || 0);
-  span.setAttribute(SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS, usage.completion_tokens || 0);
-  span.setAttribute(SpanAttributes.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens || 0);
-  span.setAttribute(
-    SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS,
-    JSON.stringify(usage.completion_tokens_details || {}),
-  );
-  span.setAttribute(
-    SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS,
-    JSON.stringify(usage.prompt_tokens_details || {}),
-  );
-  span.setAttribute(
-    SpanAttributes.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
-    usage.cache_creation_input_tokens || 0,
-  );
-  span.setAttribute(
-    SpanAttributes.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
-    usage.cache_read_input_tokens || 0,
-  );
-}
-
-/**
- * Set output and complete agent execution span
- */
-export function completeAgentExecuteSpan(
-  span: Span,
-  result: {
-    state: 'completed' | 'failed';
-    output?: string;
-    error?: string;
-  },
-): void {
-  if (result.output) {
-    span.setAttribute('output', result.output);
-  }
-
-  span.setStatus({
-    code: result.state === 'completed' ? 0 : 2, // OK : ERROR
-    message: result.error,
-  });
-
-  if (result.error) {
-    span.recordException(new Error(result.error));
-  }
-
-  span.end();
-}

@@ -6,8 +6,8 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { LoopContext } from '../../core-v2/types';
 import type { Message } from '../../core/types';
+import type { LoopContext } from '../../core-v2/types';
 import type { AnyEvent } from '../../events/types';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -44,12 +44,41 @@ export const startLLMCallSpan = (context: LoopContext, messages: Message[]) => {
     traceContext,
     tapFinish: tap<AnyEvent>({
       next: (event) => {
-        if (event.kind === 'content-complete') {
-          if (event.content) {
-            span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, event.content);
-          }
-          span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');
-          span.setStatus({ code: SpanStatusCode.OK });
+        switch (event.kind) {
+          case 'content-complete':
+            if (event.content) {
+              span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, event.content);
+            }
+            span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');
+            span.setStatus({ code: SpanStatusCode.OK });
+            break;
+          case 'llm-usage':
+            span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, event.model);
+            span.setAttribute(SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS, event.prompt_tokens || 0);
+            span.setAttribute(
+              SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS,
+              event.completion_tokens || 0,
+            );
+            span.setAttribute(SpanAttributes.GEN_AI_USAGE_TOTAL_TOKENS, event.total_tokens || 0);
+            span.setAttribute(
+              SpanAttributes.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS,
+              JSON.stringify(event.completion_tokens_details || {}),
+            );
+            span.setAttribute(
+              SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS,
+              JSON.stringify(event.prompt_tokens_details || {}),
+            );
+            span.setAttribute(
+              SpanAttributes.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+              event.cache_creation_input_tokens || 0,
+            );
+            span.setAttribute(
+              SpanAttributes.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+              event.cache_read_input_tokens || 0,
+            );
+            break;
+          default:
+            break;
         }
       },
       complete: () => span.end(),
