@@ -1,11 +1,6 @@
 import { concat, defer, type Observable, of } from 'rxjs';
 import type { ToolCallEvent, ToolCompleteEvent, ToolExecutionEvent } from '../events/types';
-import {
-  completeToolExecutionSpan,
-  failToolExecutionSpan,
-  failToolExecutionSpanWithException,
-  startToolExecutionSpan,
-} from '../observability/spans';
+import { startToolExecuteSpan } from '../observability/spans';
 import type { IterationContext } from './types';
 
 /**
@@ -72,23 +67,11 @@ export const runToolCall = (
     timestamp: new Date().toISOString(),
   };
 
+  // Start tool execution span
+  const { tapFinish } = startToolExecuteSpan(context, toolStartEvent);
+
   // Execute tool and create events
   const toolResultEvents$ = defer(async () => {
-    // Start tool execution span
-    const { span } = startToolExecutionSpan({
-      agentId: context.agentId,
-      taskId: context.taskId,
-      toolCall: {
-        id: toolCall.toolCallId,
-        type: 'function',
-        function: {
-          name: toolCall.toolName,
-          arguments: toolCall.arguments,
-        },
-      }, // TODO use event
-      parentContext: context.parentContext,
-    });
-
     context.logger.trace(
       {
         taskId: context.taskId,
@@ -111,7 +94,7 @@ export const runToolCall = (
       );
 
       const errorMessage = `No provider found for tool: ${toolCall.toolName}`;
-      failToolExecutionSpan(span, errorMessage);
+      // failToolExecutionSpan(span, errorMessage);
 
       return createToolErrorEvent(context, toolCall, errorMessage);
     }
@@ -143,8 +126,10 @@ export const runToolCall = (
         'Tool execution complete',
       );
 
+      // TODO handle tool failures
+
       // Complete span with result
-      completeToolExecutionSpan(span, result);
+      // completeToolExecutionSpan(span, result);
 
       return createToolCompleteEvent(context, toolCall, result.result);
     } catch (error) {
@@ -160,13 +145,13 @@ export const runToolCall = (
       );
 
       // Fail span with exception
-      failToolExecutionSpanWithException(span, err);
+      // failToolExecutionSpanWithException(span, err);
 
       return createToolErrorEvent(context, toolCall, err.message);
     }
   });
 
-  return concat(of(toolStartEvent), toolResultEvents$);
+  return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish);
 };
 
 /**

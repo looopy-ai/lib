@@ -350,7 +350,7 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(spans.startToolExecutionSpan).toHaveBeenCalledWith({
+      expect(spans.startToolExecuteSpan).toHaveBeenCalledWith({
         agentId: 'agent-123',
         taskId: 'task-789',
         toolCall: {

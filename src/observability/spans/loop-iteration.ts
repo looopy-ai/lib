@@ -4,7 +4,10 @@
  * Tracing utilities for agent loop iterations
  */
 
-import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { tap } from 'rxjs/internal/operators/tap';
+import type { LoopContext } from '../../core-v2/types';
+import type { AnyEvent } from '../../events';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LoopIterationSpanParams {
@@ -18,46 +21,44 @@ export interface LoopIterationSpanParams {
 /**
  * Start loop iteration span
  */
-export const startLoopIterationSpan = (params: LoopIterationSpanParams) => {
+export const startLoopIterationSpan = (context: LoopContext, iteration: number) => {
   const tracer = trace.getTracer('looopy');
 
   const span = tracer.startSpan(
     SpanNames.LOOP_ITERATION,
     {
       attributes: {
-        [SpanAttributes.SESSION_ID]: params.contextId,
-        [SpanAttributes.AGENT_ID]: params.agentId,
-        [SpanAttributes.TASK_ID]: params.taskId,
-        [SpanAttributes.ITERATION]: params.iteration,
+        [SpanAttributes.SESSION_ID]: context.contextId,
+        [SpanAttributes.AGENT_ID]: context.agentId,
+        [SpanAttributes.TASK_ID]: context.taskId,
+        [SpanAttributes.ITERATION]: iteration,
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'chain',
       },
     },
-    params.parentContext,
+    context.parentContext,
   );
 
-  const traceContext = trace.setSpan(params.parentContext, span);
+  const traceContext = trace.setSpan(context.parentContext, span);
 
-  return { span, traceContext };
+  return {
+    span,
+    traceContext,
+    tapFinish: tap<AnyEvent>({
+      next: (event) => {
+        if (event.kind === 'content-complete') {
+          if (event.content) {
+            span.setAttribute(SpanAttributes.OUTPUT, event.content);
+            span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason);
+            span.setStatus({ code: SpanStatusCode.OK });
+          }
+        }
+      },
+      complete: () => span.end(),
+      error: (err) => {
+        span.recordException(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+        span.end();
+      },
+    }),
+  };
 };
-
-/**
- * Complete iteration span with success
- */
-export function completeIterationSpan(span: Span): void {
-  span.setStatus({ code: SpanStatusCode.OK });
-  span.end();
-}
-
-/**
- * Complete iteration span with error
- */
-export function failIterationSpan(span: Span, error: Error | string): void {
-  const err = error instanceof Error ? error : new Error(String(error));
-
-  span.setStatus({
-    code: SpanStatusCode.ERROR,
-    message: err.message,
-  });
-  span.recordException(err);
-  span.end();
-}

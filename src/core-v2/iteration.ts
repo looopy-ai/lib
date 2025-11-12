@@ -1,10 +1,6 @@
-import { concat, defer, filter, map, mergeMap, type Observable, shareReplay, tap } from 'rxjs';
+import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import type { AnyEvent } from '../events/types';
-import {
-  completeIterationSpan,
-  failIterationSpan,
-  startLoopIterationSpan,
-} from '../observability/spans';
+import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
 import type { ToolProvider } from '../tools/interfaces';
 import { runToolCall } from './tools';
 import type { IterationConfig, LoopContext, Message } from './types';
@@ -80,35 +76,40 @@ export const runIteration = (
     { taskId: context.taskId, iteration: config.iterationNumber, history },
     'Starting iteration',
   );
-  const { span, traceContext: iterationContext } = startLoopIterationSpan({
-    agentId: context.agentId,
-    contextId: context.contextId,
-    taskId: context.taskId,
-    iteration: config.iterationNumber,
-    parentContext: context.parentContext,
-  });
+  const { traceContext: iterationContext, tapFinish: finishIterationSpan } = startLoopIterationSpan(
+    context,
+    config.iterationNumber,
+  );
 
   const llmEvents$ = defer(async () => {
     const messages = prepareMessages(context, history);
     const tools = await prepareTools(context.toolProviders);
     return { messages, tools };
   }).pipe(
-    mergeMap(({ messages, tools }) =>
-      config.llmProvider.call({
+    mergeMap(({ messages, tools }) => {
+      const { tapFinish: finishLLMCallSpan } = startLLMCallSpan(
+        { ...context, parentContext: iterationContext },
         messages,
-        tools,
-        stream: true,
-        sessionId: context.taskId,
-      }),
-    ),
-    map(
-      (event): AnyEvent =>
-        ({
-          contextId: context.contextId,
-          taskId: context.taskId,
-          ...event,
-        }) as AnyEvent,
-    ),
+      );
+      return config.llmProvider
+        .call({
+          messages,
+          tools,
+          stream: true,
+          sessionId: context.taskId,
+        })
+        .pipe(
+          map(
+            (event): AnyEvent =>
+              ({
+                contextId: context.contextId,
+                taskId: context.taskId,
+                ...event,
+              }) as AnyEvent,
+          ),
+          finishLLMCallSpan,
+        );
+    }),
     shareReplay(),
   );
 
@@ -118,16 +119,7 @@ export const runIteration = (
     mergeMap((event) => runToolCall({ ...context, parentContext: iterationContext }, event)),
   );
 
-  return concat(llmEvents$, toolEvents$).pipe(
-    tap({
-      complete: () => {
-        completeIterationSpan(span);
-      },
-      error: (error) => {
-        failIterationSpan(span, error);
-      },
-    }),
-  );
+  return concat(llmEvents$, toolEvents$).pipe(finishIterationSpan);
 };
 
 /**
