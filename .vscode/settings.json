@@ -1,83 +1,91 @@
 {
-  // Files to exclude from search
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/build": true,
-    "**/.git": true,
-    "**/.pnpm-store": true,
-    "**/pnpm-lock.yaml": true,
-    "**/*.tsbuildinfo": true,
-    "**/coverage": true,
-    "**/.turbo": true,
-    "**/.next": true,
-    "**/.nuxt": true,
-    "**/.cache": true,
-    "**/.vscode": false,
-    "**/.github": false
-  },
+		// Files to exclude from search
+	 "search.exclude": {
+			"**/node_modules": true,
+			"**/dist": true,
+			"**/build": true,
+			"**/.git": true,
+			"**/.pnpm-store": true,
+			"**/pnpm-lock.yaml": true,
+			"**/*.tsbuildinfo": true,
+			"**/coverage": true,
+			"**/.turbo": true,
+			"**/.next": true,
+			"**/.nuxt": true,
+			"**/.cache": true,
+			"**/.vscode": false,
+			"**/.github": false
+		},
 
-  // Files to exclude from file watcher
-  "files.watcherExclude": {
-    "**/.git/objects/**": true,
-    "**/.git/subtree-cache/**": true,
-    "**/node_modules/**": true,
-    "**/dist/**": true,
-    "**/build/**": true,
-    "**/.pnpm-store/**": true,
-    "**/coverage/**": true,
-    "**/.turbo/**": true,
-    "**/.next/**": true,
-    "**/.nuxt/**": true,
-    "**/.cache/**": true,
-    "**/*.tsbuildinfo": true
-  },
+		// Files to exclude from file watcher
+		"files.watcherExclude": {
+			"**/.git/objects/**": true,
+			"**/.git/subtree-cache/**": true,
+			"**/node_modules/**": true,
+			"**/dist/**": true,
+			"**/build/**": true,
+			"**/.pnpm-store/**": true,
+			"**/coverage/**": true,
+			"**/.turbo/**": true,
+			"**/.next/**": true,
+			"**/.nuxt/**": true,
+			"**/.cache/**": true,
+			"**/*.tsbuildinfo": true
+		},
 
-  // Files to exclude from explorer
-  "files.exclude": {
-    "**/.git": true,
-    "**/.DS_Store": true,
-    "**/Thumbs.db": true,
-    "**/*.tsbuildinfo": true
-  },
+		// Files to exclude from explorer
+		"files.exclude": {
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/node_modules": true,
+			"**/Thumbs.db": true,
+			"**/*.tsbuildinfo": true
+		},
 
-  // TypeScript settings
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
+		// TypeScript settings
+		"typescript.tsdk": "node_modules/typescript/lib",
+		"typescript.enablePromptUseWorkspaceTsdk": true,
 
-  // Editor settings
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "biomejs.biome",
-  "editor.codeActionsOnSave": {
-    "quickfix.biome": "explicit",
-    "source.organizeImports.biome": "explicit"
-  },
+		// Editor settings
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "biomejs.biome",
+		"editor.codeActionsOnSave": {
+			"quickfix.biome": "explicit",
+			"source.organizeImports.biome": "explicit"
+		},
 
-  // Biome (formatter/linter) settings
-  "[typescript]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  },
-  "[javascript]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  },
-  "[jsonc]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  },
+		// Biome (formatter/linter) settings
+		"[typescript]": {
+			"editor.defaultFormatter": "biomejs.biome",
+			"editor.formatOnSave": true
+		},
+		"[javascript]": {
+			"editor.defaultFormatter": "biomejs.biome",
+			"editor.formatOnSave": true
+		},
+		"[json]": {
+			"editor.defaultFormatter": "biomejs.biome",
+			"editor.formatOnSave": true
+		},
+		"[jsonc]": {
+			"editor.defaultFormatter": "biomejs.biome",
+			"editor.formatOnSave": true
+		},
 
-  // Git settings
-  "git.ignoreLimitWarning": true,
+    "json.format.enable": false,
+    "biome.requireConfig": true,
 
-  // Terminal settings
-  "terminal.integrated.defaultProfile.linux": "Nushell",
+		// Git settings
+		"git.ignoreLimitWarning": true,
 
-  // Optimize performance
-  "files.watcherExclude.useGitIgnore": true,
-  "search.followSymlinks": false,
+		// Terminal settings
+		"terminal.integrated.defaultProfile.linux": "Nushell",
 
-  // Exclude from quick open
-  "search.quickOpen.includeSymbols": false,
-  "search.quickOpen.includeHistory": true
-}
+		// Optimize performance
+		"files.watcherExclude.useGitIgnore": true,
+		"search.followSymlinks": false,
+
+		// Exclude from quick open
+		"search.quickOpen.includeSymbols": false,
+		"search.quickOpen.includeHistory": true
+	}

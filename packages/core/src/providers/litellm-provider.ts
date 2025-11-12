@@ -15,6 +15,7 @@ import pino from 'pino';
 import { merge, Observable } from 'rxjs';
 import { concatWith, filter, map, mergeMap, shareReplay, tap } from 'rxjs/operators';
 import type { LLMProvider, Message, ToolDefinition } from '../core/types';
+import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 import type {
   AnyEvent,
   ContentCompleteEvent,
@@ -25,7 +26,6 @@ import type {
   ToolCallEvent,
 } from '../events/types';
 import { generateEventId } from '../events/utils';
-import type { FinishReason, LLMEvent, LLMUsageEvent } from './../events/types';
 import {
   aggregateChoice,
   aggregateLLMUsage,

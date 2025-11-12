@@ -1,0 +1,41 @@
+{
+  "name": "@looopy-ai/core",
+  "version": "1.0.0",
+  "description": "RxJS-based AI agent framework implementing the A2A protocol",
+  "main": "src/core/index.ts",
+  "type": "module",
+  "scripts": {
+    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
+    "check:types": "tsc --noEmit",
+    "test": "CI=true vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "example": "tsx examples/kitchen-sink.ts",
+    "example:litellm": "tsx examples/litellm-agent.ts",
+    "build": "tsc --noEmit",
+    "lint": "biome check src examples tests",
+    "lint:fix": "biome check --write src examples tests"
+  },
+  "keywords": [
+    "agent",
+    "ai",
+    "rxjs",
+    "a2a",
+    "llm"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.6.5",
+  "dependencies": {
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.207.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.207.0",
+    "@opentelemetry/instrumentation": "^0.207.0",
+    "@opentelemetry/resources": "^2.2.0",
+    "@opentelemetry/sdk-metrics": "^2.2.0",
+    "@opentelemetry/sdk-trace-base": "^2.2.0",
+    "@opentelemetry/sdk-trace-node": "^2.2.0",
+    "@opentelemetry/semantic-conventions": "^1.37.0",
+    "pino-pretty": "^13.1.2"
+  },
+  "devDependencies": {}
+}
