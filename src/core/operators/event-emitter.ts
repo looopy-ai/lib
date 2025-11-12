@@ -61,7 +61,7 @@ export class LoopEventEmitter {
     contextId: string,
     iteration: number,
     messages: Message[],
-    toolCount: number
+    toolCount: number,
   ): void {
     emitLLMCallEvent(taskId, contextId, iteration, messages, toolCount, this.eventBuffer);
     this.flushBuffer();
@@ -87,7 +87,7 @@ export class LoopEventEmitter {
     taskId: string,
     contextId: string,
     content: string,
-    finishReason: FinishReason
+    finishReason: FinishReason,
   ): void {
     const event = createContentCompleteEvent({
       contextId,
@@ -113,7 +113,7 @@ export class LoopEventEmitter {
       relatedTo?: string;
       alternatives?: string[];
       metadata?: Record<string, unknown>;
-    }
+    },
   ): void {
     const event = createThoughtStreamEvent({
       contextId,

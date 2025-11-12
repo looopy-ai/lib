@@ -98,7 +98,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
     options?: {
       isLastChunk?: boolean;
       encoding?: 'utf-8' | 'base64';
-    }
+    },
   ): Promise<void> {
     // Execute the operation
     await this.delegate.appendFileChunk(contextId, artifactId, chunk, options);
@@ -153,7 +153,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
   async writeData(
     contextId: string,
     artifactId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<void> {
     // Execute the operation
     await this.delegate.writeData(contextId, artifactId, data);
@@ -205,7 +205,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
     rows: Record<string, unknown>[],
     options?: {
       isLastBatch?: boolean;
-    }
+    },
   ): Promise<void> {
     // Execute the operation
     await this.delegate.appendDatasetBatch(contextId, artifactId, rows, options);
@@ -235,7 +235,7 @@ export class InternalEventArtifactStore implements ArtifactStore {
                       type: col.type,
                       description: col.description,
                     },
-                  ])
+                  ]),
                 ),
                 required: artifact.schema.columns
                   .filter((col) => !col.nullable)

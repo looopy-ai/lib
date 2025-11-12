@@ -288,11 +288,11 @@ async function collectStreamsExample() {
   console.log('  Content chunks:', collected.contentChunks);
   console.log(
     '  Thoughts:',
-    collected.thoughts.map((t) => t.content)
+    collected.thoughts.map((t) => t.content),
   );
   console.log(
     '  Tool calls:',
-    collected.toolCalls.map((t) => t.function?.name)
+    collected.toolCalls.map((t) => t.function?.name),
   );
   console.log('  Final state:', collected.final.finish_reason);
 }

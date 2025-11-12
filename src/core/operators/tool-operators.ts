@@ -16,7 +16,7 @@ export function emitToolStartEvent(
   taskId: string,
   contextId: string,
   toolCall: ToolCall,
-  eventBuffer: import('../../events').AnyEvent[]
+  eventBuffer: import('../../events').AnyEvent[],
 ): void {
   if (toolCall.function.name === 'toolName') return;
   eventBuffer.push(
@@ -27,7 +27,7 @@ export function emitToolStartEvent(
       toolName: toolCall.function.name,
       arguments: toolCall.function.arguments,
       metadata: {},
-    })
+    }),
   );
 }
 
@@ -38,7 +38,7 @@ export function emitToolCompleteEvent(
   taskId: string,
   contextId: string,
   result: ToolResult,
-  eventBuffer: import('../../events').AnyEvent[]
+  eventBuffer: import('../../events').AnyEvent[],
 ): void {
   if (result.toolName === 'toolName') return;
   eventBuffer.push(
@@ -51,6 +51,6 @@ export function emitToolCompleteEvent(
       result: result.result,
       error: result.error,
       metadata: {},
-    })
+    }),
   );
 }

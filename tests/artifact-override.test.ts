@@ -23,7 +23,7 @@ describe('Artifact Override Functionality', () => {
         taskId: 'task-1',
         contextId: 'ctx-1',
         name: 'Test File 2',
-      })
+      }),
     ).rejects.toThrow('Artifact already exists: test-artifact');
   });
 
@@ -242,7 +242,7 @@ describe('Artifact Override Functionality', () => {
         taskId: 'task-2',
         contextId: 'ctx-1',
         name: 'Test File 2',
-      })
+      }),
     ).rejects.toThrow('Artifact already exists: scheduled-artifact');
 
     // Reset with override - should work

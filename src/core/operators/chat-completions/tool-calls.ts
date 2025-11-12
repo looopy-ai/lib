@@ -21,7 +21,7 @@ type Acc = {
 export const getToolCalls = <T extends Choice>() =>
   pipe(
     filter((choice: T) => !!choice.delta?.tool_calls),
-    mergeMap((choice) => choice.delta?.tool_calls as ToolCall[])
+    mergeMap((choice) => choice.delta?.tool_calls as ToolCall[]),
   );
 
 const tryParseJson = (s: string): boolean => {

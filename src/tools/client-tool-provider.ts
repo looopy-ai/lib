@@ -41,7 +41,7 @@ export class ClientToolProvider implements ToolProvider {
   private readonly toolNames: Set<string>;
   private readonly onInputRequired: (
     toolCall: ToolCall,
-    context: ExecutionContext
+    context: ExecutionContext,
   ) => Promise<ToolResult>;
 
   constructor(config: ClientToolConfig) {
@@ -175,7 +175,7 @@ export class ClientToolProvider implements ToolProvider {
   private validateRequiredParams(
     tool: ToolDefinition,
     args: Record<string, unknown>,
-    errors: string[]
+    errors: string[],
   ): void {
     const required = tool.parameters.required || [];
     for (const param of required) {
@@ -191,7 +191,7 @@ export class ClientToolProvider implements ToolProvider {
   private validateUnknownParams(
     tool: ToolDefinition,
     args: Record<string, unknown>,
-    errors: string[]
+    errors: string[],
   ): void {
     if (tool.parameters.additionalProperties === false) {
       const allowedParams = new Set(Object.keys(tool.parameters.properties));
@@ -209,7 +209,7 @@ export class ClientToolProvider implements ToolProvider {
   private validateParamTypes(
     tool: ToolDefinition,
     args: Record<string, unknown>,
-    errors: string[]
+    errors: string[],
   ): void {
     for (const [paramName, paramValue] of Object.entries(args)) {
       const schema = tool.parameters.properties[paramName];
@@ -230,7 +230,7 @@ export class ClientToolProvider implements ToolProvider {
   private checkParamType(
     paramName: string,
     paramValue: unknown,
-    expectedType: string
+    expectedType: string,
   ): string | null {
     const actualType = this.getJsonSchemaType(paramValue);
 

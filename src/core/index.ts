@@ -5,7 +5,6 @@
  */
 
 export { Agent, type AgentConfig, type AgentState, type GetMessagesOptions } from './agent';
-export { AgentLoop } from './agent-loop';
 export { StateCleanupService } from './cleanup';
 export type { AgentLoopConfig } from './config';
 export {

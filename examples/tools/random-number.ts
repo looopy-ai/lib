@@ -21,5 +21,5 @@ export const randomNumberTool = tool(
       max,
       result,
     };
-  }
+  },
 );

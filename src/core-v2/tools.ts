@@ -59,7 +59,7 @@ import type { IterationContext } from './types';
  */
 export const runToolCall = (
   context: IterationContext,
-  toolCall: ToolCallEvent
+  toolCall: ToolCallEvent,
 ): Observable<ToolExecutionEvent> => {
   // Create tool-start event
   const toolStartEvent: ToolExecutionEvent = {
@@ -95,7 +95,7 @@ export const runToolCall = (
         toolName: toolCall.toolName,
         toolCallId: toolCall.toolCallId,
       },
-      'Executing tool'
+      'Executing tool',
     );
 
     // Find provider that can handle this tool (check thought tools first, then regular providers)
@@ -107,7 +107,7 @@ export const runToolCall = (
           taskId: context.taskId,
           toolName: toolCall.toolName,
         },
-        'No provider found for tool'
+        'No provider found for tool',
       );
 
       const errorMessage = `No provider found for tool: ${toolCall.toolName}`;
@@ -131,7 +131,7 @@ export const runToolCall = (
           taskId: context.taskId,
           agentId: context.agentId,
           authContext: context.authContext,
-        }
+        },
       ); // TODO use event and context
 
       context.logger.trace(
@@ -140,7 +140,7 @@ export const runToolCall = (
           toolName: toolCall.toolName,
           success: result.success,
         },
-        'Tool execution complete'
+        'Tool execution complete',
       );
 
       // Complete span with result
@@ -156,7 +156,7 @@ export const runToolCall = (
           error: err.message,
           stack: err.stack,
         },
-        'Tool execution failed'
+        'Tool execution failed',
       );
 
       // Fail span with exception
@@ -181,7 +181,7 @@ export const runToolCall = (
 const createToolCompleteEvent = (
   context: IterationContext,
   toolCall: ToolCallEvent,
-  result: unknown
+  result: unknown,
 ): ToolExecutionEvent =>
   ({
     kind: 'tool-complete',
@@ -206,7 +206,7 @@ const createToolCompleteEvent = (
 const createToolErrorEvent = (
   context: IterationContext,
   toolCall: ToolCallEvent,
-  errorMessage: string
+  errorMessage: string,
 ): ToolExecutionEvent =>
   ({
     kind: 'tool-complete',

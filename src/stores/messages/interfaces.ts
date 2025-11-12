@@ -52,7 +52,7 @@ export interface MessageStore {
     options?: {
       maxMessages?: number;
       maxTokens?: number;
-    }
+    },
   ): Promise<Message[]>;
 
   /**

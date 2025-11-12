@@ -28,7 +28,7 @@ describe('Agent Artifact Tools Integration', () => {
 
   // Mock LLM provider that returns tool calls
   const createMockLLMProvider = (
-    toolCalls?: Array<{ name: string; arguments: string }>
+    toolCalls?: Array<{ name: string; arguments: string }>,
   ): LLMProvider => ({
     call: () => {
       return of({

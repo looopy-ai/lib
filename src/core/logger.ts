@@ -49,7 +49,7 @@ export function createLogger(config: LoggerConfig = {}): pino.Logger {
           ignore: 'pid,hostname',
           singleLine: false,
         },
-      })
+      }),
     );
   }
 

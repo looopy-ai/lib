@@ -174,7 +174,7 @@ export class FileSystemContextStore implements ContextStore {
 
     // Sort by lastActivityAt descending (most recent first)
     filtered.sort(
-      (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime()
+      (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
     );
 
     // Apply pagination
@@ -186,7 +186,7 @@ export class FileSystemContextStore implements ContextStore {
 
   async search(
     query: string,
-    filter?: { agentId?: string; ownerId?: string }
+    filter?: { agentId?: string; ownerId?: string },
   ): Promise<ContextState[]> {
     const allContexts = await this.list(filter);
 
@@ -316,7 +316,7 @@ export class FileSystemContextStore implements ContextStore {
 
   async update(
     contextId: string,
-    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>
+    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>,
   ): Promise<void> {
     const state = await this.load(contextId);
 

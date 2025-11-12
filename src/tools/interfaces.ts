@@ -34,7 +34,7 @@ export const JsonSchemaPropertySchema: z.ZodType<unknown> = z.lazy(() =>
     minimum: z.number().optional(),
     maximum: z.number().optional(),
     multipleOf: z.number().optional(),
-  })
+  }),
 );
 
 export type JsonSchemaProperty = z.infer<typeof JsonSchemaPropertySchema>;
@@ -65,7 +65,7 @@ export const ToolDefinitionSchema = z.object({
     .max(64)
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Tool name must contain only alphanumeric characters, underscores, and hyphens'
+      'Tool name must contain only alphanumeric characters, underscores, and hyphens',
     ),
   description: z.string().min(1).max(1024),
   parameters: FunctionParametersSchema,

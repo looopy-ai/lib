@@ -64,7 +64,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -117,7 +117,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     contextId: string,
     artifactId: string,
     chunk: string,
-    options?: { isLastChunk?: boolean }
+    options?: { isLastChunk?: boolean },
   ): Promise<void> {
     const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'file') {
@@ -200,7 +200,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -248,7 +248,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
   async writeData(
     contextId: string,
     artifactId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<void> {
     const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'data') {
@@ -314,7 +314,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${artifactId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -366,7 +366,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
-    options?: { isLastBatch?: boolean }
+    options?: { isLastBatch?: boolean },
   ): Promise<void> {
     const artifact = await this.getArtifact(contextId, artifactId);
     if (!artifact || artifact.type !== 'dataset') {
@@ -449,7 +449,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
       this.basePath,
       `agent=${this.agentId}`,
       `context=${contextId}`,
-      'artifacts'
+      'artifacts',
     );
 
     try {
@@ -487,7 +487,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     // This requires scanning all contexts - not efficient for filesystem
     // Recommend using listArtifacts with contextId instead
     throw new Error(
-      'getTaskArtifacts not supported for filesystem store. Use listArtifacts with contextId instead.'
+      'getTaskArtifacts not supported for filesystem store. Use listArtifacts with contextId instead.',
     );
   }
 
@@ -501,7 +501,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
       `agent=${this.agentId}`,
       `context=${contextId}`,
       'artifacts',
-      artifactId
+      artifactId,
     );
   }
 

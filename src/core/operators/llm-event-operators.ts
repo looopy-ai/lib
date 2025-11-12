@@ -18,7 +18,7 @@ export function emitLLMCallEvent(
   iteration: number,
   messages: Message[],
   toolCount: number,
-  eventBuffer: import('../../events').AnyEvent[]
+  eventBuffer: import('../../events').AnyEvent[],
 ): void {
   eventBuffer.push(
     createInternalLLMCallEvent({
@@ -27,6 +27,6 @@ export function emitLLMCallEvent(
       iteration,
       messageCount: messages.length,
       toolCount,
-    })
+    }),
   );
 }

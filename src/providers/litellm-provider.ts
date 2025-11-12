@@ -172,7 +172,7 @@ export class LiteLLMProvider implements LLMProvider {
         timeout: this.config.timeout,
         hasApiKey: !!this.config.apiKey,
       },
-      'LiteLLM provider initialized'
+      'LiteLLM provider initialized',
     );
   }
 
@@ -212,9 +212,9 @@ export class LiteLLMProvider implements LLMProvider {
           delta,
           index: contentIndex++,
           timestamp: new Date().toISOString(),
-        })
+        }),
       ),
-      this.debugLog('content-delta')
+      this.debugLog('content-delta'),
     );
 
     // Map <thinking> tags to ThoughtStreamEvent (without contextId/taskId)
@@ -231,12 +231,12 @@ export class LiteLLMProvider implements LLMProvider {
           'decision',
           'observation',
           'strategizing',
-        ].includes(tag.name)
+        ].includes(tag.name),
       ),
       map((tag): LLMEvent<ThoughtStreamEvent> => {
         const thoughtType =
           (singleString(
-            tag.attributes.thoughtType || tag.attributes.thought_type || tag.name
+            tag.attributes.thoughtType || tag.attributes.thought_type || tag.name,
           ) as ThoughtType) || 'thinking';
 
         const verbosity = (singleString(tag.attributes.verbosity) as ThoughtVerbosity) || 'normal';
@@ -256,7 +256,7 @@ export class LiteLLMProvider implements LLMProvider {
           },
         };
       }),
-      this.debugLog('thought-stream')
+      this.debugLog('thought-stream'),
     );
 
     // Aggregate final response with tool calls
@@ -289,7 +289,7 @@ export class LiteLLMProvider implements LLMProvider {
           timestamp: new Date().toISOString(),
         };
       }),
-      this.debugLog('content-complete')
+      this.debugLog('content-complete'),
     );
 
     const usageComplete$ = usage$.pipe(
@@ -300,9 +300,9 @@ export class LiteLLMProvider implements LLMProvider {
           model: this.config.model,
           ...usage,
           timestamp: new Date().toISOString(),
-        })
+        }),
       ),
-      this.debugLog('llm-usage')
+      this.debugLog('llm-usage'),
     );
 
     const toolCalls$ = contentComplete$.pipe(
@@ -314,13 +314,13 @@ export class LiteLLMProvider implements LLMProvider {
             toolName: tc.function.name,
             arguments: tc.function.arguments,
             timestamp: event.timestamp,
-          })) || []
-      )
+          })) || [],
+      ),
     );
 
     // Merge all event streams
     return merge(contentDeltas$, thoughts$, usageComplete$, toolCalls$).pipe(
-      concatWith(contentComplete$)
+      concatWith(contentComplete$),
     );
   }
 
@@ -339,7 +339,7 @@ export class LiteLLMProvider implements LLMProvider {
         writeFileSync(
           this.config.debugLogPath,
           `# LLM Raw Stream Debug Log\n# Started: ${new Date().toISOString()}\n# Model: ${this.config.model}\n\n`,
-          { flag: 'w' }
+          { flag: 'w' },
         );
         this.debugLogInitialized = true;
       } catch (error) {
@@ -366,7 +366,7 @@ export class LiteLLMProvider implements LLMProvider {
    * Debug logging operator - logs events to file if debugLogPath is configured
    */
   private debugLog<T extends LLMEvent<AnyEvent>>(
-    eventType: string
+    eventType: string,
   ): (source: Observable<T>) => Observable<T> {
     if (!this.config.debugLogPath) {
       // No-op if debug logging is disabled
@@ -388,7 +388,7 @@ export class LiteLLMProvider implements LLMProvider {
               await fs.writeFile(
                 this.config.debugLogPath,
                 `# LLM Event Debug Log\n# Started: ${new Date().toISOString()}\n# Model: ${this.config.model}\n\n`,
-                { flag: 'w' }
+                { flag: 'w' },
               );
               this.debugLogInitialized = true;
             }
@@ -406,7 +406,7 @@ export class LiteLLMProvider implements LLMProvider {
             // Log error but don't disrupt the stream
             this.logger.warn({ error, eventType }, 'Failed to write debug log');
           }
-        })
+        }),
       );
   }
 
@@ -498,7 +498,7 @@ export class LiteLLMProvider implements LLMProvider {
           if (!response.ok) {
             const errorText = await response.text();
             throw new Error(
-              `LiteLLM API error: ${response.status} ${response.statusText} - ${errorText}`
+              `LiteLLM API error: ${response.status} ${response.statusText} - ${errorText}`,
             );
           }
 

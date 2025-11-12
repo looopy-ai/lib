@@ -32,7 +32,7 @@ export const startLoopIterationSpan = (params: LoopIterationSpanParams) => {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'chain',
       },
     },
-    params.parentContext
+    params.parentContext,
   );
 
   const traceContext = trace.setSpan(params.parentContext, span);

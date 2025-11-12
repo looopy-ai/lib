@@ -57,7 +57,7 @@ describe('ClientToolProvider', () => {
 
   const mockOnInputRequired = async (
     toolCall: ToolCall,
-    _context: ExecutionContext
+    _context: ExecutionContext,
   ): Promise<ToolResult> => {
     return {
       toolCallId: toolCall.id,

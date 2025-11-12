@@ -14,7 +14,7 @@ export class StateCleanupService {
   constructor(
     private taskStateStore: TaskStateStore,
     private artifactStore: ArtifactStore,
-    private intervalMs: number = 60 * 60 * 1000 // 1 hour
+    private intervalMs: number = 60 * 60 * 1000, // 1 hour
   ) {}
 
   start(): void {

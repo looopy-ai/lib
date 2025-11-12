@@ -173,7 +173,7 @@ export class Mem0MessageStore implements MessageStore {
    */
   async getRecent(
     contextId: string,
-    options?: { maxMessages?: number; maxTokens?: number }
+    options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<Message[]> {
     // Get recent messages from cache
     const cached = this.messageCache.get(contextId) || [];

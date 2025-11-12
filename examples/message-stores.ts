@@ -168,7 +168,7 @@ async function exampleBedrock() {
   const otherUserMessages = await store.getRecent(
     'session-002',
     { maxMessages: 10 },
-    'user-bob' // Different actor
+    'user-bob', // Different actor
   );
   console.log('Other user messages:', otherUserMessages.length);
 
@@ -323,7 +323,7 @@ async function exampleCompaction() {
   for (let i = 0; i < 100; i++) {
     messages.push(
       { role: 'user', content: `User message ${i}` },
-      { role: 'assistant', content: `Assistant response ${i}` }
+      { role: 'assistant', content: `Assistant response ${i}` },
     );
   }
   await store.append(contextId, messages);

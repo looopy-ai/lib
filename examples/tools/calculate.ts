@@ -28,5 +28,5 @@ export const calculateTool = tool(
       console.error(`   ✗ Error: ${err.message}`);
       throw err;
     }
-  }
+  },
 );

@@ -137,7 +137,7 @@ export class FileSystemStateStore implements TaskStateStore {
 
   private async getTaskIdsFromDir(
     contextDir: string,
-    filter?: { completedAfter?: Date }
+    filter?: { completedAfter?: Date },
   ): Promise<string[]> {
     const taskIds: string[] = [];
     const taskDir = join(contextDir, 'task');
@@ -162,7 +162,7 @@ export class FileSystemStateStore implements TaskStateStore {
 
   private async processStateFile(
     filePath: string,
-    filter?: { completedAfter?: Date }
+    filter?: { completedAfter?: Date },
   ): Promise<string | null> {
     try {
       const content = await readFile(filePath, 'utf-8');
@@ -220,7 +220,7 @@ export class FileSystemStateStore implements TaskStateStore {
       `agent=${safeAgentId}`,
       `context=${safeContextId}`,
       'task',
-      `${safeTaskId}.json`
+      `${safeTaskId}.json`,
     );
   }
 

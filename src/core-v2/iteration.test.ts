@@ -36,7 +36,7 @@ vi.mock('./tools', () => ({
       success: true,
       result: 'mocked tool result',
       timestamp: new Date().toISOString(),
-    })
+    }),
   ),
 }));
 
@@ -55,7 +55,7 @@ describe('iteration', () => {
           kind: 'content-complete',
           content: 'Test response',
           timestamp: new Date().toISOString(),
-        } as AnyEvent)
+        } as AnyEvent),
       ),
     };
 
@@ -95,7 +95,7 @@ describe('iteration', () => {
           iteration: 1,
           history: mockHistory,
         },
-        'Starting iteration'
+        'Starting iteration',
       );
     });
 
@@ -146,7 +146,7 @@ describe('iteration', () => {
           tools: [mockTool],
           stream: true,
           sessionId: 'task-789',
-        })
+        }),
       );
     });
 
@@ -165,7 +165,7 @@ describe('iteration', () => {
               name: 'system-prompt',
             },
           ]),
-        })
+        }),
       );
     });
 
@@ -192,7 +192,7 @@ describe('iteration', () => {
               name: 'data-analysis',
             },
           ]),
-        })
+        }),
       );
     });
 
@@ -206,7 +206,7 @@ describe('iteration', () => {
       expect(callArgs.messages).not.toContainEqual(
         expect.objectContaining({
           name: 'system-prompt',
-        })
+        }),
       );
     });
 
@@ -218,7 +218,7 @@ describe('iteration', () => {
 
       const callArgs = vi.mocked(mockLLMProvider.call).mock.calls[0][0];
       const skillPromptMessages = callArgs.messages.filter(
-        (m: Message) => m.role === 'system' && m.name !== 'system-prompt'
+        (m: Message) => m.role === 'system' && m.name !== 'system-prompt',
       );
       expect(skillPromptMessages).toHaveLength(0);
     });
@@ -229,7 +229,7 @@ describe('iteration', () => {
           kind: 'content-delta',
           delta: 'Hello',
           timestamp: new Date().toISOString(),
-        } as AnyEvent)
+        } as AnyEvent),
       );
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
@@ -241,7 +241,7 @@ describe('iteration', () => {
           taskId: 'task-789',
           kind: 'content-delta',
           delta: 'Hello',
-        })
+        }),
       );
     });
 
@@ -274,7 +274,7 @@ describe('iteration', () => {
           taskId: 'task-789',
           toolCallId: 'call-123',
           toolName: 'test_tool',
-        })
+        }),
       );
     });
 
@@ -300,7 +300,7 @@ describe('iteration', () => {
       };
 
       vi.mocked(mockLLMProvider.call).mockReturnValue(
-        of(llmEvent1 as AnyEvent, toolCallEvent as AnyEvent, llmEvent2 as AnyEvent)
+        of(llmEvent1 as AnyEvent, toolCallEvent as AnyEvent, llmEvent2 as AnyEvent),
       );
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
@@ -334,7 +334,7 @@ describe('iteration', () => {
       };
 
       vi.mocked(mockLLMProvider.call).mockReturnValue(
-        of(toolCall1 as AnyEvent, toolCall2 as AnyEvent)
+        of(toolCall1 as AnyEvent, toolCall2 as AnyEvent),
       );
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
@@ -343,11 +343,11 @@ describe('iteration', () => {
       expect(tools.runToolCall).toHaveBeenCalledTimes(2);
       expect(tools.runToolCall).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ toolCallId: 'call-1' })
+        expect.objectContaining({ toolCallId: 'call-1' }),
       );
       expect(tools.runToolCall).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ toolCallId: 'call-2' })
+        expect.objectContaining({ toolCallId: 'call-2' }),
       );
     });
 
@@ -390,7 +390,7 @@ describe('iteration', () => {
       expect(mockLLMProvider.call).toHaveBeenCalledWith(
         expect.objectContaining({
           tools: [tool1, tool2],
-        })
+        }),
       );
     });
 
@@ -403,7 +403,7 @@ describe('iteration', () => {
       expect(mockLLMProvider.call).toHaveBeenCalledWith(
         expect.objectContaining({
           tools: [],
-        })
+        }),
       );
     });
 
@@ -470,14 +470,14 @@ describe('iteration', () => {
       expect(spans.startLoopIterationSpan).toHaveBeenCalledWith(
         expect.objectContaining({
           iteration: 5,
-        })
+        }),
       );
 
       expect(mockContext.logger.info).toHaveBeenCalledWith(
         expect.objectContaining({
           iteration: 5,
         }),
-        'Starting iteration'
+        'Starting iteration',
       );
     });
 
@@ -489,7 +489,7 @@ describe('iteration', () => {
         expect.objectContaining({
           stream: true,
           sessionId: 'task-789',
-        })
+        }),
       );
     });
 
@@ -556,7 +556,7 @@ describe('iteration', () => {
       expect(mockLLMProvider.call).toHaveBeenCalledWith(
         expect.objectContaining({
           tools: [],
-        })
+        }),
       );
     });
 
@@ -579,7 +579,7 @@ describe('iteration', () => {
         expect.objectContaining({
           parentContext: expect.any(Object), // iteration's traceContext
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -595,7 +595,7 @@ describe('iteration', () => {
 
       const callArgs = vi.mocked(mockLLMProvider.call).mock.calls[0][0];
       const skillMessages = callArgs.messages.filter(
-        (m: Message) => m.role === 'system' && m.name !== 'system-prompt'
+        (m: Message) => m.role === 'system' && m.name !== 'system-prompt',
       );
 
       expect(skillMessages).toHaveLength(3);

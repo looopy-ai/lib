@@ -31,7 +31,7 @@ const emitIfNonEmpty = (
   s: string,
   prevWasTag: boolean,
   nextIsTagAhead: boolean,
-  push: (v: string) => void
+  push: (v: string) => void,
 ) => {
   let out = s;
   if (prevWasTag) out = out.replace(/^\s+/, '');
@@ -42,7 +42,7 @@ const emitIfNonEmpty = (
 export const getContent = <T extends Choice>() =>
   pipe(
     filter((choice: T) => !!choice.delta?.content),
-    map((choice) => choice.delta?.content as string)
+    map((choice) => choice.delta?.content as string),
   );
 
 /**
@@ -117,7 +117,7 @@ export const splitInlineXml = (source: Observable<string>): SplitResult => {
       //  b attr="value"
       //  c attr="value" /
       const nameMatch = /^([A-Za-z_:][\w:.-]*)([\s\S]*)$/.exec(
-        selfClose ? tagHead.slice(0, -1).trimEnd() : tagHead
+        selfClose ? tagHead.slice(0, -1).trimEnd() : tagHead,
       );
       if (!nameMatch) {
         // Not a valid tag name; treat it as text (fallback)
@@ -319,7 +319,7 @@ export class InlineXmlParser {
     }
 
     const nameMatch = /^([A-Za-z_:][\w:.-]*)([\s\S]*)$/.exec(
-      selfClose ? tagHead.slice(0, -1).trimEnd() : tagHead
+      selfClose ? tagHead.slice(0, -1).trimEnd() : tagHead,
     );
     if (!nameMatch) {
       this.prevEmittedWasTag = true;
@@ -341,7 +341,7 @@ export class InlineXmlParser {
   private processPairedTag(
     tagName: string,
     tagHead: string,
-    attributes: Record<string, string | string[]>
+    attributes: Record<string, string | string[]>,
   ): boolean {
     const closeSeq = `</${tagName}>`;
     const closeIdx = this.buffer.indexOf(closeSeq);

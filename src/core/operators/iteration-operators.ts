@@ -22,14 +22,14 @@ export const startIterationSpan = (
   state: LoopState,
   nextIteration: number,
   logger: Logger,
-  parentContext: import('@opentelemetry/api').Context
+  parentContext: import('@opentelemetry/api').Context,
 ) => {
   logger.debug(
     {
       taskId: state.taskId,
       iteration: nextIteration,
     },
-    'Starting iteration'
+    'Starting iteration',
   );
 
   // Start iteration span
@@ -61,7 +61,7 @@ export const completeIteration = (span: Span, nextIteration: number, logger: Log
         iteration: nextIteration,
         completed: state.completed,
       },
-      'Iteration complete'
+      'Iteration complete',
     );
 
     // Complete span successfully

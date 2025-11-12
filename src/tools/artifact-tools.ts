@@ -17,7 +17,7 @@ import { localTools, tool } from './local-tools';
 async function trackArtifactInState(
   taskId: string,
   artifactId: string,
-  taskStateStore: TaskStateStore
+  taskStateStore: TaskStateStore,
 ): Promise<void> {
   // Load current state
   const state = await taskStateStore.load(taskId);
@@ -44,7 +44,7 @@ async function trackArtifactInState(
  */
 export function createArtifactTools(
   artifactStore: ArtifactStore,
-  taskStateStore: TaskStateStore
+  taskStateStore: TaskStateStore,
 ): ToolProvider {
   return localTools([
     // ============================================================================
@@ -99,7 +99,7 @@ export function createArtifactTools(
             ? 'File artifact reset. Use append_file_chunk to add content.'
             : 'File artifact created. Use append_file_chunk to add content.',
         };
-      }
+      },
     ),
 
     tool(
@@ -121,7 +121,7 @@ export function createArtifactTools(
           params.content_chunk,
           {
             isLastChunk: params.isLastChunk,
-          }
+          },
         );
 
         return {
@@ -132,7 +132,7 @@ export function createArtifactTools(
             ? 'Final chunk appended. Artifact is complete.'
             : 'Chunk appended successfully.',
         };
-      }
+      },
     ),
 
     tool(
@@ -147,7 +147,7 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           content,
         };
-      }
+      },
     ),
 
     // ============================================================================
@@ -193,7 +193,7 @@ export function createArtifactTools(
             ? 'Data artifact reset successfully.'
             : 'Data artifact created successfully.',
         };
-      }
+      },
     ),
 
     tool(
@@ -212,7 +212,7 @@ export function createArtifactTools(
           status: 'complete',
           message: 'Data artifact updated successfully.',
         };
-      }
+      },
     ),
 
     tool(
@@ -227,7 +227,7 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           data,
         };
-      }
+      },
     ),
 
     tool(
@@ -242,7 +242,7 @@ export function createArtifactTools(
           artifactId: params.artifactId,
           data,
         };
-      }
+      },
     ),
 
     // ============================================================================
@@ -262,7 +262,7 @@ export function createArtifactTools(
               name: z.string(),
               type: z.enum(['string', 'number', 'boolean', 'date', 'json']),
               description: z.string().optional(),
-            })
+            }),
           ),
         }),
         override: z
@@ -293,7 +293,7 @@ export function createArtifactTools(
             ? 'Dataset artifact reset. Use append_dataset_row(s) to add data.'
             : 'Dataset artifact created. Use append_dataset_row(s) to add data.',
         };
-      }
+      },
     ),
 
     tool(
@@ -312,7 +312,7 @@ export function createArtifactTools(
           rowAdded: true,
           message: 'Row appended to dataset.',
         };
-      }
+      },
     ),
 
     tool(
@@ -333,7 +333,7 @@ export function createArtifactTools(
           rowsAdded: params.rows.length,
           message: `${params.rows.length} rows appended to dataset.`,
         };
-      }
+      },
     ),
 
     tool(
@@ -349,7 +349,7 @@ export function createArtifactTools(
           rows,
           totalRows: rows.length,
         };
-      }
+      },
     ),
 
     // ============================================================================
@@ -366,7 +366,7 @@ export function createArtifactTools(
         // Use the new listArtifacts method with context scoping
         const artifactIds = await artifactStore.listArtifacts(context.contextId, params.taskId);
         const artifacts = await Promise.all(
-          artifactIds.map((id) => artifactStore.getArtifact(context.contextId, id))
+          artifactIds.map((id) => artifactStore.getArtifact(context.contextId, id)),
         );
 
         const validArtifacts = artifacts.filter((a): a is StoredArtifact => a !== null);
@@ -382,7 +382,7 @@ export function createArtifactTools(
           })),
           totalCount: validArtifacts.length,
         };
-      }
+      },
     ),
 
     tool(
@@ -419,7 +419,7 @@ export function createArtifactTools(
             schema: artifact.schema,
           }),
         };
-      }
+      },
     ),
 
     tool(
@@ -436,7 +436,7 @@ export function createArtifactTools(
           deleted: true,
           message: 'Artifact deleted successfully.',
         };
-      }
+      },
     ),
   ]);
 }

@@ -44,7 +44,7 @@ const createToolCallAccumulator = (delta: ToolCall): ToolCallAccumulator => ({
 
 const processToolCallDeltas = (
   toolCallsByIndex: Map<number, ToolCallAccumulator>,
-  deltas: ToolCall[]
+  deltas: ToolCall[],
 ): void => {
   for (const toolCallDelta of deltas) {
     const idx = toolCallDelta.index;
@@ -73,7 +73,7 @@ const processChoice = (
   choice: Choice,
   aggregated: AggregatedChoice,
   toolCallsByIndex: Map<number, ToolCallAccumulator>,
-  xmlParser: InlineXmlParser
+  xmlParser: InlineXmlParser,
 ): void => {
   // Set index from first choice (should be consistent)
   if (aggregated.index === undefined) {
@@ -161,7 +161,7 @@ export const aggregateChoice =
 
 const mergeDetailsObject = (
   target: Record<string, number>,
-  source?: Record<string, number>
+  source?: Record<string, number>,
 ): void => {
   if (!source) return;
   for (const [key, value] of Object.entries(source)) {
@@ -178,7 +178,7 @@ const buildAggregatedUsage = (
   cacheCreationInputTokens: number,
   cacheReadInputTokens: number,
   completionTokensDetails: Record<string, number>,
-  promptTokensDetails: Record<string, number>
+  promptTokensDetails: Record<string, number>,
 ): LLMUsage => {
   const aggregated: LLMUsage = {};
 
@@ -262,7 +262,7 @@ export const aggregateLLMUsage =
             cacheCreationInputTokens,
             cacheReadInputTokens,
             completionTokensDetails,
-            promptTokensDetails
+            promptTokensDetails,
           );
 
           subscriber.next(aggregated as T);

@@ -20,7 +20,7 @@ import type {
  */
 type ToolHandler<TParams> = (
   params: TParams,
-  context: ExecutionContext
+  context: ExecutionContext,
 ) => Promise<unknown> | unknown;
 
 /**
@@ -52,7 +52,7 @@ export function tool<TSchema extends z.ZodObject>(
   name: string,
   description: string,
   schema: TSchema,
-  handler: ToolHandler<z.infer<TSchema>>
+  handler: ToolHandler<z.infer<TSchema>>,
 ): LocalToolDefinition<TSchema> {
   return { name, description, schema, handler };
 }
@@ -61,7 +61,7 @@ export function tool<TSchema extends z.ZodObject>(
  * Convert Zod schema to JSON Schema for tool parameters
  */
 const zodToJsonSchema = (
-  schema: z.ZodObject
+  schema: z.ZodObject,
 ): {
   type: 'object';
   properties: Record<string, unknown>;

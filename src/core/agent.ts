@@ -9,6 +9,7 @@
 
 import type { Context } from '@opentelemetry/api';
 import { catchError, concat, Observable, of, tap } from 'rxjs';
+import { runLoop } from '../core-v2/loop';
 import { createTaskStatusEvent } from '../events';
 import {
   addMessagesCompactedEvent,
@@ -24,36 +25,9 @@ import {
   startAgentTurnSpan,
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
-import { AgentLoop } from './agent-loop';
 import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
-import type {
-  AgentEvent,
-  ArtifactStore,
-  LLMProvider,
-  Message,
-  PersistedLoopState,
-  TaskStateStore,
-  ToolProvider,
-} from './types';
-
-/**
- * No-op state store for Agent (doesn't use old checkpoint system)
- */
-class NoopStateStore implements TaskStateStore {
-  async save(_taskId: string, _state: PersistedLoopState): Promise<void> {}
-  async load(_taskId: string): Promise<PersistedLoopState | null> {
-    return null;
-  }
-  async exists(_taskId: string): Promise<boolean> {
-    return false;
-  }
-  async delete(_taskId: string): Promise<void> {}
-  async listTasks(): Promise<string[]> {
-    return [];
-  }
-  async setTTL(_taskId: string, _ttlSeconds: number): Promise<void> {}
-}
+import type { AgentEvent, ArtifactStore, LLMProvider, Message, ToolProvider } from './types';
 
 /**
  * Agent configuration
@@ -143,8 +117,6 @@ export class Agent {
   private readonly config: Omit<Required<AgentConfig>, 'loopConfig'> & {
     loopConfig?: Partial<AgentLoopConfig>;
   };
-
-  private agentLoop: AgentLoop;
   private _state: AgentState;
 
   constructor(config: AgentConfig) {
@@ -157,18 +129,6 @@ export class Agent {
       ...config,
       logger: config.logger || getLogger({ component: 'Agent', contextId: config.contextId }),
     };
-
-    // Create agent loop with combined config
-    this.agentLoop = new AgentLoop({
-      agentId: this.config.agentId,
-      llmProvider: this.config.llmProvider,
-      toolProviders: this.config.toolProviders,
-      taskStateStore: new NoopStateStore(), // Agent handles state, not AgentLoop
-      artifactStore: this.config.artifactStore,
-      systemPrompt: this.config.systemPrompt,
-      logger: this.config.logger,
-      ...this.config.loopConfig,
-    });
 
     // Initialize state
     this._state = {
@@ -431,70 +391,75 @@ export class Agent {
             );
 
             // 3. Execute turn via AgentLoop with trace context
-            const turnEvents$ = this.agentLoop
-              .startTurnLoop(messages, {
+            const turnEvents$ = runLoop(
+              {
+                agentId: this.config.agentId,
                 contextId: this.config.contextId,
                 taskId,
-                turnNumber,
-                artifacts: await this.getArtifacts(),
                 authContext,
                 parentContext: turnContext,
-              })
-              .pipe(
-                tap(async (event) => {
-                  switch (event.kind) {
-                    case 'content-complete':
-                      if (this.config.autoSave && (event.content || event.toolCalls)) {
-                        await this.config.messageStore.append(this.config.contextId, [
-                          {
-                            role: 'assistant',
-                            content: event.content,
-                            toolCalls: event.toolCalls?.map((toolCall) => ({
-                              id: toolCall.id,
-                              type: toolCall.type,
-                              function: {
-                                name: toolCall.function.name,
-                                arguments: toolCall.function.arguments || {},
-                              },
-                            })),
-                          },
-                        ]);
-                      }
-                      break;
-                    case 'tool-start':
-                      break;
-                    case 'tool-complete':
-                      if (this.config.autoSave) {
-                        const message: Message = {
-                          role: 'tool',
-                          content: JSON.stringify({
-                            success: event.success,
-                            result: event.result,
-                            error: event.error,
-                          }),
-                          toolCallId: event.toolCallId,
-                        };
-                        this.config.logger.debug(
-                          { message },
-                          'Saving tool message to message store',
-                        );
-                        await this.config.messageStore.append(this.config.contextId, [message]);
-                      }
-                      break;
-                    case 'task-complete':
-                      if (event.content) {
-                        setTurnOutputAttribute(turnSpan, event.content);
-                        this.config.logger.trace(
-                          { messageContent: event.content },
-                          `Added assistant message output to agent[${this.config.agentId}] span`,
-                        );
-                      }
-                      break;
-                    default:
-                      break;
-                  }
-                }),
-              );
+                toolProviders: this.config.toolProviders,
+                logger: this.config.logger,
+                turnNumber,
+              },
+              {
+                llmProvider: this.config.llmProvider,
+                maxIterations: 5,
+                stopOnToolError: false,
+              },
+              messages,
+            ).pipe(
+              tap(async (event) => {
+                switch (event.kind) {
+                  case 'content-complete':
+                    if (this.config.autoSave && (event.content || event.toolCalls)) {
+                      await this.config.messageStore.append(this.config.contextId, [
+                        {
+                          role: 'assistant',
+                          content: event.content,
+                          toolCalls: event.toolCalls?.map((toolCall) => ({
+                            id: toolCall.id,
+                            type: toolCall.type,
+                            function: {
+                              name: toolCall.function.name,
+                              arguments: toolCall.function.arguments || {},
+                            },
+                          })),
+                        },
+                      ]);
+                    }
+                    break;
+                  case 'tool-start':
+                    break;
+                  case 'tool-complete':
+                    if (this.config.autoSave) {
+                      const message: Message = {
+                        role: 'tool',
+                        content: JSON.stringify({
+                          success: event.success,
+                          result: event.result,
+                          error: event.error,
+                        }),
+                        toolCallId: event.toolCallId,
+                      };
+                      this.config.logger.debug({ message }, 'Saving tool message to message store');
+                      await this.config.messageStore.append(this.config.contextId, [message]);
+                    }
+                    break;
+                  case 'task-complete':
+                    if (event.content) {
+                      setTurnOutputAttribute(turnSpan, event.content);
+                      this.config.logger.trace(
+                        { messageContent: event.content },
+                        `Added assistant message output to agent[${this.config.agentId}] span`,
+                      );
+                    }
+                    break;
+                  default:
+                    break;
+                }
+              }),
+            );
 
             // Subscribe to turn events
             turnEvents$.subscribe({

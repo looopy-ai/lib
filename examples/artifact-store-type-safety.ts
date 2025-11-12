@@ -122,7 +122,7 @@ async function main() {
       { date: '2024-10-03', product: 'Widget A', revenue: 1800 },
       { date: '2024-10-04', product: 'Widget C', revenue: 3100 },
     ],
-    { isLastBatch: true }
+    { isLastBatch: true },
   );
 
   // Type narrowing
@@ -184,19 +184,19 @@ async function main() {
 
   // Type guard functions for cleaner code
   function isFileArtifact(
-    artifact: FileArtifact | DataArtifact | DatasetArtifact
+    artifact: FileArtifact | DataArtifact | DatasetArtifact,
   ): artifact is FileArtifact {
     return artifact.type === 'file';
   }
 
   function isDataArtifact(
-    artifact: FileArtifact | DataArtifact | DatasetArtifact
+    artifact: FileArtifact | DataArtifact | DatasetArtifact,
   ): artifact is DataArtifact {
     return artifact.type === 'data';
   }
 
   function isDatasetArtifact(
-    artifact: FileArtifact | DataArtifact | DatasetArtifact
+    artifact: FileArtifact | DataArtifact | DatasetArtifact,
   ): artifact is DatasetArtifact {
     return artifact.type === 'dataset';
   }
@@ -222,7 +222,7 @@ async function main() {
 
   for (const art of allArtifacts) {
     console.log(
-      `${art.name}: ${getArtifactSize(art)} ${isFileArtifact(art) || isDataArtifact(art) ? 'bytes' : 'rows'}`
+      `${art.name}: ${getArtifactSize(art)} ${isFileArtifact(art) || isDataArtifact(art) ? 'bytes' : 'rows'}`,
     );
   }
 

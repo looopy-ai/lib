@@ -116,7 +116,7 @@ export interface CreateTaskCompleteEventOptions {
 }
 
 export function createTaskCompleteEvent(
-  options: CreateTaskCompleteEventOptions
+  options: CreateTaskCompleteEventOptions,
 ): TaskCompleteEvent {
   return {
     kind: 'task-complete',
@@ -141,7 +141,7 @@ export interface CreateContentDeltaEventOptions {
 }
 
 export function createContentDeltaEvent(
-  options: CreateContentDeltaEventOptions
+  options: CreateContentDeltaEventOptions,
 ): ContentDeltaEvent {
   return {
     kind: 'content-delta',
@@ -161,7 +161,7 @@ export interface CreateContentCompleteEventOptions {
 }
 
 export function createContentCompleteEvent(
-  options: CreateContentCompleteEventOptions
+  options: CreateContentCompleteEventOptions,
 ): ContentCompleteEvent {
   return {
     kind: 'content-complete',
@@ -218,7 +218,7 @@ export interface CreateToolProgressEventOptions {
 }
 
 export function createToolProgressEvent(
-  options: CreateToolProgressEventOptions
+  options: CreateToolProgressEventOptions,
 ): ToolProgressEvent {
   return {
     kind: 'tool-progress',
@@ -249,7 +249,7 @@ export interface CreateToolCompleteEventOptions {
 }
 
 export function createToolCompleteEvent(
-  options: CreateToolCompleteEventOptions
+  options: CreateToolCompleteEventOptions,
 ): ToolCompleteEvent {
   return {
     kind: 'tool-complete',
@@ -282,7 +282,7 @@ export interface CreateInputRequiredEventOptions {
 }
 
 export function createInputRequiredEvent(
-  options: CreateInputRequiredEventOptions
+  options: CreateInputRequiredEventOptions,
 ): InputRequiredEvent {
   return {
     kind: 'input-required',
@@ -313,7 +313,7 @@ export interface CreateInputReceivedEventOptions {
 }
 
 export function createInputReceivedEvent(
-  options: CreateInputReceivedEventOptions
+  options: CreateInputReceivedEventOptions,
 ): InputReceivedEvent {
   return {
     kind: 'input-received',
@@ -348,7 +348,7 @@ export interface CreateAuthRequiredEventOptions {
 }
 
 export function createAuthRequiredEvent(
-  options: CreateAuthRequiredEventOptions
+  options: CreateAuthRequiredEventOptions,
 ): AuthRequiredEvent {
   return {
     kind: 'auth-required',
@@ -377,7 +377,7 @@ export interface CreateAuthCompletedEventOptions {
 }
 
 export function createAuthCompletedEvent(
-  options: CreateAuthCompletedEventOptions
+  options: CreateAuthCompletedEventOptions,
 ): AuthCompletedEvent {
   return {
     kind: 'auth-completed',
@@ -477,7 +477,7 @@ export interface CreateDatasetWriteEventOptions {
 }
 
 export function createDatasetWriteEvent(
-  options: CreateDatasetWriteEventOptions
+  options: CreateDatasetWriteEventOptions,
 ): DatasetWriteEvent {
   return {
     kind: 'dataset-write',
@@ -508,7 +508,7 @@ export interface CreateSubtaskCreatedEventOptions {
 }
 
 export function createSubtaskCreatedEvent(
-  options: CreateSubtaskCreatedEventOptions
+  options: CreateSubtaskCreatedEventOptions,
 ): SubtaskCreatedEvent {
   return {
     kind: 'subtask-created',
@@ -542,7 +542,7 @@ export interface CreateThoughtStreamEventOptions {
 }
 
 export function createThoughtStreamEvent(
-  options: CreateThoughtStreamEventOptions
+  options: CreateThoughtStreamEventOptions,
 ): ThoughtStreamEvent {
   return {
     kind: 'thought-stream',
@@ -568,7 +568,7 @@ export interface CreateInternalThoughtProcessEventOptions {
 }
 
 export function createInternalThoughtProcessEvent(
-  options: CreateInternalThoughtProcessEventOptions
+  options: CreateInternalThoughtProcessEventOptions,
 ): InternalThoughtProcessEvent {
   return {
     kind: 'internal:thought-process',
@@ -595,7 +595,7 @@ export interface CreateInternalLLMCallEventOptions {
 }
 
 export function createInternalLLMCallEvent(
-  options: CreateInternalLLMCallEventOptions
+  options: CreateInternalLLMCallEventOptions,
 ): InternalLLMCallEvent {
   return {
     kind: 'internal:llm-call',
@@ -615,7 +615,7 @@ export interface CreateInternalCheckpointEventOptions {
 }
 
 export function createInternalCheckpointEvent(
-  options: CreateInternalCheckpointEventOptions
+  options: CreateInternalCheckpointEventOptions,
 ): InternalCheckpointEvent {
   return {
     kind: 'internal:checkpoint',
@@ -656,7 +656,7 @@ export function filterByContextId(events: AnyEvent[], contextId: string): AnyEve
  */
 export function filterByKind<K extends AnyEvent['kind']>(
   events: AnyEvent[],
-  kind: K
+  kind: K,
 ): Extract<AnyEvent, { kind: K }>[] {
   return events.filter((event) => event.kind === kind) as Extract<AnyEvent, { kind: K }>[];
 }

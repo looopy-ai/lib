@@ -53,5 +53,5 @@ export const weatherTool = tool(
     console.log(`   ✓ Weather:`, weatherResult);
 
     return weatherResult;
-  }
+  },
 );

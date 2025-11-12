@@ -13,11 +13,11 @@ type ChatCompletionStreamData = {
 export const choices = <T extends ChatCompletionStreamData>() =>
   pipe(
     mergeMap((data: T) => data.choices),
-    filter((choice) => !!choice)
+    filter((choice) => !!choice),
   );
 
 export const usage = <T extends ChatCompletionStreamData>() =>
   pipe(
     map((data: T) => data.usage),
-    filter((usage) => !!usage)
+    filter((usage) => !!usage),
   );

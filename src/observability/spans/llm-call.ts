@@ -32,7 +32,7 @@ export const startLLMCallSpan = (params: LLMCallSpanParams) => {
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
       },
     },
-    params.parentContext
+    params.parentContext,
   );
 
   const traceContext = trace.setSpan(params.parentContext, span);
@@ -45,7 +45,7 @@ export const startLLMCallSpan = (params: LLMCallSpanParams) => {
  */
 export function setContentCompleteEventAttributes(
   span: Span,
-  event: LLMEvent<ContentCompleteEvent>
+  event: LLMEvent<ContentCompleteEvent>,
 ): void {
   // Set finish reason
   span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');

@@ -172,7 +172,7 @@ export class BedrockMemoryStore implements MessageStore {
   async getRecent(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-    actorId?: string
+    actorId?: string,
   ): Promise<Message[]> {
     const actor = actorId || this.config.actorId || this.config.extractActorId(contextId);
     const sessionId = contextId;
@@ -214,7 +214,7 @@ export class BedrockMemoryStore implements MessageStore {
         const longTermMemories = await this.searchLongTermMemories(
           actor,
           sessionId,
-          'relevant context'
+          'relevant context',
         );
 
         if (longTermMemories.length > 0) {
@@ -245,7 +245,7 @@ export class BedrockMemoryStore implements MessageStore {
   private async searchLongTermMemories(
     actorId: string,
     _sessionId: string,
-    query: string
+    query: string,
   ): Promise<unknown[]> {
     try {
       const { RetrieveMemoryRecordsCommand } = require('@aws-sdk/client-bedrock-agentcore');
@@ -301,7 +301,7 @@ export class BedrockMemoryStore implements MessageStore {
     contextId: string,
     startIndex: number,
     endIndex: number,
-    actorId?: string
+    actorId?: string,
   ): Promise<Message[]> {
     const all = await this.getAll(contextId, actorId);
     return all.slice(startIndex, endIndex);
@@ -402,7 +402,7 @@ export class BedrockMemoryStore implements MessageStore {
     contextId: string,
     query: string,
     options?: { maxResults?: number },
-    actorId?: string
+    actorId?: string,
   ): Promise<unknown[]> {
     const actor = actorId || this.config.actorId || this.config.extractActorId(contextId);
 
@@ -434,7 +434,7 @@ export class BedrockMemoryStore implements MessageStore {
   async listMemoryRecords(
     contextId: string,
     options?: { maxResults?: number; namespacePrefix?: string },
-    actorId?: string
+    actorId?: string,
   ): Promise<unknown[]> {
     const actor = actorId || this.config.actorId || this.config.extractActorId(contextId);
 

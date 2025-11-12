@@ -29,7 +29,7 @@
     "enabled": true,
     "rules": {
       "complexity": {
-        "noExcessiveCognitiveComplexity": "warn"
+        "noExcessiveCognitiveComplexity": "off"
       },
       "correctness": {
         "noUnusedVariables": "error"

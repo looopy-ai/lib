@@ -162,7 +162,7 @@ describe('EventBuffer', () => {
     for (let i = 0; i < 15; i++) {
       buffer.add(
         ctx,
-        createTaskStatusEvent({ contextId: ctx, taskId: 'task-1', status: 'working' })
+        createTaskStatusEvent({ contextId: ctx, taskId: 'task-1', status: 'working' }),
       );
     }
 
@@ -177,7 +177,7 @@ describe('EventBuffer', () => {
 
     shortTtlBuffer.add(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
 
     // Wait for expiry
@@ -194,11 +194,11 @@ describe('EventBuffer', () => {
   it('should clear context', () => {
     buffer.add(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
     buffer.add(
       'ctx-1',
-      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' })
+      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' }),
     );
 
     buffer.clear('ctx-1');
@@ -209,15 +209,15 @@ describe('EventBuffer', () => {
   it('should provide stats', () => {
     buffer.add(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
     buffer.add(
       'ctx-1',
-      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' })
+      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' }),
     );
     buffer.add(
       'ctx-2',
-      createTaskCreatedEvent({ contextId: 'ctx-2', taskId: 'task-2', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-2', taskId: 'task-2', initiator: 'user' }),
     );
 
     const stats = buffer.getStats();
@@ -591,7 +591,7 @@ describe('SSEServer', () => {
 
     server.emit(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
 
     expect(response1.getEvents()).toHaveLength(1);
@@ -605,15 +605,15 @@ describe('SSEServer', () => {
     // Send 3 events
     server.emit(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
     server.emit(
       'ctx-1',
-      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' })
+      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'working' }),
     );
     server.emit(
       'ctx-1',
-      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'completed' })
+      createTaskStatusEvent({ contextId: 'ctx-1', taskId: 'task-1', status: 'completed' }),
     );
 
     const events1 = response1.getEvents();
@@ -686,7 +686,7 @@ describe('SSEServer', () => {
     server.subscribe(new MockSSEResponse(), { contextId: 'ctx-1' });
     server.emit(
       'ctx-1',
-      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' })
+      createTaskCreatedEvent({ contextId: 'ctx-1', taskId: 'task-1', initiator: 'user' }),
     );
 
     const stats = server.getStats();

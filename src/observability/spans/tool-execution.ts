@@ -33,7 +33,7 @@ export const startToolExecutionSpan = (params: ToolExecutionSpanParams) => {
         input: JSON.stringify(params.toolCall.function.arguments),
       },
     },
-    params.parentContext
+    params.parentContext,
   );
 
   const traceContext = trace.setSpan(params.parentContext || otelContext.active(), span);

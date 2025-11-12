@@ -345,11 +345,11 @@ describe('assembleToolCalls', () => {
         (async function* () {
           yield { index: 0, id: 'call_1', function: { name: 'test' } } as ToolCallFragment;
           throw new Error('Stream error');
-        })()
+        })(),
       );
 
       await expect(lastValueFrom(source.pipe(assembleToolCalls(), toArray()))).rejects.toThrow(
-        'Stream error'
+        'Stream error',
       );
     });
 

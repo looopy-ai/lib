@@ -54,7 +54,7 @@ export type StreamPipeline<T extends Choice = Choice> = {
  * ```
  */
 export function createStreamPipeline<T extends Choice = Choice>(
-  source: Observable<T>
+  source: Observable<T>,
 ): StreamPipeline<T> {
   // Share the source to avoid multiple subscriptions
   const shared$ = source.pipe(share());
@@ -89,7 +89,7 @@ export function createStreamPipeline<T extends Choice = Choice>(
  * ```
  */
 export function streamContentWithThoughts<T extends Choice = Choice>(
-  source: Observable<T>
+  source: Observable<T>,
 ): {
   content: Observable<string>;
   thoughts: Observable<InlineXml>;
@@ -118,7 +118,7 @@ export function streamContentWithThoughts<T extends Choice = Choice>(
  * ```
  */
 export function streamToolCalls<T extends Choice = Choice>(
-  source: Observable<T>
+  source: Observable<T>,
 ): {
   toolCalls: Observable<ToolCall>;
   aggregated: Observable<T>;
@@ -156,7 +156,7 @@ export function observeStreams<T extends Choice = Choice>(
     onContent?: (chunk: string) => void;
     onThought?: (thought: InlineXml) => void;
     onToolCall?: (toolCall: ToolCall) => void;
-  }
+  },
 ): Observable<T> {
   const shared$ = source.pipe(share());
 
@@ -197,7 +197,7 @@ export function observeStreams<T extends Choice = Choice>(
  * ```
  */
 export async function collectStreams<T extends Choice = Choice>(
-  source: Observable<T>
+  source: Observable<T>,
 ): Promise<{
   contentChunks: string[];
   thoughts: InlineXml[];

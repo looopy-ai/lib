@@ -59,16 +59,16 @@ export class ArtifactScheduler implements ArtifactStore {
     contextId: string,
     artifactId: string,
     chunk: string,
-    options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' }
+    options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' },
   ): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.appendFileChunk(contextId, artifactId, chunk, options)
+      this.store.appendFileChunk(contextId, artifactId, chunk, options),
     );
   }
 
   async getFileContent(contextId: string, artifactId: string): Promise<string> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.getFileContent(contextId, artifactId)
+      this.store.getFileContent(contextId, artifactId),
     );
   }
 
@@ -90,16 +90,16 @@ export class ArtifactScheduler implements ArtifactStore {
   async writeData(
     contextId: string,
     artifactId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.writeData(contextId, artifactId, data)
+      this.store.writeData(contextId, artifactId, data),
     );
   }
 
   async getDataContent(contextId: string, artifactId: string): Promise<Record<string, unknown>> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.getDataContent(contextId, artifactId)
+      this.store.getDataContent(contextId, artifactId),
     );
   }
 
@@ -117,7 +117,7 @@ export class ArtifactScheduler implements ArtifactStore {
     override?: boolean;
   }): Promise<string> {
     return this.scheduleOperation(params.artifactId, () =>
-      this.store.createDatasetArtifact(params)
+      this.store.createDatasetArtifact(params),
     );
   }
 
@@ -125,16 +125,16 @@ export class ArtifactScheduler implements ArtifactStore {
     contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
-    options?: { isLastBatch?: boolean }
+    options?: { isLastBatch?: boolean },
   ): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.appendDatasetBatch(contextId, artifactId, rows, options)
+      this.store.appendDatasetBatch(contextId, artifactId, rows, options),
     );
   }
 
   async getDatasetRows(contextId: string, artifactId: string): Promise<Record<string, unknown>[]> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.getDatasetRows(contextId, artifactId)
+      this.store.getDatasetRows(contextId, artifactId),
     );
   }
 
@@ -161,7 +161,7 @@ export class ArtifactScheduler implements ArtifactStore {
    */
   async deleteArtifact(contextId: string, artifactId: string): Promise<void> {
     return this.scheduleOperation(artifactId, () =>
-      this.store.deleteArtifact(contextId, artifactId)
+      this.store.deleteArtifact(contextId, artifactId),
     );
   }
 

@@ -69,7 +69,7 @@ export class HybridMessageStore implements MessageStore {
    */
   async getRecent(
     contextId: string,
-    options?: { maxMessages?: number; maxTokens?: number }
+    options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<Message[]> {
     // Get recent messages from local store
     const messages = await this.config.messageStore.getRecent(contextId, options);
@@ -166,7 +166,7 @@ export class HybridMessageStore implements MessageStore {
    */
   async getRawMessages(
     contextId: string,
-    options?: { maxMessages?: number; maxTokens?: number }
+    options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<Message[]> {
     return this.config.messageStore.getRecent(contextId, options);
   }

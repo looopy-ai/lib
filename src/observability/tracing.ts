@@ -99,13 +99,13 @@ function validateAuthHeaders(endpoint: string): void {
       authType: hasBasicAuth ? 'Basic Auth' : hasCustomHeaders ? 'Custom Headers' : 'Unknown',
       headerCount: headers.split(',').length,
     },
-    'Authentication headers configured'
+    'Authentication headers configured',
   );
 
   // Langfuse-specific validation
   if (endpoint.includes('langfuse.com') && !hasBasicAuth) {
     DEFAULT_LOGGER.warn(
-      'Langfuse requires Basic Auth format: Authorization=Basic <base64>. Current headers may not work.'
+      'Langfuse requires Basic Auth format: Authorization=Basic <base64>. Current headers may not work.',
     );
   }
 }
@@ -123,7 +123,7 @@ function validateOTLPEndpoint(endpoint: string): void {
           endpoint,
           correctEndpoint: endpoint.replace(/\/?$/, '/v1/traces'),
         },
-        'Langfuse OTLP endpoint should end with /v1/traces. Exports may fail without this.'
+        'Langfuse OTLP endpoint should end with /v1/traces. Exports may fail without this.',
       );
     }
   }
@@ -135,7 +135,7 @@ function validateOTLPEndpoint(endpoint: string): void {
         endpoint,
         suggestion: `${endpoint}/v1/traces`,
       },
-      'OTLP endpoint appears incomplete. Most OTLP collectors require /v1/traces path.'
+      'OTLP endpoint appears incomplete. Most OTLP collectors require /v1/traces path.',
     );
   }
 }
@@ -160,7 +160,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
       serviceVersion,
       environment,
     },
-    'Initializing OpenTelemetry tracing'
+    'Initializing OpenTelemetry tracing',
   );
 
   const resource = resourceFromAttributes({
@@ -187,7 +187,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
       otlpEndpoint,
       hasAuthHeaders,
     },
-    'Configuring OTLP exporter'
+    'Configuring OTLP exporter',
   );
 
   // Validate endpoint URL
@@ -202,7 +202,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
       {
         otlpEndpoint,
       },
-      'Using Langfuse cloud endpoint without OTEL_EXPORTER_OTLP_HEADERS. Authentication will likely fail.'
+      'Using Langfuse cloud endpoint without OTEL_EXPORTER_OTLP_HEADERS. Authentication will likely fail.',
     );
   }
 
@@ -218,7 +218,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
         spanCount: spans.length,
         endpoint: otlpEndpoint,
       },
-      'Exporting spans to OTLP collector'
+      'Exporting spans to OTLP collector',
     );
 
     originalExport(spans, (result) => {
@@ -226,7 +226,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
         // Export failed
         DEFAULT_LOGGER.trace(
           parseOTLPError(result.error),
-          'Failed to export spans to OTLP collector'
+          'Failed to export spans to OTLP collector',
         );
       } else {
         DEFAULT_LOGGER.trace({ spanCount: spans.length }, 'Successfully exported spans');
@@ -280,7 +280,7 @@ export async function shutdownTracing(): Promise<void> {
       const errorDetails = parseOTLPError(error);
       DEFAULT_LOGGER.error(
         errorDetails,
-        'Error during OpenTelemetry shutdown (collector may be unavailable or misconfigured)'
+        'Error during OpenTelemetry shutdown (collector may be unavailable or misconfigured)',
       );
     } finally {
       tracerProvider = null;

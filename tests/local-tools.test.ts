@@ -13,7 +13,7 @@ describe('local-tools', () => {
         z.object({
           input: z.string().describe('Test input'),
         }),
-        async ({ input }) => `Processed: ${input}`
+        async ({ input }) => `Processed: ${input}`,
       );
 
       expect(testTool.name).toBe('test-tool');
@@ -37,7 +37,7 @@ describe('local-tools', () => {
             score: z.number().optional(),
           }),
         }),
-        async (params) => params
+        async (params) => params,
       );
 
       expect(complexTool.name).toBe('complex');
@@ -54,7 +54,7 @@ describe('local-tools', () => {
           a: z.number(),
           b: z.number(),
         }),
-        async ({ a, b }) => a + b
+        async ({ a, b }) => a + b,
       );
 
       const tool2 = tool(
@@ -64,7 +64,7 @@ describe('local-tools', () => {
           x: z.number(),
           y: z.number(),
         }),
-        async ({ x, y }) => x * y
+        async ({ x, y }) => x * y,
       );
 
       const provider = localTools([tool1, tool2]);
@@ -93,7 +93,7 @@ describe('local-tools', () => {
             expression: z.string().describe('Math expression to evaluate'),
             precision: z.number().int().min(0).max(10).optional(),
           }),
-          async ({ expression }) => evaluate(expression)
+          async ({ expression }) => evaluate(expression),
         );
 
         const provider = localTools([calculatorTool]);
@@ -129,7 +129,7 @@ describe('local-tools', () => {
             email: z.string().email(),
             url: z.string().url(),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([stringTool]);
@@ -160,7 +160,7 @@ describe('local-tools', () => {
             score: z.number().min(0).max(100),
             multiple: z.number().multipleOf(5),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([numberTool]);
@@ -190,7 +190,7 @@ describe('local-tools', () => {
             tags: z.array(z.string()).min(1).max(10),
             numbers: z.array(z.number()),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([arrayTool]);
@@ -215,7 +215,7 @@ describe('local-tools', () => {
           z.object({
             role: z.enum(['admin', 'user', 'guest']),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([enumTool]);
@@ -240,7 +240,7 @@ describe('local-tools', () => {
               }),
             }),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([nestedTool]);
@@ -273,7 +273,7 @@ describe('local-tools', () => {
             required: z.string(),
             optional: z.string().optional(),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([optionalTool]);
@@ -314,7 +314,7 @@ describe('local-tools', () => {
             a: z.number(),
             b: z.number(),
           }),
-          async ({ a, b }) => a + b
+          async ({ a, b }) => a + b,
         );
 
         const provider = localTools([addTool]);
@@ -327,7 +327,7 @@ describe('local-tools', () => {
               arguments: { a: 5, b: 3 },
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(result.success).toBe(true);
@@ -342,7 +342,7 @@ describe('local-tools', () => {
             email: z.string().email(),
             age: z.number().int().min(0),
           }),
-          async (params) => params
+          async (params) => params,
         );
 
         const provider = localTools([strictTool]);
@@ -357,7 +357,7 @@ describe('local-tools', () => {
               arguments: { email: 'test@example.com', age: 25 },
             },
           },
-          mockContext
+          mockContext,
         );
         expect(validResult.success).toBe(true);
 
@@ -371,7 +371,7 @@ describe('local-tools', () => {
               arguments: { email: 'not-an-email', age: 25 },
             },
           },
-          mockContext
+          mockContext,
         );
         expect(invalidEmailResult.success).toBe(false);
         expect(invalidEmailResult.error).toContain('Invalid arguments');
@@ -386,7 +386,7 @@ describe('local-tools', () => {
               arguments: { email: 'test@example.com', age: -1 },
             },
           },
-          mockContext
+          mockContext,
         );
         expect(invalidAgeResult.success).toBe(false);
         expect(invalidAgeResult.error).toContain('Too small');
@@ -406,7 +406,7 @@ describe('local-tools', () => {
               arguments: null as any, // simulate invalid
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(result.success).toBe(false);
@@ -428,7 +428,7 @@ describe('local-tools', () => {
               arguments: {},
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(result.success).toBe(false);
@@ -448,7 +448,7 @@ describe('local-tools', () => {
               arguments: {},
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(result.success).toBe(false);
@@ -465,7 +465,7 @@ describe('local-tools', () => {
           async (_params, context) => {
             receivedContext = context;
             return 'success';
-          }
+          },
         );
 
         const provider = localTools([contextTool]);
@@ -478,7 +478,7 @@ describe('local-tools', () => {
               arguments: {},
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(receivedContext).toEqual(mockContext);
@@ -501,7 +501,7 @@ describe('local-tools', () => {
               arguments: {},
             },
           },
-          mockContext
+          mockContext,
         );
 
         expect(result.success).toBe(true);

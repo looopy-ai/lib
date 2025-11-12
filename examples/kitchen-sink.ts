@@ -34,11 +34,11 @@
  * To run: tsx examples/kitchen-sink.ts
  */
 
-import chalk from 'chalk';
-import * as dotenv from 'dotenv';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
+import chalk from 'chalk';
+import * as dotenv from 'dotenv';
 import pino from 'pino';
 import { setDefaultLogger } from '../src/core';
 import { Agent } from '../src/core/agent';

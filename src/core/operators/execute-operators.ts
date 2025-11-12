@@ -57,7 +57,7 @@ export const catchTurnError = (
   rootSpanRef: { current: Span | null },
   context: Partial<AgentLoopContext>,
   logger: Logger,
-  execId: string
+  execId: string,
 ) => {
   return (error: Error) => {
     logger.error({ error: error.message, stack: error.stack, execId }, 'Agent execution failed');

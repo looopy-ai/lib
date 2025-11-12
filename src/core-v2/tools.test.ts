@@ -151,7 +151,7 @@ describe('tools', () => {
           taskId: 'task-789',
           agentId: 'agent-123',
           authContext: { userId: 'user-1' },
-        }
+        },
       );
     });
 
@@ -251,7 +251,7 @@ describe('tools', () => {
           toolName: 'test_tool',
           error: 'Provider crashed',
         }),
-        'Tool execution failed'
+        'Tool execution failed',
       );
     });
 
@@ -305,7 +305,7 @@ describe('tools', () => {
           toolName: 'test_tool',
           toolCallId: 'call-abc',
         },
-        'Executing tool'
+        'Executing tool',
       );
 
       expect(mockContext.logger.trace).toHaveBeenCalledWith(
@@ -314,7 +314,7 @@ describe('tools', () => {
           toolName: 'test_tool',
           success: true,
         },
-        'Tool execution complete'
+        'Tool execution complete',
       );
     });
 
@@ -329,7 +329,7 @@ describe('tools', () => {
           taskId: 'task-789',
           toolName: 'test_tool',
         },
-        'No provider found for tool'
+        'No provider found for tool',
       );
     });
 
@@ -395,7 +395,7 @@ describe('tools', () => {
 
       expect(spans.failToolExecutionSpan).toHaveBeenCalledWith(
         expect.any(Object),
-        'No provider found for tool: test_tool'
+        'No provider found for tool: test_tool',
       );
     });
 
@@ -416,7 +416,7 @@ describe('tools', () => {
 
       expect(spans.failToolExecutionSpanWithException).toHaveBeenCalledWith(
         expect.any(Object),
-        testError
+        testError,
       );
     });
 
@@ -500,7 +500,7 @@ describe('tools', () => {
         expect.objectContaining({
           function: { name: 'test_tool', arguments: {} },
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
 
       const completeEvent = events[1];

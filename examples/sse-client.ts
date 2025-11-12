@@ -123,7 +123,7 @@ async function reconnectionExample() {
   // Reconnect with Last-Event-ID
   console.log('Reconnecting with Last-Event-ID...');
   const eventSource2 = new EventSource(
-    `http://localhost:3000/sse/stream?contextId=${contextId}&lastEventId=${lastEventId || ''}`
+    `http://localhost:3000/sse/stream?contextId=${contextId}&lastEventId=${lastEventId || ''}`,
   );
 
   console.log('Replaying missed events...\n');
@@ -189,7 +189,7 @@ async function progressTrackingExample() {
       if (progress) {
         progress.toolCalls = (progress.toolCalls || 0) + 1;
         console.log(
-          `[${data.taskId}] Tool call #${progress.toolCalls}${data.success ? ' ✓' : ' ✗'}`
+          `[${data.taskId}] Tool call #${progress.toolCalls}${data.success ? ' ✓' : ' ✗'}`,
         );
       }
     }

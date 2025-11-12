@@ -66,7 +66,7 @@ describe('LiteLLM Streaming Integration', () => {
           finish_reason: litellmChoice.finish_reason ?? undefined,
         };
       }),
-      aggregateChoice()
+      aggregateChoice(),
     );
 
     // Collect result
@@ -191,7 +191,7 @@ describe('LiteLLM Streaming Integration', () => {
           finish_reason: litellmChoice.finish_reason ?? undefined,
         };
       }),
-      aggregateChoice()
+      aggregateChoice(),
     );
 
     // Collect result

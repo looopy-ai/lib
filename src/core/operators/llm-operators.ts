@@ -17,7 +17,7 @@ import type { LLMResponse, LoopState } from '../types';
 export const prepareLLMCall = (
   state: LoopState,
   parentContext: import('@opentelemetry/api').Context,
-  logger: Logger
+  logger: Logger,
 ) => {
   const messages = [
     {
@@ -33,7 +33,7 @@ export const prepareLLMCall = (
       messages: messages,
       availableToolCount: state.availableTools.length,
     },
-    'Calling LLM'
+    'Calling LLM',
   );
 
   // Start LLM call span

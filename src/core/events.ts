@@ -21,7 +21,7 @@ import type { AgentEvent, LoopState, Message } from './types';
 export const createTaskEvent = (
   taskId: string,
   contextId: string,
-  history: Message[]
+  history: Message[],
 ): AgentEvent => {
   return createTaskCreatedEvent({
     contextId,
@@ -51,7 +51,7 @@ export const createWorkingEvent = (taskId: string, contextId: string): AgentEven
 export const createCompletedEvent = (
   taskId: string,
   contextId: string,
-  message?: Message
+  message?: Message,
 ): AgentEvent => {
   return createTaskCompleteEvent({
     contextId,
@@ -80,7 +80,7 @@ export const createFailedEvent = (taskId: string, contextId: string, error: stri
 export const createCheckpointEvent = (
   taskId: string,
   contextId: string,
-  iteration: number
+  iteration: number,
 ): AgentEvent => {
   return createInternalCheckpointEvent({
     contextId,

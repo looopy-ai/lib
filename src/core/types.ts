@@ -440,7 +440,7 @@ export interface ArtifactStore {
     options?: {
       isLastChunk?: boolean;
       encoding?: 'utf-8' | 'base64';
-    }
+    },
   ): Promise<void>;
 
   /**
@@ -459,7 +459,7 @@ export interface ArtifactStore {
     rows: Record<string, unknown>[],
     options?: {
       isLastBatch?: boolean;
-    }
+    },
   ): Promise<void>;
 
   /**
@@ -752,6 +752,6 @@ export interface ContextStore {
    */
   update(
     contextId: string,
-    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>
+    updates: Partial<Omit<ContextState, 'contextId' | 'agentId' | 'createdAt'>>,
   ): Promise<void>;
 }

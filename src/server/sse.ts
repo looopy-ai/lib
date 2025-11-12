@@ -246,7 +246,7 @@ export class SSEServer {
   subscribe(
     response: SSEResponse,
     config: SubscriptionConfig,
-    lastEventId?: string
+    lastEventId?: string,
   ): SSEConnection {
     // Generate unique connection ID
     const connectionId = `conn-${++this.connectionCounter}`;

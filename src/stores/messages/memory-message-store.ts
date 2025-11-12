@@ -57,7 +57,7 @@ export class InMemoryMessageStore implements MessageStore {
 
   async getRecent(
     contextId: string,
-    options?: { maxMessages?: number; maxTokens?: number }
+    options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<Message[]> {
     const all = this.messages.get(contextId) || [];
     const { maxMessages = 50, maxTokens } = options || {};
@@ -125,7 +125,7 @@ export class InMemoryMessageStore implements MessageStore {
    */
   private async compactSlidingWindow(
     contextId: string,
-    keepRecent: number
+    keepRecent: number,
   ): Promise<CompactionResult> {
     const all = this.messages.get(contextId) || [];
     const oldMessages = all.slice(0, -keepRecent);
@@ -148,7 +148,7 @@ export class InMemoryMessageStore implements MessageStore {
   private async compactWithSummarization(
     contextId: string,
     keepRecent: number,
-    summaryPrompt?: string
+    summaryPrompt?: string,
   ): Promise<CompactionResult> {
     const all = this.messages.get(contextId) || [];
     const oldMessages = all.slice(0, -keepRecent);
@@ -190,7 +190,7 @@ export class InMemoryMessageStore implements MessageStore {
    */
   private async compactHierarchical(
     contextId: string,
-    keepRecent: number
+    keepRecent: number,
   ): Promise<CompactionResult> {
     // Simple implementation: create summary every 10 messages
     const all = this.messages.get(contextId) || [];
@@ -295,9 +295,9 @@ export class InMemoryMessageStore implements MessageStore {
     const completeEvent = await firstValueFrom(
       response$.pipe(
         filter(
-          (event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete'
-        )
-      )
+          (event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete',
+        ),
+      ),
     );
 
     if (completeEvent.content) {

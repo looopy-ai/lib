@@ -63,7 +63,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -103,7 +103,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     contextId: string,
     artifactId: string,
     chunk: string,
-    options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' }
+    options?: { isLastChunk?: boolean; encoding?: 'utf-8' | 'base64' },
   ): Promise<void> {
     const contextStore = this.getContextStore(contextId);
     const artifact = contextStore.get(artifactId);
@@ -181,7 +181,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -216,7 +216,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
   async writeData(
     contextId: string,
     artifactId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<void> {
     const contextStore = this.getContextStore(contextId);
     const artifact = contextStore.get(artifactId);
@@ -276,7 +276,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     if (existing && !params.override) {
       throw new Error(
         `Artifact already exists: ${params.artifactId} in context ${params.contextId}. ` +
-          `Use override: true to replace it, or use a different artifactId.`
+          `Use override: true to replace it, or use a different artifactId.`,
       );
     }
 
@@ -315,7 +315,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
     contextId: string,
     artifactId: string,
     rows: Record<string, unknown>[],
-    options?: { isLastBatch?: boolean }
+    options?: { isLastBatch?: boolean },
   ): Promise<void> {
     const contextStore = this.getContextStore(contextId);
     const artifact = contextStore.get(artifactId);
@@ -402,7 +402,7 @@ export class InMemoryArtifactStore implements ArtifactStore {
 
   async getArtifactByContext(
     contextId: string,
-    artifactId: string
+    artifactId: string,
   ): Promise<StoredArtifact | null> {
     return this.getArtifact(contextId, artifactId);
   }

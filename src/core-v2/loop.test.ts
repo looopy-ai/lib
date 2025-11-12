@@ -34,7 +34,7 @@ vi.mock('./iteration', () => ({
       content: 'Test response',
       finishReason: 'stop',
       timestamp: new Date().toISOString(),
-    } as AnyEvent)
+    } as AnyEvent),
   ),
 }));
 
@@ -131,7 +131,7 @@ describe('loop', () => {
       expect(spans.startAgentLoopSpan).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: 'Second message',
-        })
+        }),
       );
     });
 
@@ -144,7 +144,7 @@ describe('loop', () => {
       expect(spans.startAgentLoopSpan).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: '',
-        })
+        }),
       );
     });
 
@@ -164,7 +164,7 @@ describe('loop', () => {
           llmProvider: mockLLMProvider,
           iterationNumber: 0,
         },
-        mockMessages
+        mockMessages,
       );
     });
 
@@ -177,7 +177,7 @@ describe('loop', () => {
           content: 'Final response',
           finishReason: 'stop',
           timestamp: new Date().toISOString(),
-        } as AnyEvent)
+        } as AnyEvent),
       );
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
@@ -188,7 +188,7 @@ describe('loop', () => {
       expect(iteration.runIteration).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ iterationNumber: 0 }),
-        expect.any(Array)
+        expect.any(Array),
       );
     });
 
@@ -226,7 +226,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           // Second iteration: LLM finishes
@@ -250,13 +250,13 @@ describe('loop', () => {
         1,
         expect.any(Object),
         expect.objectContaining({ iterationNumber: 0 }),
-        expect.any(Array)
+        expect.any(Array),
       );
       expect(iteration.runIteration).toHaveBeenNthCalledWith(
         2,
         expect.any(Object),
         expect.objectContaining({ iterationNumber: 1 }),
-        expect.any(Array)
+        expect.any(Array),
       );
     });
 
@@ -293,7 +293,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -365,8 +365,8 @@ describe('loop', () => {
             content: 'Hello world',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent
-        )
+          } as AnyEvent,
+        ),
       );
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
@@ -453,7 +453,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -518,7 +518,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -544,7 +544,7 @@ describe('loop', () => {
           name: 'broken_tool',
           content: 'Tool execution failed',
           toolCallId: 'call-1',
-        })
+        }),
       );
     });
 
@@ -576,7 +576,7 @@ describe('loop', () => {
               content: 'Streaming response',
               finishReason: 'stop',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -642,13 +642,13 @@ describe('loop', () => {
       expect(iteration.runIteration).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(Object),
-        []
+        [],
       );
 
       expect(spans.startAgentLoopSpan).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: '',
-        })
+        }),
       );
     });
 
@@ -662,7 +662,7 @@ describe('loop', () => {
           parentContext: expect.any(Object), // This should be the loop's traceContext
         }),
         expect.any(Object),
-        expect.any(Array)
+        expect.any(Array),
       );
     });
 
@@ -708,7 +708,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -771,7 +771,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent
+            } as AnyEvent,
           );
         } else {
           return of({
@@ -794,7 +794,7 @@ describe('loop', () => {
       expect(toolMessage).toEqual(
         expect.objectContaining({
           content: 'Error executing tool',
-        })
+        }),
       );
     });
 
@@ -815,7 +815,7 @@ describe('loop', () => {
       });
 
       vi.mocked(iteration.runIteration).mockReturnValue(
-        throwError(() => new Error('Iteration error'))
+        throwError(() => new Error('Iteration error')),
       );
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);

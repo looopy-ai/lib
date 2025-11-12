@@ -160,7 +160,7 @@ describe('ArtifactScheduler', () => {
     it('should propagate errors from operations', async () => {
       // Try to append without creating first
       await expect(scheduler.appendFileChunk('none', 'nonexistent', 'data')).rejects.toThrow(
-        'Artifact not found'
+        'Artifact not found',
       );
     });
 
