@@ -1,3 +1,4 @@
+import { context } from '@opentelemetry/api';
 import type pino from 'pino';
 import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +9,7 @@ import { runToolCall } from './tools';
 import type { IterationContext } from './types';
 
 // Mock the span functions
-vi.mock('../observability/spans/tool-execution', () => ({
+vi.mock('../observability/spans/tool', () => ({
   startToolExecuteSpan: vi.fn(() => ({
     span: {
       end: vi.fn(),
@@ -42,7 +43,7 @@ describe('tools', () => {
         warn: vi.fn(),
         error: vi.fn(),
       } as unknown as pino.Logger,
-      parentContext: {} as import('@opentelemetry/api').Context,
+      parentContext: context.active(),
       authContext: {
         userId: 'user-1',
       },
