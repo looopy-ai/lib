@@ -18,9 +18,8 @@ vi.mock('../observability/spans', () => ({
       recordException: vi.fn(),
     },
     traceContext: {},
-    setOutput: vi.fn(),
-    setSuccess: vi.fn(),
-    setError: vi.fn(),
+    // New API: provide tapFinish wrapper instead of setSuccess/setError
+    tapFinish: (source: Observable<unknown>) => source,
   })),
 }));
 
@@ -375,15 +374,16 @@ describe('loop', () => {
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      // Should have: task-created, task-status, content-delta, content-delta, content-complete
-      expect(events).toHaveLength(5);
+      // Should have: task-created, task-status, content-delta, content-delta, content-complete, task-complete
+      expect(events).toHaveLength(6);
       expect(events[2].kind).toBe('content-delta');
       expect(events[3].kind).toBe('content-delta');
       expect(events[4].kind).toBe('content-complete');
+      expect(events[5].kind).toBe('task-complete');
     });
 
     it('should finalize span when stream completes', async () => {
-      const mockSetSuccess = vi.fn();
+      const mockTapFinish = vi.fn((source: Observable<AnyEvent>) => source);
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
         span: {
@@ -393,16 +393,13 @@ describe('loop', () => {
           recordException: vi.fn(),
         } as unknown as import('@opentelemetry/api').Span,
         traceContext: {} as import('@opentelemetry/api').Context,
-        setOutput: vi.fn(),
-        setSuccess: mockSetSuccess,
-        setError: vi.fn(),
-        tapFinish: (source: Observable<AnyEvent>) => source,
+        tapFinish: mockTapFinish,
       });
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockSetSuccess).toHaveBeenCalled();
+      expect(mockTapFinish).toHaveBeenCalled();
     });
 
     it('should handle multiple tool calls in same iteration', async () => {
@@ -803,7 +800,7 @@ describe('loop', () => {
     });
 
     it('should finalize span even if error occurs', async () => {
-      const mockSetError = vi.fn();
+      const mockTapFinish = vi.fn((source: Observable<AnyEvent>) => source);
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
         span: {
@@ -813,10 +810,7 @@ describe('loop', () => {
           recordException: vi.fn(),
         } as unknown as import('@opentelemetry/api').Span,
         traceContext: {} as import('@opentelemetry/api').Context,
-        setOutput: vi.fn(),
-        setSuccess: vi.fn(),
-        setError: mockSetError,
-        tapFinish: (source: Observable<AnyEvent>) => source,
+        tapFinish: mockTapFinish,
       });
 
       vi.mocked(iteration.runIteration).mockReturnValue(
@@ -827,7 +821,7 @@ describe('loop', () => {
 
       await expect(lastValueFrom(events$.pipe(toArray()))).rejects.toThrow('Iteration error');
 
-      expect(mockSetError).toHaveBeenCalled();
+      expect(mockTapFinish).toHaveBeenCalled();
     });
   });
 });

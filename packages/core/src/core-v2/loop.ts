@@ -10,7 +10,13 @@ import {
   share,
   shareReplay,
 } from 'rxjs';
-import { type AnyEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
+import {
+  type AnyEvent,
+  type ContentCompleteEvent,
+  createTaskCompleteEvent,
+  createTaskCreatedEvent,
+  createTaskStatusEvent,
+} from '../events';
 import { startAgentLoopSpan } from '../observability/spans';
 import { runIteration } from './iteration';
 import type { LoopConfig, Message, TurnContext } from './types';
@@ -124,10 +130,30 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
     (e) => e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
+  ).pipe(shareReplay());
+
+  // Build a final task-complete event from the last content-complete event
+  const finalSummary$ = merged$.pipe(
+    // Accumulate the last seen content-complete event (if any)
+    reduce<AnyEvent, ContentCompleteEvent | null>(
+      (last, e) => (e.kind === 'content-complete' ? e : last),
+      null,
+    ),
+    mergeMap((last) => {
+      if (!last) return EMPTY;
+      return of(
+        createTaskCompleteEvent({
+          contextId: context.contextId,
+          taskId: context.taskId,
+          content: last.content,
+          metadata: { finishReason: last.finishReason },
+        }),
+      );
+    }),
   );
 
-  // Merge initial events, LLM events from iterations, and final state events
-  return concat(of(taskEvent, workingEvent), merged$).pipe(tapFinish);
+  // Merge initial events, LLM events from iterations, and final summary event
+  return concat(of(taskEvent, workingEvent), merged$, finalSummary$).pipe(tapFinish);
 };
 
 /**
