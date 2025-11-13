@@ -54,8 +54,8 @@
     },
 
     // TypeScript settings
-    "typescript.tsdk": "Core/node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": false,
 
     // Editor settings
     "editor.formatOnSave": true,
