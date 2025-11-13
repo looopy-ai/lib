@@ -4,7 +4,6 @@ import { Agent, setDefaultLogger } from '@looopy-ai/core/ts';
 import { initializeTracing } from '@looopy-ai/core/ts/observability';
 import { LiteLLM } from '@looopy-ai/core/ts/providers';
 import { SSEServer } from '@looopy-ai/core/ts/server';
-import { ArtifactScheduler } from '@looopy-ai/core/ts/stores';
 import { createArtifactTools, localTools } from '@looopy-ai/core/ts/tools';
 import * as dotenv from 'dotenv';
 import { Hono } from 'hono';
@@ -81,12 +80,8 @@ app.post('/sse/:contextId', async (c) => {
   // Local tools provider
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
-  // Wrap artifact store with scheduler to handle parallel create+append operations
-  // This ensures sequential execution per artifact while allowing parallel execution across different artifacts
-  const scheduledArtifactStore = new ArtifactScheduler(artifactStore);
-
-  // Artifact tools provider - uses the same scheduled store as Agent will use
-  const artifactToolProvider = createArtifactTools(scheduledArtifactStore, taskStateStore);
+  // Artifact tools provider
+  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
 
   // System prompt
   const systemPrompt = `You are a helpful AI assistant with access to various tools.
@@ -158,22 +153,15 @@ Be concise and helpful in your responses.`;
     llmProvider,
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
-    artifactStore: scheduledArtifactStore, // Use scheduled store
     systemPrompt,
     autoSave: true,
     logger,
   });
 
   const event = await c.req.json();
+  const turn = await agent.startTurn(event.message);
 
-  // Set SSE headers
-  // c.header('Content-Type', 'text/event-stream');
-  // c.header('Cache-Control', 'no-cache');
-  // c.header('Connection', 'keep-alive');
-  // c.header('Access-Control-Allow-Origin', '*');
-
-
-  (await agent.startTurn(event.message)).subscribe({
+  turn.subscribe({
     next: (evt) => {
       sseServer.emit(contextId, evt);
     },
@@ -189,10 +177,10 @@ Be concise and helpful in your responses.`;
     start(controller) {
       sseServer.subscribe(
         {
-          setHeader: function (name: string, value: string): void {
+          setHeader: (name: string, value: string): void => {
             res.headers.set(name, value);
           },
-          write: function (chunk: string): void {
+          write: (chunk: string): void => {
             controller.enqueue(new TextEncoder().encode(chunk));
           },
           end: function (): void {
@@ -206,12 +194,8 @@ Be concise and helpful in your responses.`;
         },
         undefined,
       );
-
-      // controller.signal.addEventListener('abort', () => {
-      //   subscription.unsubscribe();
-      // });
     },
-    cancel: function (): void {
+    cancel: (): void => {
       // subscription.unsubscribe();
     },
   });

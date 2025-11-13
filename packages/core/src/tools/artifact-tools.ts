@@ -9,6 +9,7 @@
 
 import { z } from 'zod';
 import type { ArtifactStore, StoredArtifact, TaskStateStore, ToolProvider } from '../core/types';
+import { ArtifactScheduler } from '../stores';
 import { localTools, tool } from './local-tools';
 
 /**
@@ -46,6 +47,7 @@ export function createArtifactTools(
   artifactStore: ArtifactStore,
   taskStateStore: TaskStateStore,
 ): ToolProvider {
+  const scheduledStore = new ArtifactScheduler(artifactStore);
   return localTools([
     // ============================================================================
     // File Artifact Tools
@@ -77,7 +79,7 @@ export function createArtifactTools(
           .describe('Set to true to replace an existing artifact with the same ID'),
       }),
       async (params, context) => {
-        await artifactStore.createFileArtifact({
+        await scheduledStore.createFileArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
           contextId: context.contextId,
@@ -115,7 +117,7 @@ export function createArtifactTools(
           .describe('Set to true on the final chunk to mark artifact as complete'),
       }),
       async (params, context) => {
-        await artifactStore.appendFileChunk(
+        await scheduledStore.appendFileChunk(
           context.contextId,
           params.artifactId,
           params.content_chunk,
@@ -142,7 +144,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
       async (params, context) => {
-        const content = await artifactStore.getFileContent(context.contextId, params.artifactId);
+        const content = await scheduledStore.getFileContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           content,
@@ -170,7 +172,7 @@ export function createArtifactTools(
       }),
       async (params, context) => {
         // Create the artifact
-        await artifactStore.createDataArtifact({
+        await scheduledStore.createDataArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
           contextId: context.contextId,
@@ -180,7 +182,7 @@ export function createArtifactTools(
         });
 
         // Write the initial data
-        await artifactStore.writeData(context.contextId, params.artifactId, params.data);
+        await scheduledStore.writeData(context.contextId, params.artifactId, params.data);
 
         // Track in state
         await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
@@ -204,7 +206,7 @@ export function createArtifactTools(
         data: z.record(z.string(), z.unknown()).describe('The new data object'),
       }),
       async (params, context) => {
-        await artifactStore.writeData(context.contextId, params.artifactId, params.data);
+        await scheduledStore.writeData(context.contextId, params.artifactId, params.data);
 
         return {
           artifactId: params.artifactId,
@@ -222,7 +224,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
       async (params, context) => {
-        const data = await artifactStore.getDataContent(context.contextId, params.artifactId);
+        const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           data,
@@ -237,7 +239,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
       async (params, context) => {
-        const data = await artifactStore.getDataContent(context.contextId, params.artifactId);
+        const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           data,
@@ -272,7 +274,7 @@ export function createArtifactTools(
           .describe('Set to true to replace an existing artifact with the same ID'),
       }),
       async (params, context) => {
-        await artifactStore.createDatasetArtifact({
+        await scheduledStore.createDatasetArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
           contextId: context.contextId,
@@ -305,7 +307,7 @@ export function createArtifactTools(
       }),
       async (params, context) => {
         // Append as a batch of one row
-        await artifactStore.appendDatasetBatch(context.contextId, params.artifactId, [params.row]);
+        await scheduledStore.appendDatasetBatch(context.contextId, params.artifactId, [params.row]);
 
         return {
           artifactId: params.artifactId,
@@ -324,7 +326,7 @@ export function createArtifactTools(
         isLastBatch: z.boolean().optional().describe('Set to true on the final batch'),
       }),
       async (params, context) => {
-        await artifactStore.appendDatasetBatch(context.contextId, params.artifactId, params.rows, {
+        await scheduledStore.appendDatasetBatch(context.contextId, params.artifactId, params.rows, {
           isLastBatch: params.isLastBatch,
         });
 
@@ -343,7 +345,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The dataset artifact ID'),
       }),
       async (params, context) => {
-        const rows = await artifactStore.getDatasetRows(context.contextId, params.artifactId);
+        const rows = await scheduledStore.getDatasetRows(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           rows,
@@ -364,9 +366,9 @@ export function createArtifactTools(
       }),
       async (params, context) => {
         // Use the new listArtifacts method with context scoping
-        const artifactIds = await artifactStore.listArtifacts(context.contextId, params.taskId);
+        const artifactIds = await scheduledStore.listArtifacts(context.contextId, params.taskId);
         const artifacts = await Promise.all(
-          artifactIds.map((id) => artifactStore.getArtifact(context.contextId, id)),
+          artifactIds.map((id) => scheduledStore.getArtifact(context.contextId, id)),
         );
 
         const validArtifacts = artifacts.filter((a): a is StoredArtifact => a !== null);
@@ -392,7 +394,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
       async (params, context) => {
-        const artifact = await artifactStore.getArtifact(context.contextId, params.artifactId);
+        const artifact = await scheduledStore.getArtifact(context.contextId, params.artifactId);
 
         if (!artifact) {
           throw new Error(`Artifact not found: ${params.artifactId}`);
@@ -429,7 +431,7 @@ export function createArtifactTools(
         artifactId: z.string().describe('The artifact ID to delete'),
       }),
       async (params, context) => {
-        await artifactStore.deleteArtifact(context.contextId, params.artifactId);
+        await scheduledStore.deleteArtifact(context.contextId, params.artifactId);
 
         return {
           artifactId: params.artifactId,

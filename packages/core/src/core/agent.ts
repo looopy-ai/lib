@@ -26,7 +26,7 @@ import {
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
-import type { AgentEvent, ArtifactStore, LLMProvider, Message, ToolProvider } from './types';
+import type { AgentEvent, LLMProvider, Message, ToolProvider } from './types';
 
 /**
  * Agent configuration
@@ -43,9 +43,6 @@ export interface AgentConfig {
 
   /** Message store for conversation history */
   messageStore: MessageStore;
-
-  /** Artifact store for generated content */
-  artifactStore: ArtifactStore;
 
   /** Agent loop configuration (optional overrides) */
   loopConfig?: Partial<AgentLoopConfig>;
@@ -577,50 +574,6 @@ export class Agent {
   }
 
   /**
-   * Get generated artifacts
-   */
-  async getArtifacts(): Promise<Array<{ id: string; content: unknown }>> {
-    // Use listArtifacts to get all artifacts for this context
-    const artifactIds = await this.config.artifactStore.listArtifacts(this.config.contextId);
-
-    const artifacts = await Promise.all(
-      artifactIds.map(async (id: string) => {
-        try {
-          // Get artifact to determine type
-          const artifact = await this.config.artifactStore.getArtifact(this.config.contextId, id);
-          if (!artifact) {
-            return { id, content: null };
-          }
-
-          // Use type-specific content getter
-          let content: unknown = null;
-          switch (artifact.type) {
-            case 'file':
-              content = await this.config.artifactStore.getFileContent(this.config.contextId, id);
-              break;
-            case 'data':
-              content = await this.config.artifactStore.getDataContent(this.config.contextId, id);
-              break;
-            case 'dataset':
-              content = await this.config.artifactStore.getDatasetRows(this.config.contextId, id);
-              break;
-          }
-
-          return { id, content };
-        } catch {
-          // Silently skip artifacts that fail to load
-          return { id, content: null };
-        }
-      }),
-    );
-
-    return artifacts.filter((a: { id: string; content: unknown }) => a.content !== null) as Array<{
-      id: string;
-      content: unknown;
-    }>;
-  }
-
-  /**
    * Manually save current conversation state
    *
    * This ensures all messages are persisted to the MessageStore. Useful when autoSave
@@ -653,7 +606,6 @@ export class Agent {
     );
 
     // Messages are already persisted via MessageStore.append() during startTurn()
-    // Artifacts are already saved via ArtifactStore when created by tools
     // This method exists for explicit save points and future extensibility
 
     // Future: Could save additional metadata or trigger backup operations here
@@ -667,7 +619,6 @@ export class Agent {
 
     try {
       await this.config.messageStore.clear(this.config.contextId);
-      // TODO: Clear artifacts when clear() is added to ArtifactStore
 
       this._state.turnCount = 0;
       this._state.lastActivity = new Date();

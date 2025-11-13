@@ -37,21 +37,20 @@
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
+import type { AgentEvent, StoredArtifact } from '@looopy-ai/core/ts';
+import { Agent, setDefaultLogger } from '@looopy-ai/core/ts';
+import { initializeTracing, shutdownTracing } from '@looopy-ai/core/ts/observability';
+import { LiteLLM } from '@looopy-ai/core/ts/providers';
+import {
+  FileSystemArtifactStore,
+  FileSystemContextStore,
+  FileSystemMessageStore,
+  FileSystemStateStore,
+} from '@looopy-ai/core/ts/stores';
+import { createArtifactTools, localTools } from '@looopy-ai/core/ts/tools';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
-import { setDefaultLogger } from '@looopy-ai/core/ts';
-import { Agent } from '@looopy-ai/core/ts';
-import type { AgentEvent, StoredArtifact } from '@looopy-ai/core/ts';
-import { initializeTracing, shutdownTracing } from '@looopy-ai/core/ts/observability';
-import { LiteLLM } from '@looopy-ai/core/ts/providers';
-import { ArtifactScheduler } from '@looopy-ai/core/ts/stores';
-import { FileSystemArtifactStore } from '@looopy-ai/core/ts/stores';
-import { FileSystemContextStore } from '@looopy-ai/core/ts/stores';
-import { FileSystemMessageStore } from '@looopy-ai/core/ts/stores';
-import { FileSystemStateStore } from '@looopy-ai/core/ts/stores';
-import { createArtifactTools } from '@looopy-ai/core/ts/tools';
-import { localTools } from '@looopy-ai/core/ts/tools';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
 dotenv.config();
@@ -156,12 +155,8 @@ async function main() {
   // Local tools provider
   const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
 
-  // Wrap artifact store with scheduler to handle parallel create+append operations
-  // This ensures sequential execution per artifact while allowing parallel execution across different artifacts
-  const scheduledArtifactStore = new ArtifactScheduler(artifactStore);
-
-  // Artifact tools provider - uses the same scheduled store as Agent will use
-  const artifactToolProvider = createArtifactTools(scheduledArtifactStore, taskStateStore);
+  // Artifact tools provider
+  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
 
   // System prompt
   const systemPrompt = `You are a helpful AI assistant with access to various tools.
@@ -233,7 +228,6 @@ Be concise and helpful in your responses.`;
     llmProvider,
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
-    artifactStore: scheduledArtifactStore, // Use scheduled store
     systemPrompt,
     autoSave: true,
     logger,
