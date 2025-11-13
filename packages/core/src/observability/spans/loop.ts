@@ -42,18 +42,6 @@ export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
   return {
     span,
     traceContext,
-    setOutput: (output?: string) => {
-      if (!output) return;
-      span.setAttribute(SpanAttributes.OUTPUT, output);
-    },
-    setSuccess: () => {
-      span.end();
-    },
-    setError: (err: Error) => {
-      span.recordException(err);
-      span.setStatus({ code: 2, message: err.message });
-      span.end();
-    },
     tapFinish: tap<AnyEvent>({
       next: (event) => {
         switch (event.kind) {

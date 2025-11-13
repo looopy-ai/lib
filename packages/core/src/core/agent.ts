@@ -20,7 +20,6 @@ import {
   failAgentTurnSpan,
   setResumeAttributes,
   setTurnCountAttribute,
-  setTurnOutputAttribute,
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
@@ -234,7 +233,11 @@ export class Agent {
     const taskId = options?.taskId || `${this.config.contextId}-turn-${turnNumber}-${Date.now()}`;
 
     // Create span for the entire turn execution (including initialization and validation)
-    const { span: rootSpan, traceContext: rootContext } = startAgentTurnSpan({
+    const {
+      span: rootSpan,
+      traceContext: rootContext,
+      tapFinish,
+    } = startAgentTurnSpan({
       agentId: this.config.agentId,
       taskId,
       contextId: this.config.contextId,
@@ -316,7 +319,13 @@ export class Agent {
       this._state.lastActivity = new Date();
 
       // Load conversation history and execute turn
-      return this.executeInternal(userMessage, taskId, options?.authContext, rootSpan, rootContext);
+      return this.executeInternal(
+        userMessage,
+        taskId,
+        options?.authContext,
+        rootSpan,
+        rootContext,
+      ).pipe(tapFinish);
     } catch (error) {
       const err = error as Error;
       this.config.logger.error(
@@ -429,8 +438,6 @@ export class Agent {
                       ]);
                     }
                     break;
-                  case 'tool-start':
-                    break;
                   case 'tool-complete':
                     if (this.config.autoSave) {
                       const message: Message = {
@@ -444,15 +451,6 @@ export class Agent {
                       };
                       this.config.logger.debug({ message }, 'Saving tool message to message store');
                       await this.config.messageStore.append(this.config.contextId, [message]);
-                    }
-                    break;
-                  case 'task-complete':
-                    if (event.content) {
-                      setTurnOutputAttribute(turnSpan, event.content);
-                      this.config.logger.trace(
-                        { messageContent: event.content },
-                        `Added assistant message output to agent[${this.config.agentId}] span`,
-                      );
                     }
                     break;
                   default:

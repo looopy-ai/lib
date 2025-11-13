@@ -4,8 +4,10 @@
  * Tracing utilities for agent turn execution (multi-turn conversation spans)
  */
 
-import { type Context, context, type Span, trace } from '@opentelemetry/api';
+import { type Context, context, type Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import { tap } from 'rxjs/internal/operators/tap';
 import { SpanAttributes } from '../tracing';
+import { AnyEvent } from '../../events';
 
 export interface AgentTurnSpanParams {
   agentId: string;
@@ -36,7 +38,30 @@ export const startAgentTurnSpan = (params: AgentTurnSpanParams) => {
   });
   const traceContext = trace.setSpan(context.active(), span);
 
-  return { span, traceContext };
+  return {
+    span,
+    traceContext,
+    tapFinish: tap<AnyEvent>({
+      next: (event) => {
+        switch (event.kind) {
+          case 'task-complete':
+            if (event.content) {
+              span.setAttribute(SpanAttributes.OUTPUT, event.content);
+            }
+            span.setStatus({ code: SpanStatusCode.OK });
+            break;
+          default:
+            break;
+        }
+      },
+      complete: () => span.end(),
+      error: (err) => {
+        span.recordException(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+        span.end();
+      },
+    }),
+  };
 };
 
 /**

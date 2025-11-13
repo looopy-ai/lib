@@ -9,7 +9,6 @@ import {
   reduce,
   share,
   shareReplay,
-  tap,
 } from 'rxjs';
 import { type AnyEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
 import { startAgentLoopSpan } from '../observability/spans';
@@ -81,12 +80,7 @@ import type { LoopConfig, Message, TurnContext } from './types';
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
  */
 export const runLoop = (context: TurnContext, config: LoopConfig, history: Message[]) => {
-  const {
-    traceContext: loopContext,
-    setOutput,
-    setSuccess,
-    setError,
-  } = startAgentLoopSpan({
+  const { traceContext: loopContext, tapFinish } = startAgentLoopSpan({
     agentId: context.agentId,
     contextId: context.contextId,
     taskId: context.taskId,
@@ -133,17 +127,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
   );
 
   // Merge initial events, LLM events from iterations, and final state events
-  return concat(of(taskEvent, workingEvent), merged$).pipe(
-    tap({
-      next: (e) => {
-        if (e.kind === 'task-complete') {
-          setOutput(e.content);
-        }
-      },
-      complete: setSuccess,
-      error: setError,
-    }),
-  );
+  return concat(of(taskEvent, workingEvent), merged$).pipe(tapFinish);
 };
 
 /**
