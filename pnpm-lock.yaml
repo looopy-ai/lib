@@ -82,6 +82,48 @@ importers:
         specifier: ^13.1.2
         version: 13.1.2
 
+  packages/examples:
+    dependencies:
+      '@geee-be/sse-stream-parser':
+        specifier: ^1.0.1
+        version: 1.0.1
+      '@hono/node-server':
+        specifier: ^1.19.6
+        version: 1.19.6(hono@4.10.5)
+      '@looopy-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@opentelemetry/exporter-metrics-otlp-http':
+        specifier: ^0.207.0
+        version: 0.207.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/exporter-trace-otlp-http':
+        specifier: ^0.207.0
+        version: 0.207.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/instrumentation':
+        specifier: ^0.207.0
+        version: 0.207.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/resources':
+        specifier: ^2.2.0
+        version: 2.2.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-metrics':
+        specifier: ^2.2.0
+        version: 2.2.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-base':
+        specifier: ^2.2.0
+        version: 2.2.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-node':
+        specifier: ^2.2.0
+        version: 2.2.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions':
+        specifier: ^1.37.0
+        version: 1.37.0
+      hono:
+        specifier: ^4.10.5
+        version: 4.10.5
+      pino-pretty:
+        specifier: ^13.1.2
+        version: 13.1.2
+
 packages:
 
   '@ampproject/remapping@2.3.0':
@@ -458,6 +500,15 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@geee-be/sse-stream-parser@1.0.1':
+    resolution: {integrity: sha512-9cK0+AyQFO2lyUa9kUzXBem82XdHYPYkWjnnjshi2b33rjnahv1Ayew+u5A8njDbN7KptkuwhOC+Qhup7VU06g==}
+
+  '@hono/node-server@1.19.6':
+    resolution: {integrity: sha512-Shz/KjlIeAhfiuE93NDKVdZ7HdBVLQAfdbaXEaoAVO3ic9ibRSLGIQGkcBbFyuLr+7/1D5ZCINM8B+6IvXeMtw==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -928,6 +979,10 @@ packages:
 
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
+
+  hono@4.10.5:
+    resolution: {integrity: sha512-h/MXuTkoAK8NG1EfDp0jI1YLf6yGdDnfkebRO2pwEh5+hE3RAJFXkCsnD0vamSiARK4ZrB6MY+o3E/hCnOyHrQ==}
+    engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -1502,6 +1557,12 @@ snapshots:
   '@esbuild/win32-x64@0.25.11':
     optional: true
 
+  '@geee-be/sse-stream-parser@1.0.1': {}
+
+  '@hono/node-server@1.19.6(hono@4.10.5)':
+    dependencies:
+      hono: 4.10.5
+
   '@isaacs/cliui@8.0.2':
     dependencies:
       string-width: 5.1.2
@@ -1960,6 +2021,8 @@ snapshots:
   has-flag@4.0.0: {}
 
   help-me@5.0.0: {}
+
+  hono@4.10.5: {}
 
   html-escaper@2.0.2: {}
 

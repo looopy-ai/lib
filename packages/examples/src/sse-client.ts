@@ -12,7 +12,7 @@
  */
 
 import { EventSource } from 'eventsource';
-import type { AnyEvent } from '../src/events';
+import type { AnyEvent } from '@looopy-ai/core/ts/events';
 
 // Example 1: Basic SSE Client
 // ============================

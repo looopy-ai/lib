@@ -14,9 +14,9 @@ The SSE server provides a complete solution for streaming agent events to client
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      SSE Server                             │
-│                                                             │
+┌───────────────────────────────────────────────────────────┐
+│                      SSE Server                           │
+│                                                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
 │  │ Event Buffer │  │ Event Router │  │ SSE Conns    │     │
 │  │ (circular)   │  │ (pub/sub)    │  │ (heartbeat)  │     │
@@ -35,11 +35,11 @@ The SSE server provides a complete solution for streaming agent events to client
 
 ## Quick Start
 
-### Basic SSE Endpoint
+### Basic SSE Endpoint Using Express
 
 ```typescript
 import express from 'express';
-import { SSEServer } from 'looopy/server';
+import { SSEServer } from '@looopy-ai/server';
 
 const app = express();
 const sseServer = new SSEServer();
@@ -59,6 +59,50 @@ app.get('/events/:contextId', (req, res) => {
 sseServer.emit(contextId, event);
 
 app.listen(3000);
+```
+
+### Hono SSE Endpoint
+
+```typescript
+import { Hono } from 'hono';
+import { SSEServer } from '@looopy-ai/server';
+
+const app = new Hono();
+const sseServer = new SSEServer();
+
+// SSE endpoint
+app.get('/events/:contextId', async (c) => {
+  const contextId = c.req.param('contextId');
+  const lastEventId = c.req.header('last-event-id');
+
+  // Set SSE headers
+  c.header('Content-Type', 'text/event-stream');
+  c.header('Cache-Control', 'no-cache');
+  c.header('Connection', 'keep-alive');
+  c.header('Access-Control-Allow-Origin', '*');
+
+  // Get the native response object for Hono
+  const res = c.env.outgoing || c.res;
+
+  sseServer.subscribe(res, {
+    contextId,
+    lastEventId,
+  });
+
+  return c.newResponse(null);
+});
+
+// Emit events
+app.post('/events/:contextId/emit', async (c) => {
+  const contextId = c.req.param('contextId');
+  const event = await c.req.json();
+
+  sseServer.emit(contextId, event);
+
+  return c.json({ success: true });
+});
+
+export default app;
 ```
 
 ### Client Connection

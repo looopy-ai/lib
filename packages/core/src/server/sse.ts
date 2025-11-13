@@ -100,9 +100,10 @@ export class SSEConnection implements Subscriber {
 
     try {
       // Write event to SSE stream
+      const { kind, contextId: _contextId, ...data } = event;
       this.response.write(`id: ${eventId}\n`);
-      this.response.write(`event: ${event.kind}\n`);
-      this.response.write(`data: ${JSON.stringify(event)}\n\n`);
+      this.response.write(`event: ${kind}\n`);
+      this.response.write(`data: ${JSON.stringify(data)}\n\n`);
 
       this.lastEventId = eventId;
     } catch (error) {

@@ -9,6 +9,7 @@
  */
 
 // Note: artifact-tools removed - will be re-implemented using V3 API if needed
+export * from './artifact-tools';
 export * from './client-tool-provider';
 export * from './local-tools';
 export * from './types';

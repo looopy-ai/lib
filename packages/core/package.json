@@ -10,7 +10,14 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./ts": "./src/index.ts",
+    "./ts/events": "./src/events/index.ts",
+    "./ts/observability": "./src/observability/index.ts",
+    "./ts/providers": "./src/providers/index.ts",
+    "./ts/stores": "./src/stores/index.ts",
+    "./ts/server": "./src/server/index.ts",
+    "./ts/tools": "./src/tools/index.ts"
   },
   "files": [
     "dist"

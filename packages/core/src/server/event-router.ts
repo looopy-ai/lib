@@ -117,7 +117,7 @@ export class EventRouter {
     let sentCount = 0;
 
     for (const subscriber of contextSubscribers.values()) {
-      if (this.shouldSendToSubscriber(subscriber, event)) {
+      if (!event.kind || this.shouldSendToSubscriber(subscriber, event)) {
         try {
           subscriber.send(event, eventId);
           sentCount++;
