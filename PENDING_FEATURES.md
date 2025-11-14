@@ -103,9 +103,9 @@ This document lists features that are **not yet implemented** and should be eval
 **Related Design**: `design/a2a-protocol.md`
 
 **Files to create**:
-- `src/a2a/server.ts` - Express/Fastify SSE server
-- `src/a2a/client.ts` - A2A client for agent-to-agent calls
-- `src/a2a/types.ts` - A2A-specific type definitions
+- `packages/a2a/src/server.ts` - Express/Fastify SSE server
+- `packages/a2a/src/client.ts` - A2A client for agent-to-agent calls
+- `packages/a2a/src/types.ts` - A2A-specific type definitions
 
 **Dependencies**: None (events already A2A-compliant)
 
@@ -135,7 +135,7 @@ This document lists features that are **not yet implemented** and should be eval
 
 **Related Design**: `design/artifact-management.md`
 
-**File to create**: `src/stores/redis/redis-artifact-store.ts`
+**File to create**: `packages/core/src/stores/redis/redis-artifact-store.ts`
 
 **Dependencies**:
 - Redis client (already used)
@@ -156,9 +156,9 @@ This document lists features that are **not yet implemented** and should be eval
 - Better querying capabilities (PostgreSQL)
 
 **Files to create**:
-- `src/stores/s3/s3-artifact-store.ts`
-- `src/stores/filesystem/filesystem-artifact-store.ts`
-- `src/stores/postgres/postgres-artifact-store.ts`
+- `packages/core/src/stores/s3/s3-artifact-store.ts`
+- `packages/core/src/stores/filesystem/filesystem-artifact-store.ts`
+- `packages/core/src/stores/postgres/postgres-artifact-store.ts`
 
 ---
 
@@ -184,7 +184,7 @@ This document lists features that are **not yet implemented** and should be eval
 
 **Related Design**: `design/tool-integration.md`
 
-**File to create**: `src/tools/mcp-tool-provider.ts`
+**File to create**: `packages/core/src/tools/mcp-tool-provider.ts`
 
 **Dependencies**: MCP client library
 
@@ -206,7 +206,7 @@ This document lists features that are **not yet implemented** and should be eval
 - Reduced API costs
 - Better testing performance
 
-**File to create**: `src/core/tool-cache.ts`
+**File to create**: `packages/core/src/tool-cache.ts`
 
 **Implementation**: Decorator pattern around ToolProvider
 
@@ -227,7 +227,7 @@ This document lists features that are **not yet implemented** and should be eval
 - Better performance for multiple tools
 - Provider-specific optimizations
 
-**Enhancement to**: `src/core/agent-loop.ts` executeTools() method
+**Enhancement to**: `packages/core/src/agent-loop.ts` executeTools() method
 
 ### 7. Tool Execution Idempotency Tracking
 
@@ -246,7 +246,7 @@ This document lists features that are **not yet implemented** and should be eval
 - Better error recovery
 - Debugging and observability
 
-**File to create**: `src/core/tool-tracking.ts`
+**File to create**: `packages/core/src/tool-tracking.ts`
 
 ---
 
@@ -274,7 +274,7 @@ This document lists features that are **not yet implemented** and should be eval
 
 **Related Design**: `design/tool-integration.md`
 
-**File to create**: `src/tools/sub-agent-provider.ts`
+**File to create**: `packages/core/src/tools/sub-agent-provider.ts`
 
 **Dependencies**:
 - A2A client implementation
@@ -301,8 +301,8 @@ This document lists features that are **not yet implemented** and should be eval
 **Related Design**: `design/dynamic-discovery.md`
 
 **Files to create**:
-- `src/registry/agent-registry.ts`
-- `src/registry/service-discovery.ts`
+- `packages/core/src/registry/agent-registry.ts`
+- `packages/core/src/registry/service-discovery.ts`
 
 ---
 
@@ -328,8 +328,8 @@ This document lists features that are **not yet implemented** and should be eval
 - Real-time feedback
 
 **Enhancement to**:
-- `src/providers/litellm-provider.ts` - Add stream() method
-- `src/core/agent-loop.ts` - Support streaming in LLM call pipeline
+- `packages/core/src/providers/litellm-provider.ts` - Add stream() method
+- `packages/core/src/agent-loop.ts` - Support streaming in LLM call pipeline
 
 ### 11. LLM Response Caching
 
@@ -349,7 +349,7 @@ This document lists features that are **not yet implemented** and should be eval
 - Faster responses for repeated queries
 - Better testing performance
 
-**File to create**: `src/core/llm-cache.ts`
+**File to create**: `packages/core/src/llm-cache.ts`
 
 ---
 
@@ -380,8 +380,8 @@ This document lists features that are **not yet implemented** and should be eval
 **Related Design**: `design/extension-points.md` (needs to be created)
 
 **Files to create**:
-- `src/core/extension-registry.ts`
-- `src/core/extension-types.ts`
+- `packages/core/src/extension-registry.ts`
+- `packages/core/src/extension-types.ts`
 
 ---
 

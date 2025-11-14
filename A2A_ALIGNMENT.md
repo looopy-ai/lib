@@ -441,7 +441,7 @@ events$.subscribe({
 
 ## Files Changed
 
-1. **`src/core/types.ts`**
+1. **`packages/core/src/types.ts`**
    - Added `TaskState`, `TaskStatus` types
    - Added `A2APart`, `A2ATextPart`, `A2AFilePart`, `A2ADataPart` types
    - Added `A2AArtifact` interface
@@ -449,13 +449,13 @@ events$.subscribe({
    - Added `TaskEvent`, `StatusUpdateEvent`, `ArtifactUpdateEvent`
    - Added `InternalEvent` for observability
 
-2. **`src/core/agent-loop.ts`**
+2. **`packages/core/src/agent-loop.ts`**
    - Updated `execute()` error handling to emit `StatusUpdateEvent` with `state: "failed"`
    - Updated `resume()` to emit `StatusUpdateEvent` with `state: "completed"`
    - Updated `runLoop()` to emit `TaskEvent` and initial `StatusUpdateEvent`
    - Updated `stateToEvents()` to emit A2A-compliant events
 
-3. **`src/core/index.ts`**
+3. **`packages/core/src/index.ts`**
    - Exported new A2A types
 
 ## References
