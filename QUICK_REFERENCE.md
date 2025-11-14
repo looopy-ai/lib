@@ -28,20 +28,20 @@ Are you explaining HOW the system works conceptually?
 │   ├─ Is it an interface/contract? → Keep in design
 │   ├─ Is it a simplified example? → Keep in design
 │   ├─ Is it explaining rationale? → Keep in design
-│   └─ Is it complete working code? → Move to src/
+│   └─ Is it complete working code? → Move to packages/
 │
 └─ NO → Are you writing production code?
     │
-    ├─ YES → src/**/*.ts
+    ├─ YES → packages/*/src/**/*.ts
     │   │
     │   ├─ Implement interfaces from design docs
     │   ├─ Add comment: "// Design: design/xyz.md#section"
     │   ├─ Include full error handling
-    │   └─ Write tests in tests/
+    │   └─ Write tests in packages/*/tests/
     │
     └─ NO → Are you showing usage?
         │
-        ├─ YES → examples/
+        ├─ YES → packages/examples/
         │   │
         │   ├─ Complete working examples
         │   ├─ Real-world scenarios
@@ -86,13 +86,13 @@ defer(() => of(context))
 
 ### Implementations
 
-See [src/core/operators/](../src/core/operators/) for:
+See [packages/core/src/operators/](../packages/core/src/operators/) for:
 - **execute-operators.ts** - Root span management
 - **iteration-operators.ts** - Iteration loop
 - **llm-operators.ts** - LLM calls and responses
 ```
 
-### ✅ Implementation Code (src/core/operators/execute-operators.ts)
+### ✅ Implementation Code (packages/core/src/operators/execute-operators.ts)
 
 **Purpose**: Implement operator factory pattern
 
@@ -126,7 +126,7 @@ export function tapBeforeExecute(
 // Additional operators: tapAfterExecuteEvents, catchExecuteError
 ```
 
-### ✅ Usage Example (examples/basic-agent.ts)
+### ✅ Usage Example (packages/examples/src/basic-agent.ts)
 
 **Purpose**: Show how to use Agent for multi-turn conversations
 
@@ -207,14 +207,14 @@ export function tapBeforeExecute(
 ```
 ```
 
-**Problem**: This is complete implementation code with full error handling and logging. Should be in `src/core/operators/`.
+**Problem**: This is complete implementation code with full error handling and logging. Should be in `packages/core/src/operators/`.
 
 **Fix**: Keep only interface and conceptual flow in design doc, link to implementation.
 
 ### ❌ No Design Reference in Implementation
 
 ```typescript
-// src/core/operators/execute-operators.ts
+// packages/core/src/operators/execute-operators.ts
 
 export function tapBeforeExecute(
   spanRef: { current: Span | undefined },
@@ -251,7 +251,7 @@ export function tapBeforeExecute(
 ### ❌ Interface in Wrong Place
 
 ```typescript
-// Only in src/core/operators/execute-operators.ts
+// Only in packages/core/src/operators/execute-operators.ts
 
 type OperatorFunction<T, R> = (source: Observable<T>) => Observable<R>;
 
@@ -276,7 +276,7 @@ export function tapBeforeExecute(
 - [ ] Shows simplified examples (pseudo-code OK)
 - [ ] Documents design decisions and trade-offs
 - [ ] References related designs
-- [ ] Links to implementation: `See [src/xyz/](../src/xyz/)`
+- [ ] Links to implementation: `See [packages/core/src/xyz/](../packages/core/src/xyz/)`
 
 ### When Writing Implementation
 
@@ -300,16 +300,16 @@ export function tapBeforeExecute(
 
 | Content Type            | Location                              | Example                        |
 | ----------------------- | ------------------------------------- | ------------------------------ |
-| Interface definition    | `design/*.md` + `src/*/interfaces.ts` | `interface TaskStateStore`        |
+| Interface definition    | `design/*.md` + `packages/*/src/interfaces.ts` | `interface TaskStateStore`        |
 | Conceptual flow         | `design/*.md`                         | Simplified RxJS pipeline       |
-| Complete implementation | `src/**/*.ts`                         | Full class with error handling |
+| Complete implementation | `packages/*/src/**/*.ts`                         | Full class with error handling |
 | Design decision         | `design/*.md`                         | "We chose Redis because..."    |
-| Usage example           | `examples/*.ts`                       | Working demo code              |
-| API docs                | Generated from `src/`                 | TSDoc → HTML                   |
+| Usage example           | `packages/examples/src/*.ts`                       | Working demo code              |
+| API docs                | Generated from `packages/*/src/`                 | TSDoc → HTML                   |
 
 ## Need Help?
 
 - Read [PROJECT.md](./PROJECT.md) for full guidelines
 - Check [A2A_ALIGNMENT.md](./A2A_ALIGNMENT.md) for event type mapping
 - See design docs in [design/](./design/) for architecture details
-- Look at existing code in `src/` for patterns
+- Look at existing code in `packages/` for patterns

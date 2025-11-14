@@ -42,7 +42,7 @@ Artifact management is a critical component of the agent loop that enables agent
    - ❌ `queryArtifacts()` - Use `listArtifacts(contextId, taskId?)`
    - ❌ `getArtifactByContext()` - Use `getArtifact(contextId, artifactId)`
 
-**Note**: Code examples in this document may still reference the old API and should be updated as a reference. See `src/stores/artifacts/memory-artifact-store.ts` for the current implementation.
+**Note**: Code examples in this document may still reference the old API and should be updated as a reference. See `packages/core/src/stores/artifacts/memory-artifact-store.ts` for the current implementation.
 
 ## Core Principles
 
@@ -1610,4 +1610,4 @@ describe('Artifact Management', () => {
 - [A2A Protocol Specification](https://a2a-protocol.org/latest/specification/)
 - [Agent Loop Design](./agent-loop.md)
 - [Architecture Overview](./architecture.md)
-- Implementation: `src/stores/` (to be created)
+- Implementation: `packages/core/src/stores/` (to be created)

@@ -104,45 +104,25 @@ Links to related designs, specs, or external documentation.
 Implementation should be organized as:
 
 ```
-src/
+packages/
 ├── core/              # Agent and AgentLoop
-│   ├── agent.ts       # Multi-turn conversation manager
-│   ├── agent-loop.ts  # Single-turn execution engine (includes checkpointing)
-│   ├── operators/     # RxJS operator factories
-│   │   ├── execute-operators.ts
-│   │   ├── iteration-operators.ts
-│   │   └── llm-operators.ts
-│   ├── types.ts       # Core type definitions
-│   ├── config.ts      # Configuration interfaces
-│   ├── logger.ts      # Pino logger setup
-│   └── cleanup.ts     # State cleanup service
-├── stores/            # State and artifact storage
-│   ├── interfaces.ts  # Store interfaces
-│   ├── factory.ts     # Store creation factory
-│   ├── redis/         # Redis implementations
-│   │   └── redis-state-store.ts
-│   ├── memory/        # In-memory implementations
-│   │   └── memory-state-store.ts
-│   └── artifacts/     # Artifact store implementations
-│       ├── memory-artifact-store.ts
-│       └── artifact-store-with-events.ts
-├── tools/             # Tool integration
-│   ├── interfaces.ts  # ToolProvider interface
-│   ├── local-tools.ts # Local function tools
-│   ├── client-tool-provider.ts # Client-delegated tools
-│   └── artifact-tools.ts # Artifact management tools (planned)
-├── providers/         # LLM providers
-│   └── litellm-provider.ts # LiteLLM proxy integration
-├── observability/     # Tracing and logging
-│   ├── tracing.ts     # OpenTelemetry setup
-│   └── spans/         # Span helper functions
-│       └── agent-turn.ts
-└── README.md          # Implementation guide
-
-Future directories (planned):
-├── a2a/               # A2A protocol (not yet implemented)
-│   ├── server.ts      # SSE server
-│   └── client.ts      # SSE client
+│   ├── src/
+│   │   ├── agent.ts       # Multi-turn conversation manager
+│   │   ├── agent-loop.ts  # Single-turn execution engine (includes checkpointing)
+│   │   ├── operators/     # RxJS operator factories
+│   │   ├── types.ts       # Core type definitions
+│   │   └── ...
+│   └── tests/
+├── aws/               # AWS-specific integrations
+│   └── src/
+│       └── ...
+├── examples/          # Example usage and demos
+│   └── src/
+│       └── kitchen-sink.ts
+└── a2a/               # A2A protocol (not yet implemented)
+    └── src/
+        ├── server.ts      # SSE server
+        └── client.ts      # SSE client
 ```
 
 ### 6. Progress Tracking and Completion Summaries
@@ -266,9 +246,9 @@ fix/bug-description    # Bug fixes
 | Task                   | Location                               | Format                |
 | ---------------------- | -------------------------------------- | --------------------- |
 | Architecture decisions | `design/*.md`                          | Conceptual            |
-| Interface definitions  | `design/*.md` or `src/*/interfaces.ts` | TypeScript interfaces |
-| Implementation         | `src/**/*.ts`                          | Full TypeScript       |
-| Usage examples         | `README.md` or `examples/`             | Working code          |
+| Interface definitions  | `design/*.md` or `packages/*/src/interfaces.ts` | TypeScript interfaces |
+| Implementation         | `packages/*/src/**/*.ts`               | Full TypeScript       |
+| Usage examples         | `README.md` or `packages/examples/`    | Working code          |
 | API documentation      | Generated from code                    | TSDoc comments        |
 | Progress tracking      | `ai-journal/*.md`                      | Completion summaries  |
 

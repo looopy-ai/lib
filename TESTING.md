@@ -110,7 +110,7 @@ When you run `pnpm example`, you'll see output like:
 Tests are organized by functionality:
 
 ```
-tests/
+packages/core/tests/
 └── agent-loop.test.ts
     ├── Basic Execution
     │   ├── simple completion without tools

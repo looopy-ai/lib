@@ -505,9 +505,7 @@ const artifacts = await artifactStore.list(contextId);
 ### Basic Usage
 
 ```typescript
-import { Agent } from 'looopy';
-import { LiteLLMProvider } from 'looopy/providers';
-import { InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
+import { Agent, LiteLLMProvider, InMemoryMessageStore, InMemoryArtifactStore } from '@looopy-ai/core';
 
 // Create agent
 const agent = new Agent({

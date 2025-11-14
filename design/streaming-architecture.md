@@ -11,7 +11,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 │                    CLIENT LAYER (Kitchen Sink CLI)                      │
 │                                                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  Kitchen Sink CLI (examples/kitchen-sink.ts)                     │  │
+│  │  Kitchen Sink CLI (packages/examples/src/kitchen-sink.ts)        │  │
 │  │  • Subscribes to agent.startTurn() Observable                    │  │
 │  │  • Handles events in handleAgentEvent()                          │  │
 │  │  • Uses fs.writeSync() for ordered console output                │  │
@@ -24,7 +24,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                      AGENT LAYER                                        │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  Agent.startTurn() (src/core/agent.ts)                          │  │
+│  │  Agent.startTurn() (packages/core/src/agent.ts)                 │  │
 │  │  • Loads message history from MessageStore                       │  │
 │  │  • Appends user message to history                               │  │
 │  │  • Calls AgentLoop.startTurn(messages)                           │  │
@@ -39,7 +39,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                   AGENT LOOP LAYER                                      │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  AgentLoop.startTurn() (src/core/agent-loop.ts)                 │  │
+│  │  AgentLoop.startTurn() (packages/core/src/agent-loop.ts)        │  │
 │  │  • Emits task-created and task-status events                     │  │
 │  │  • Builds RxJS execution pipeline                                │  │
 │  │  • Calls llmProvider.call() for each iteration                   │  │
@@ -53,7 +53,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 ┌─────────────────────────────┼────────────────────────────────────────────┐
 │                    LLM PROVIDER LAYER                                   │
 │  ┌───────────────────────────▼──────────────────────────────────────┐  │
-│  │  LiteLLMProvider.call() (src/providers/litellm-provider.ts)     │  │
+│  │  LiteLLMProvider.call() (packages/core/src/providers/litellm-provider.ts) │  │
 │  │                                                                  │  │
 │  │  1. Creates raw SSE stream from LiteLLM HTTP endpoint            │  │
 │  │  2. Pipes through choices() operator                             │  │
@@ -105,7 +105,7 @@ This document describes the end-to-end architecture of the streaming and eventin
 ### 1. Kitchen Sink CLI Initiates Request
 
 ```typescript
-// Kitchen Sink CLI (examples/kitchen-sink.ts)
+// Kitchen Sink CLI (packages/examples/src/kitchen-sink.ts)
 // User types a message in the interactive prompt
 rl.on('line', async (line) => {
   const input = line.trim();
@@ -128,7 +128,7 @@ rl.on('line', async (line) => {
 ### 2. Agent Starts Turn
 
 ```typescript
-// Agent.startTurn() (src/core/agent.ts)
+// Agent.startTurn() (packages/core/src/agent.ts)
 async startTurn(userMessage: string): Promise<Observable<AgentEvent>> {
   const taskId = this.generateTaskId();
 
@@ -173,7 +173,7 @@ async startTurn(userMessage: string): Promise<Observable<AgentEvent>> {
 ### 3. AgentLoop Executes Pipeline
 
 ```typescript
-// AgentLoop.startTurn() (src/core/agent-loop.ts)
+// AgentLoop.startTurn() (packages/core/src/agent-loop.ts)
 startTurn(messages: Message[], options: StartTurnOptions): Observable<LLMEvent<AnyEvent>> {
   const { taskId, contextId, turnNumber } = options;
 
@@ -220,7 +220,7 @@ private executeIteration(messages: Message[], iteration: number): Observable<LLM
 This is the **heart of the streaming system**. The LiteLLM provider creates a single HTTP SSE connection and splits it into **three parallel observables**:
 
 ```typescript
-// LiteLLMProvider.streamEvents() (src/providers/litellm-provider.ts)
+// LiteLLMProvider.streamEvents() (packages/core/src/providers/litellm-provider.ts)
 private streamEvents(params: SSERequestParams): Observable<LLMEvent<AnyEvent>> {
   // 1. Create raw SSE stream (single HTTP connection)
   const rawStream$ = this.createSSEStream(params);
@@ -310,7 +310,7 @@ private streamEvents(params: SSERequestParams): Observable<LLMEvent<AnyEvent>> {
 The `splitInlineXml()` utility is critical for thought extraction. It takes a stream of content deltas and splits it into two observables:
 
 ```typescript
-// src/core/operators/chat-completions/content.ts
+// packages/core/src/operators/chat-completions/content.ts
 export function splitInlineXml(source: Observable<string>): {
   content: Observable<string>;
   tags: Observable<InlineXml>;
@@ -631,6 +631,88 @@ eventSource.onerror = (err) => {
 };
 ```
 
+## Kitchen Sink CLI Event Handling
+
+The kitchen sink example consumes events directly from the Agent Observable:
+
+```typescript
+// packages/examples/src/kitchen-sink.ts
+const events$ = await agent.startTurn(userInput);
+
+events$.subscribe({
+  next: (event) => {
+    switch (event.kind) {
+      case 'content-delta':
+        // Synchronous write to ensure ordering
+        fs.writeSync(process.stdout.fd, event.delta);
+        break;
+
+      case 'thought-stream':
+        if (event.isComplete) {
+          // Thought complete - could display summary
+          console.log(`\n[Thought ${event.thoughtId} complete]`);
+        }
+        break;
+
+      case 'content-complete':
+        // LLM finished - save to message history
+        console.log('\n');
+        break;
+
+      case 'task-status':
+        if (event.status === 'completed') {
+          rl.prompt(); // Ready for next input
+        }
+        break;
+    }
+  },
+  error: (err) => {
+    console.error('Error:', err);
+    rl.prompt();
+  },
+  complete: () => {
+    // Turn complete
+  }
+});
+```
+
+**Key Points:**
+
+- Direct Observable subscription (no SSE server layer)
+- Synchronous writes (`fs.writeSync`) for guaranteed ordering
+- Immediate event processing (no network latency)
+- Simple error handling and recovery
+```
+
+### Client-Side
+
+```typescript
+const eventSource = new EventSource('/api/sse/message', {
+  withCredentials: true
+});
+
+eventSource.onmessage = (e) => {
+  const event = JSON.parse(e.data);
+
+  switch (event.kind) {
+    case 'content-delta':
+      appendToUI(event.content);
+      break;
+    case 'thought-stream':
+      showThought(event.thought);
+      break;
+    case 'task-complete':
+      eventSource.close();
+      break;
+  }
+};
+
+eventSource.onerror = (err) => {
+  console.error('SSE error:', err);
+  eventSource.close();
+};
+```
+
 ## Thought Extraction: Supported Formats
 
 The `splitInlineXml()` utility extracts `<thinking>` tags from the content stream. The LiteLLM provider filters these tags and emits `thought-stream` events:
@@ -730,9 +812,9 @@ const contentSubj = new ReplaySubject<string>();  // Buffers all emissions
 ## Testing Strategy
 
 ### Unit Tests
-- `tests/content.test.ts` - splitInlineXml() utility, tag extraction logic (61 tests passing)
-- `tests/agent-loop.test.ts` - Pipeline integration
-- `tests/litellm-provider.test.ts` - LLM provider streaming
+- `packages/core/tests/content.test.ts` - splitInlineXml() utility, tag extraction logic (61 tests passing)
+- `packages/core/tests/agent-loop.test.ts` - Pipeline integration
+- `packages/core/tests/litellm-provider.test.ts` - LLM provider streaming
 
 ### Test Coverage for splitInlineXml
 ```typescript
@@ -749,8 +831,8 @@ describe('splitInlineXml', () => {
 ```
 
 ### Integration Tests
-- `examples/kitchen-sink.ts` - End-to-end with real LLM
-- `examples/litellm-agent.ts` - LiteLLM provider integration
+- `packages/examples/src/kitchen-sink.ts` - End-to-end with real LLM
+- `packages/examples/src/litellm-agent.ts` - LiteLLM provider integration
 
 ## Future Enhancements
 
@@ -816,45 +898,45 @@ app.post('/api/sse/message', (req, res) => {
 
 ### Core Files
 
-- **`src/providers/litellm-provider.ts`** - Three-path streaming architecture implementation
+- **`packages/core/src/providers/litellm-provider.ts`** - Three-path streaming architecture implementation
   - `streamEvents()` method creates the merge of three paths
   - Uses `splitInlineXml()`, `aggregateChoice()`, `shareReplay()`
 
-- **`src/core/operators/chat-completions/content.ts`** - Content/tag splitting utilities
+- **`packages/core/src/operators/chat-completions/content.ts`** - Content/tag splitting utilities
   - `splitInlineXml()` function with `ReplaySubject` buffering
   - `InlineXmlParser` class for synchronous parsing
   - `getContent()` operator to extract content from choices
 
-- **`src/core/operators/chat-completions/aggregate.ts`** - Choice aggregation
+- **`packages/core/src/operators/chat-completions/aggregate.ts`** - Choice aggregation
   - `aggregateChoice()` operator for Path C (content-complete)
   - Collects all chunks into final message
 
-- **`src/core/agent.ts`** - Multi-turn conversation manager
+- **`packages/core/src/agent.ts`** - Multi-turn conversation manager
   - `startTurn()` method coordinates with AgentLoop
   - Maps LLMEvents to AgentEvents (adds contextId/taskId)
 
-- **`src/core/agent-loop.ts`** - Single-turn execution engine
+- **`packages/core/src/agent-loop.ts`** - Single-turn execution engine
   - `startTurn()` method calls LLM provider
   - Emits task-created and task-status events
 
 ### Example Files
 
-- **`examples/kitchen-sink.ts`** - Interactive CLI example
+- **`packages/examples/src/kitchen-sink.ts`** - Interactive CLI example
   - Direct Observable subscription (no SSE server)
   - Synchronous writes with `fs.writeSync()` for ordering
   - Event handling for content-delta, thought-stream, etc.
 
-- **`examples/litellm-agent.ts`** - LiteLLM provider integration example
+- **`packages/examples/src/litellm-agent.ts`** - LiteLLM provider integration example
   - Shows basic usage without thought extraction
 
 ### Test Files
 
-- **`tests/content.test.ts`** - 61 tests for splitInlineXml()
+- **`packages/core/tests/content.test.ts`** - 61 tests for splitInlineXml()
   - Tag extraction, incomplete tags, multiple tags, ordering
 
-- **`tests/agent-loop.test.ts`** - Pipeline integration tests
+- **`packages/core/tests/agent-loop.test.ts`** - Pipeline integration tests
 
-- **`tests/litellm-provider.test.ts`** - Provider streaming tests
+- **`packages/core/tests/litellm-provider.test.ts`** - Provider streaming tests
 
 ### Related Documentation
 
@@ -862,10 +944,10 @@ app.post('/api/sse/message', (req, res) => {
 - **`ai-journal/CONTENT_DELTA_ORDER_FIX.md`** - Content ordering fix with synchronous writes
 - **`ai-journal/THOUGHT_STREAMING_COMPLETE.md`** - Thought streaming implementation history
 
-- **LLM Provider**: `src/providers/litellm-provider.ts`
-- **Thought Extraction**: `src/core/operators/thought-stream.ts`
-- **Event Emitter**: `src/core/operators/event-emitter.ts`
-- **SSE Server**: `src/server/sse-server.ts`
-- **Event Router**: `src/server/event-router.ts`
-- **Agent**: `src/core/agent.ts`
-- **AgentLoop**: `src/core/agent-loop.ts`
+- **LLM Provider**: `packages/core/src/providers/litellm-provider.ts`
+- **Thought Extraction**: `packages/core/src/operators/thought-stream.ts`
+- **Event Emitter**: `packages/core/src/operators/event-emitter.ts`
+- **SSE Server**: `packages/core/src/server/sse-server.ts`
+- **Event Router**: `packages/core/src/server/event-router.ts`
+- **Agent**: `packages/core/src/agent.ts`
+- **AgentLoop**: `packages/core/src/agent-loop.ts`

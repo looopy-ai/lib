@@ -51,7 +51,7 @@
 ## Implementation Status
 
 ### ✅ Fully Implemented
-- Core agent loop execution (`src/core/agent-loop.ts`)
+- Core agent loop execution (`packages/core/src/agent-loop.ts`)
 - RxJS operator-based pipeline architecture
 - LLM integration via provider interface
 - Tool execution (parallel with concurrency)
@@ -104,7 +104,7 @@ AgentLoop executes **one complete turn**:
 The execution pipeline uses **factory functions** that create operator callbacks and manage tracing contexts:
 
 ```
-src/core/
+packages/core/src/
 ├── agent-loop.ts              # Main orchestrator
 ├── operators/
 │   ├── execute-operators.ts   # Root span lifecycle callbacks
@@ -476,7 +476,7 @@ interface ToolCall {
 }
 ```
 
-**Current Implementation**: See [`src/providers/litellm-provider.ts`](../src/providers/litellm-provider.ts) for production LLM integration using LiteLLM proxy.
+**Current Implementation**: See [`packages/core/src/providers/litellm-provider.ts`](../packages/core/src/providers/litellm-provider.ts) for production LLM integration using LiteLLM proxy.
 
 ### Streaming Support
 
@@ -521,8 +521,8 @@ interface ToolResult {
 ```
 
 **Current Implementations**:
-- [`LocalToolProvider`](../src/tools/local-tools.ts) - Register functions locally
-- [`ClientToolProvider`](../src/tools/client-tool-provider.ts) - Tools provided by client via A2A
+- [`LocalToolProvider`](../packages/core/src/tools/local-tools.ts) - Register functions locally
+- [`ClientToolProvider`](../packages/core/src/tools/client-tool-provider.ts) - Tools provided by client via A2A
 - **MCP Support**: Planned for future integration
 
 ### Parallel Execution
@@ -539,7 +539,7 @@ const executeTools$ = (toolCalls: ToolCall[], context): Observable<ToolResult[]>
 };
 ```
 
-**Implementation**: See [`src/core/agent-loop.ts`](../src/core/agent-loop.ts) `executeTools()` method.
+**Implementation**: See [`packages/core/src/agent-loop.ts`](../packages/core/src/agent-loop.ts) `executeTools()` method.
 
 ---
 
@@ -560,7 +560,7 @@ AgentLoop emits A2A-compliant events throughout execution. Events are emitted vi
 - `internal:tool-complete` - Tool execution finished
 - `internal:checkpoint` - State persisted
 
-**Implementation**: See [`src/core/types.ts`](../src/core/types.ts) for event type definitions and [`A2A_ALIGNMENT.md`](../A2A_ALIGNMENT.md) for protocol compliance details.
+**Implementation**: See [`packages/core/src/types.ts`](../packages/core/src/types.ts) for event type definitions and [`A2A_ALIGNMENT.md`](../A2A_ALIGNMENT.md) for protocol compliance details.
 
 ---
 
@@ -575,7 +575,7 @@ AgentLoop handles errors at multiple pipeline stages:
 
 All errors are recorded in OpenTelemetry spans with proper attributes.
 
-**Implementation**: Error handling is in operator catch blocks. See `catchExecuteError`, `catchIterationError`, `catchLLMError` in [`src/core/operators/`](../src/core/operators/).
+**Implementation**: Error handling is in operator catch blocks. See `catchExecuteError`, `catchIterationError`, `catchLLMError` in [`packages/core/src/operators/`](../packages/core/src/operators/).
 
 ---
 
@@ -644,7 +644,7 @@ events$.subscribe({
 });
 ```
 
-**Implementation**: See [`src/core/agent-loop.ts`](../src/core/agent-loop.ts) `resume()` static method.
+**Implementation**: See [`packages/core/src/agent-loop.ts`](../packages/core/src/agent-loop.ts) `resume()` static method.
 
 ---
 
@@ -671,7 +671,7 @@ interface ArtifactStore {
 - **Artifact tools**: Built-in tools for LLM to create/modify artifacts
 - **A2A artifact events**: Emit `ArtifactUpdateEvent` for streaming
 
-**Current Status**: Basic in-memory implementation exists. See [`src/stores/artifacts/`](../src/stores/artifacts/).
+**Current Status**: Basic in-memory implementation exists. See [`packages/core/src/stores/artifacts/`](../packages/core/src/stores/artifacts/).
 
 ---
 
@@ -680,35 +680,35 @@ interface ArtifactStore {
 For complete implementation details, see:
 
 **Core Implementation**:
-- [`src/core/agent-loop.ts`](../src/core/agent-loop.ts) - Main AgentLoop class
-- [`src/core/types.ts`](../src/core/types.ts) - Type definitions
-- [`src/core/config.ts`](../src/core/config.ts) - Configuration interface
+- [`packages/core/src/agent-loop.ts`](../packages/core/src/agent-loop.ts) - Main AgentLoop class
+- [`packages/core/src/types.ts`](../packages/core/src/types.ts) - Type definitions
+- [`packages/core/src/config.ts`](../packages/core/src/config.ts) - Configuration interface
 
 **Operator Factories**:
-- [`src/core/operators/execute-operators.ts`](../src/core/operators/execute-operators.ts) - Root execution span management
-- [`src/core/operators/iteration-operators.ts`](../src/core/operators/iteration-operators.ts) - Iteration loop operators
-- [`src/core/operators/llm-operators.ts`](../src/core/operators/llm-operators.ts) - LLM call and response processing
+- [`packages/core/src/operators/execute-operators.ts`](../packages/core/src/operators/execute-operators.ts) - Root execution span management
+- [`packages/core/src/operators/iteration-operators.ts`](../packages/core/src/operators/iteration-operators.ts) - Iteration loop operators
+- [`packages/core/src/operators/llm-operators.ts`](../packages/core/src/operators/llm-operators.ts) - LLM call and response processing
 
 **Storage**:
-- [`src/stores/interfaces.ts`](../src/stores/interfaces.ts) - TaskStateStore and ArtifactStore interfaces
-- [`src/stores/factory.ts`](../src/stores/factory.ts) - Store creation factory
-- [`src/stores/redis/`](../src/stores/redis/) - Redis implementations
-- [`src/stores/memory/`](../src/stores/memory/) - In-memory implementations
+- [`packages/core/src/stores/interfaces.ts`](../packages/core/src/stores/interfaces.ts) - TaskStateStore and ArtifactStore interfaces
+- [`packages/core/src/stores/factory.ts`](../packages/core/src/stores/factory.ts) - Store creation factory
+- [`packages/core/src/stores/redis/`](../packages/core/src/stores/redis/) - Redis implementations
+- [`packages/core/src/stores/memory/`](../packages/core/src/stores/memory/) - In-memory implementations
 
 **Tools**:
-- [`src/tools/interfaces.ts`](../src/tools/interfaces.ts) - ToolProvider interface
-- [`src/tools/local-tools.ts`](../src/tools/local-tools.ts) - Local tool registration
-- [`src/tools/client-tool-provider.ts`](../src/tools/client-tool-provider.ts) - Client-provided tools
+- [`packages/core/src/tools/interfaces.ts`](../packages/core/src/tools/interfaces.ts) - ToolProvider interface
+- [`packages/core/src/tools/local-tools.ts`](../packages/core/src/tools/local-tools.ts) - Local tool registration
+- [`packages/core/src/tools/client-tool-provider.ts`](../packages/core/src/tools/client-tool-provider.ts) - Client-provided tools
 
 **Observability**:
-- [`src/observability/tracing.ts`](../src/observability/tracing.ts) - OpenTelemetry setup
-- [`src/observability/spans/`](../src/observability/spans/) - Span helper functions
+- [`packages/core/src/observability/tracing.ts`](../packages/core/src/observability/tracing.ts) - OpenTelemetry setup
+- [`packages/core/src/observability/spans/`](../packages/core/src/observability/spans/) - Span helper functions
 
 ---
 
 ## Testing
 
-See [`tests/agent-loop.test.ts`](../tests/agent-loop.test.ts) for comprehensive test suite covering:
+See [`packages/core/tests/agent-loop.test.ts`](../packages/core/tests/agent-loop.test.ts) for comprehensive test suite covering:
 
 - Basic execution flow
 - Tool execution (single and parallel)
