@@ -37,4 +37,4 @@ A typical data flow for a single turn is as follows:
 
 ## Observability
 
-The framework includes built-in support for OpenTelemetry, which allows you to trace and monitor the execution of your agents. The `Agent` and `AgentLoop` classes automatically create spans for each turn and for each call to an external service.
+The framework includes built-in support for OpenTelemetry, which allows you to trace and monitor the execution of your agents. The `Agent` and `AgentLoop` classes automatically create spans for each turn and for each call to an external service. For more details, see the [Observability](./observability.md) documentation.

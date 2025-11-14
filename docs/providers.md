@@ -4,9 +4,41 @@ Providers are connectors to external services, such as LLM providers and tool pr
 
 ## LLM Providers
 
-LLM providers are responsible for translating between the framework's internal data model and the external service's API. The `@looopy-ai/core` package includes a single LLM provider, `liteLLMProvider`, which connects to the [LiteLLM](https://github.com/BerriAI/litellm) proxy.
+LLM providers are responsible for translating between the framework's internal data model and the external service's API.
 
-The `@looopy-ai/aws` package includes a `bedrockProvider`, which connects to the AWS Bedrock service.
+### `liteLLMProvider`
+
+The `@looopy-ai/core` package includes a single LLM provider, `liteLLMProvider`, which connects to the [LiteLLM](https://github.com/BerriAI/litellm) proxy. This allows you to use a wide variety of LLMs with a single interface.
+
+To use the `liteLLMProvider`, you first need to run the LiteLLM proxy. You can do this with the following command:
+
+```bash
+litellm --model openai/gpt-3.5-turbo
+```
+
+Then, you can create a `liteLLMProvider` instance like this:
+
+```typescript
+import { liteLLMProvider } from '@looopy-ai/core';
+
+const provider = liteLLMProvider({
+  model: 'openai/gpt-3.5-turbo',
+});
+```
+
+### `bedrockProvider`
+
+The `@looopy-ai/aws` package includes a `bedrockProvider`, which connects to the AWS Bedrock service. This allows you to use the models available in Bedrock, such as Claude and Llama.
+
+To use the `bedrockProvider`, you need to have the AWS SDK for JavaScript v3 installed and configured. Then, you can create a `bedrockProvider` instance like this:
+
+```typescript
+import { bedrockProvider } from '@looopy-ai/aws';
+
+const provider = bedrockProvider({
+  model: 'anthropic.claude-v2',
+});
+```
 
 ### Creating a Custom LLM Provider
 

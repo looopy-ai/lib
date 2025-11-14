@@ -4,9 +4,15 @@ Stores are persistence layers for storing conversation history, agent state, and
 
 ## Message Stores
 
-Message stores are used to store and retrieve conversation history. The `@looopy-ai/core` package includes a single message store, `InMemoryMessageStore`, which stores messages in memory.
+Message stores are used to store and retrieve conversation history.
 
-The `@looopy-ai/aws` package includes a `S3MessageStore`, which stores messages in an S3 bucket.
+### `InMemoryMessageStore`
+
+The `@looopy-ai/core` package includes a single message store, `InMemoryMessageStore`, which stores messages in memory. This is useful for development and testing, but should not be used in production.
+
+### `S3MessageStore`
+
+The `@looopy-ai/aws` package includes a `S3MessageStore`, which stores messages in an S3 bucket. This is a durable, scalable option for production use.
 
 ### Creating a Custom Message Store
 
@@ -21,7 +27,13 @@ export interface MessageStore {
 
 ## Artifact Stores
 
-Artifact stores are used to store and retrieve artifacts. The `@looopy-ai/core` package includes a single artifact store, `InMemoryArtifactStore`, which stores artifacts in memory.
+Artifact stores are used to store and retrieve artifacts.
+
+### `InMemoryArtifactStore`
+
+The `@looopy-ai/core` package includes a single artifact store, `InMemoryArtifactStore`, which stores artifacts in memory.
+
+### `S3ArtifactStore`
 
 The `@looopy-ai/aws` package includes a `S3ArtifactStore`, which stores artifacts in an S3 bucket.
 
@@ -38,7 +50,13 @@ export interface ArtifactStore {
 
 ## Task State Stores
 
-Task state stores are used to store and retrieve the state of a task. The `@looopy-ai/core` package includes a single task state store, `InMemoryTaskStateStore`, which stores task state in memory.
+Task state stores are used to store and retrieve the state of a task.
+
+### `InMemoryTaskStateStore`
+
+The `@looopy-ai/core` package includes a single task state store, `InMemoryTaskStateStore`, which stores task state in memory.
+
+### `S3TaskStateStore`
 
 The `@looopy-ai/aws` package includes a `S3TaskStateStore`, which stores task state in an S3 bucket.
 

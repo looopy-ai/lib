@@ -11,4 +11,4 @@ Looopy AI is a reactive, extensible AI agent framework built with TypeScript and
 
 ## Getting Help
 
-If you have any questions or need help with the framework, please open an issue on our [GitHub repository](https://github.com/your-username/looopy-ai).
+If you have any questions or need help with the framework, please open an issue on our [GitHub repository](https://github.com/looopy-ai/looopy-ai).

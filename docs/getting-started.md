@@ -23,8 +23,7 @@ This guide will walk you through the process of setting up your development envi
 1. Create a new file, for example, `my-agent.ts`.
 2. In this file, import the necessary classes and interfaces from `@looopy-ai/core`:
    ```typescript
-   import { Agent, AgentConfig } from '@looopy-ai/core';
-   import { liteLLMProvider } from './providers'; // Your LLM provider
+   import { Agent, AgentConfig, liteLLMProvider } from '@looopy-ai/core';
    ```
 3. Configure your agent. The `AgentConfig` interface has the following properties:
    - `agentId`: A unique ID for the agent.

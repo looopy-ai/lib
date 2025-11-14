@@ -7,7 +7,7 @@ We welcome contributions to the Looopy AI framework!
 1. Fork the repository.
 2. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/looopy-ai.git
+   git clone https://github.com/looopy-ai/looopy-ai.git
    ```
 3. Create a new branch for your changes:
    ```bash

@@ -394,7 +394,7 @@ interface BedrockMemoryConfig {
 }
 
 class BedrockMemoryStore implements MessageStore {
-  // Conceptual implementation - see src/stores/messages/bedrock-memory-store.ts
+  // Conceptual implementation - see packages/core/src/stores/messages/bedrock-memory-store.ts
 
   /**
    * Append messages as conversational events
@@ -502,7 +502,7 @@ Memory Resource (Pre-created with strategies)
       └─ ...
 ```
 
-**Implementation**: See `src/stores/messages/bedrock-memory-store.ts`
+**Implementation**: See `packages/core/src/stores/messages/bedrock-memory-store.ts`
 
 **Key Features of Bedrock AgentCore Memory:**
 - **Automatic Extraction**: Bedrock extracts insights asynchronously via strategies
