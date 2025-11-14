@@ -23,7 +23,7 @@ import type {
   DatasetSchema,
   FileArtifact,
   StoredArtifact,
-} from '../../core/types';
+} from '../../types/artifact';
 
 export interface FileSystemArtifactStoreConfig {
   /** Base path for storage (default: ./_agent_store) */

@@ -9,7 +9,7 @@
  * - Best of both worlds
  */
 
-import type { Message } from '../../core/types';
+import type { Message } from '../../types/message';
 import type { CompactionOptions, CompactionResult, MessageStore } from './interfaces';
 
 export type SyncStrategy = 'immediate' | 'batch' | 'end-of-session';

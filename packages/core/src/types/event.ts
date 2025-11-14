@@ -8,7 +8,7 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { ToolCall } from '../core/types';
+import type { ToolCall } from './tools';
 
 // ============================================================================
 // Common Types

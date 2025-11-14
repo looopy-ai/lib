@@ -10,7 +10,6 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
 import {
   type CreateDatasetWriteEventOptions,
   type CreateDataWriteEventOptions,
@@ -19,7 +18,8 @@ import {
   createDataWriteEvent,
   createFileWriteEvent,
 } from '../../events';
-import type { AnyEvent } from '../../events/types';
+import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../types/artifact';
+import type { AnyEvent } from '../../types/event';
 
 /**
  * Event emitter interface

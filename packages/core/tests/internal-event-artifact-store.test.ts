@@ -3,12 +3,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { AnyEvent } from '../src/events';
 import {
   InMemoryArtifactStore,
   InternalEventArtifactStore,
   type InternalEventEmitter,
 } from '../src/stores/artifacts';
+import type { AnyEvent } from '../src/types/event';
 
 describe('InternalEventArtifactStore', () => {
   describe('File Artifacts', () => {

@@ -6,7 +6,7 @@
 
 import { type Context, context, type Span, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { AnyEvent } from '../../events';
+import type { AnyEvent } from '../../types/event';
 import { SpanAttributes } from '../tracing';
 
 export interface AgentTurnSpanParams {

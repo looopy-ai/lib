@@ -1,3 +1,4 @@
+import type { AnyEvent } from '../types/event';
 /**
  * Agent - Stateful Multi-turn Conversation Manager
  *
@@ -24,9 +25,12 @@ import {
   startAgentTurnSpan,
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
+import type { AuthContext } from '../types/context';
+import type { LLMProvider } from '../types/llm';
+import type { Message } from '../types/message';
+import type { ToolProvider } from '../types/tools';
 import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
-import type { AgentEvent, LLMProvider, Message, ToolProvider } from './types';
 
 /**
  * Agent configuration
@@ -220,10 +224,10 @@ export class Agent {
   async startTurn(
     userMessage: string | null,
     options?: {
-      authContext?: import('./types').AuthContext;
+      authContext?: AuthContext;
       taskId?: string;
     },
-  ): Promise<Observable<AgentEvent>> {
+  ): Promise<Observable<AnyEvent>> {
     const turnNumber = this._state.turnCount + 1;
 
     // Generate taskId if not provided
@@ -356,15 +360,15 @@ export class Agent {
   private executeInternal(
     userMessage: string | null,
     taskId: string,
-    authContext: import('./types').AuthContext | undefined,
+    authContext: AuthContext | undefined,
     turnSpan: import('@opentelemetry/api').Span,
     turnContext: import('@opentelemetry/api').Context,
-  ): Observable<AgentEvent> {
+  ): Observable<AnyEvent> {
     const turnNumber = this._state.turnCount + 1;
 
     return concat(
       // Load messages, execute turn, save results
-      new Observable<AgentEvent>((observer) => {
+      new Observable<AnyEvent>((observer) => {
         const execute = async () => {
           try {
             // 1. Load conversation history
@@ -458,7 +462,7 @@ export class Agent {
 
             // Subscribe to turn events
             turnEvents$.subscribe({
-              next: (event: AgentEvent) => {
+              next: (event: AnyEvent) => {
                 // Forward events to observer
                 observer.next(event);
               },

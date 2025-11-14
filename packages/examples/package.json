@@ -6,6 +6,7 @@
   "scripts": {
     "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
     "check:types": "tsc --noEmit",
+    "agentcore": "tsx src/agentcore-server.ts",
     "example": "tsx src/kitchen-sink.ts",
     "server": "tsx src/sse-server.ts",
     "client2": "tsx src/sse-client2.ts",
@@ -26,6 +27,7 @@
   "dependencies": {
     "@geee-be/sse-stream-parser": "^1.0.1",
     "@hono/node-server": "^1.19.6",
+    "@looopy-ai/aws": "workspace:*",
     "@looopy-ai/core": "workspace:*",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.207.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.207.0",

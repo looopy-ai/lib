@@ -2,9 +2,9 @@ import { context } from '@opentelemetry/api';
 import type pino from 'pino';
 import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ToolCallEvent } from '../events/types';
 import * as spanHelpers from '../observability/spans/tool';
-import type { ToolCall, ToolProvider } from '../tools/types';
+import type { ToolCallEvent } from '../types/event';
+import type { ToolCall, ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
 import type { IterationContext } from './types';
 

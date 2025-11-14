@@ -8,14 +8,14 @@
  * Design Reference: design/tool-integration.md#client-tool-provider
  */
 
+import type { ExecutionContext } from '../types/context';
 import {
-  type ExecutionContext,
   type ToolCall,
   type ToolDefinition,
   type ToolProvider,
   type ToolResult,
   validateToolDefinitions,
-} from './types';
+} from '../types/tools';
 
 export interface ClientToolConfig {
   /**

@@ -7,6 +7,30 @@
  */
 
 import { z } from 'zod';
+import type { ExecutionContext } from './context';
+
+/**
+ * Tool call from LLM
+ */
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+/**
+ * Result of tool execution
+ */
+export interface ToolResult {
+  toolCallId: string;
+  toolName: string;
+  success: boolean;
+  result: unknown;
+  error?: string;
+}
 
 /**
  * JSON Schema property definition with recursive support
@@ -108,37 +132,6 @@ export const ToolCallSchema = z.object({
     arguments: z.record(z.string(), z.unknown()), // object
   }),
 });
-
-export type ToolCall = {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: Record<string, unknown>;
-  };
-};
-
-/**
- * Result of tool execution
- */
-export type ToolResult = {
-  toolCallId: string;
-  toolName: string;
-  success: boolean;
-  result: unknown;
-  error?: string;
-};
-
-/**
- * Execution context passed to tools
- */
-export type ExecutionContext = {
-  taskId: string;
-  contextId: string;
-  agentId: string;
-  traceContext?: unknown;
-  authContext?: unknown;
-};
 
 /**
  * Tool provider type

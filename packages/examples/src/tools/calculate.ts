@@ -4,7 +4,7 @@
  * Evaluates mathematical expressions
  */
 
-import { tool } from '@looopy-ai/core/ts/tools';
+import { tool } from '@looopy-ai/core/ts';
 import { evaluate } from 'mathjs';
 import { z } from 'zod';
 

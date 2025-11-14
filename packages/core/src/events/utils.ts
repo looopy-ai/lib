@@ -37,7 +37,7 @@ import type {
   ToolCompleteEvent,
   ToolProgressEvent,
   ToolStartEvent,
-} from './types';
+} from '../types/event';
 
 // ============================================================================
 // ID Generation

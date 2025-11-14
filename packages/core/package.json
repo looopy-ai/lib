@@ -1,7 +1,7 @@
 {
   "name": "@looopy-ai/core",
   "version": "1.0.0",
-  "description": "RxJS-based AI agent framework implementing the A2A protocol",
+  "description": "RxJS-based AI agent framework",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,13 +11,7 @@
       "types": "./dist/index.d.ts"
     },
     "./package.json": "./package.json",
-    "./ts": "./src/index.ts",
-    "./ts/events": "./src/events/index.ts",
-    "./ts/observability": "./src/observability/index.ts",
-    "./ts/providers": "./src/providers/index.ts",
-    "./ts/stores": "./src/stores/index.ts",
-    "./ts/server": "./src/server/index.ts",
-    "./ts/tools": "./src/tools/index.ts"
+    "./ts": "./src/index.ts"
   },
   "files": [
     "dist"
@@ -29,12 +23,10 @@
     "test": "CI=true vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "example": "tsx examples/kitchen-sink.ts",
-    "example:litellm": "tsx examples/litellm-agent.ts",
     "build": "tsc -p tsconfig.esm.json",
     "prepare": "pnpm build",
-    "lint": "biome check src examples tests",
-    "lint:fix": "biome check --write src examples tests"
+    "lint": "biome check src tests",
+    "lint:fix": "biome check --write src tests"
   },
   "keywords": [
     "agent",

@@ -11,7 +11,7 @@
  * - Progress tracking
  */
 
-import type { AnyEvent } from '@looopy-ai/core/ts/events';
+import type { AnyEvent } from '@looopy-ai/core/ts';
 import { EventSource } from 'eventsource';
 
 // Example 1: Basic SSE Client

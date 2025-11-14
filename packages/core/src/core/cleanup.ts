@@ -6,7 +6,8 @@
  * Design Reference: design/agent-loop.md#state-cleanup-and-expiration
  */
 
-import type { ArtifactStore, TaskStateStore } from './types';
+import type { ArtifactStore } from '../types/artifact';
+import type { TaskStateStore } from '../types/state';
 
 export class StateCleanupService {
   private intervalHandle?: NodeJS.Timeout;

@@ -1,8 +1,9 @@
+import { context } from '@opentelemetry/api';
 import { evaluate } from 'mathjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { localTools, tool } from '../src/tools/local-tools';
-import type { ExecutionContext } from '../src/tools/types';
+import type { ExecutionContext } from '../src/types';
 
 describe('local-tools', () => {
   describe('tool()', () => {
@@ -304,6 +305,7 @@ describe('local-tools', () => {
         taskId: 'test-task',
         contextId: 'test-context',
         agentId: 'test-agent',
+        parentContext: context.active(),
       };
 
       it('should execute tool with valid arguments', async () => {

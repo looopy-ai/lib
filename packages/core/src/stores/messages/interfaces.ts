@@ -4,7 +4,7 @@
  * Design: design/message-management.md
  */
 
-import type { Message } from '../../core/types';
+import type { Message } from '../../types/message';
 
 /**
  * Stored message with metadata

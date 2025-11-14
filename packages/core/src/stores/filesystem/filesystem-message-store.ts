@@ -11,7 +11,7 @@
 
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Message } from '../../core/types';
+import type { Message } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,

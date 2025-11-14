@@ -7,7 +7,7 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
 import type { LoopContext } from '../../core-v2/types';
-import type { AnyEvent } from '../../events';
+import type { AnyEvent } from '../../types/event';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LoopIterationSpanParams {

@@ -11,7 +11,7 @@
  * - Conflict resolution
  */
 
-import type { Message } from '../../core/types';
+import type { Message } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,

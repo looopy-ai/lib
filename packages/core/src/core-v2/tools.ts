@@ -1,6 +1,6 @@
 import { concat, defer, type Observable, of } from 'rxjs';
-import type { ToolCallEvent, ToolCompleteEvent, ToolExecutionEvent } from '../events/types';
 import { startToolExecuteSpan } from '../observability/spans';
+import type { ToolCallEvent, ToolCompleteEvent, ToolExecutionEvent } from '../types/event';
 import type { IterationContext } from './types';
 
 /**
@@ -113,6 +113,7 @@ export const runToolCall = (
           contextId: context.contextId,
           taskId: context.taskId,
           agentId: context.agentId,
+          parentContext: context.parentContext,
           authContext: context.authContext,
         },
       ); // TODO use event and context

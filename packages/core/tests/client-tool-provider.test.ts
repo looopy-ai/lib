@@ -2,15 +2,18 @@
  * Client Tool Provider Tests
  */
 
+import { context } from '@opentelemetry/api';
 import { describe, expect, it } from 'vitest';
 import { ClientToolProvider } from '../src/tools/client-tool-provider';
-import type { ExecutionContext, ToolCall, ToolResult } from '../src/tools/types';
+import type { ExecutionContext } from '../src/types/context';
+import type { ToolCall, ToolResult } from '../src/types/tools';
 
 describe('ClientToolProvider', () => {
   const mockContext: ExecutionContext = {
     taskId: 'task-123',
     contextId: 'ctx-456',
     agentId: 'agent-1',
+    parentContext: context.active(),
   };
 
   const validTools = [

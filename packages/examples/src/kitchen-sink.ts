@@ -37,17 +37,20 @@
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import type { AgentEvent, StoredArtifact } from '@looopy-ai/core/ts';
-import { Agent, setDefaultLogger } from '@looopy-ai/core/ts';
-import { initializeTracing, shutdownTracing } from '@looopy-ai/core/ts/observability';
-import { LiteLLM } from '@looopy-ai/core/ts/providers';
+import type { AnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
 import {
+  Agent,
+  createArtifactTools,
   FileSystemArtifactStore,
   FileSystemContextStore,
   FileSystemMessageStore,
   FileSystemStateStore,
-} from '@looopy-ai/core/ts/stores';
-import { createArtifactTools, localTools } from '@looopy-ai/core/ts/tools';
+  initializeTracing,
+  LiteLLM,
+  localTools,
+  setDefaultLogger,
+  shutdownTracing,
+} from '@looopy-ai/core/ts';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
@@ -271,7 +274,7 @@ Be concise and helpful in your responses.`;
   const sseLogPath = path.join(storagePath, 'sse-debug.log');
 
   // Helper to log events in SSE format
-  async function logSSEEvent(event: AgentEvent): Promise<void> {
+  async function logSSEEvent(event: AnyEvent): Promise<void> {
     try {
       if (event.kind === 'content-delta') return; // Skip content deltas
 
@@ -540,7 +543,7 @@ Be concise and helpful in your responses.`;
   }
 
   // Handle agent events
-  async function handleAgentEvent(event: AgentEvent) {
+  async function handleAgentEvent(event: AnyEvent) {
     // Log all events to SSE log file
     await logSSEEvent(event);
 

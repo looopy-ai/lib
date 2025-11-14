@@ -9,6 +9,10 @@
       "path": "packages/core"
     },
     {
+      "name": "☁️ AWS",
+      "path": "packages/aws"
+    },
+    {
       "name": "💡 Examples",
       "path": "packages/examples"
     }

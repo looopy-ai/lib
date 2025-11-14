@@ -7,7 +7,7 @@
  * Design: design/internal-event-protocol.md (SSE Server section)
  */
 
-import type { AnyEvent } from '../events';
+import type { AnyEvent } from '../types/event';
 import { EventBuffer, type EventBufferConfig } from './event-buffer';
 import { EventRouter, type Subscriber, type SubscriptionConfig } from './event-router';
 

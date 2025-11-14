@@ -7,7 +7,7 @@
  * Design: design/internal-event-protocol.md (SSE Reconnection section)
  */
 
-import type { AnyEvent } from '../events';
+import type { AnyEvent } from '../types/event';
 
 /**
  * Buffered event with metadata

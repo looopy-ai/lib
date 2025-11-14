@@ -12,7 +12,7 @@
 
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ContextState, ContextStore } from '../../core/types';
+import type { ContextState, ContextStore } from '../../types/state';
 
 export interface FileSystemContextStoreConfig {
   /** Base path for storage (default: ./_agent_store) */

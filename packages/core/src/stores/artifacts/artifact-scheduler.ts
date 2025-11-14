@@ -13,7 +13,7 @@
  * Design: design/artifact-management.md
  */
 
-import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../core/types';
+import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../types/artifact';
 
 type Operation<T> = () => Promise<T>;
 

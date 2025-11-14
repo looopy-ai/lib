@@ -18,7 +18,7 @@
  * - Long-term: Extracted memories via RetrieveMemoryRecordsCommand
  */
 
-import type { Message } from '../../core/types';
+import type { Message } from '../../types/message';
 import type { CompactionOptions, CompactionResult, MessageStore } from './interfaces';
 import { trimToTokenBudget } from './interfaces';
 

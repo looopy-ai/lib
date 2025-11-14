@@ -1,0 +1,65 @@
+{
+  "name": "@looopy-ai/aws",
+  "version": "1.0.0",
+  "description": "AWS storage and providers for Looopy AI",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json",
+    "./ts": "./src/index.ts",
+    "./ts/events": "./src/events/index.ts",
+    "./ts/observability": "./src/observability/index.ts",
+    "./ts/providers": "./src/providers/index.ts",
+    "./ts/stores": "./src/stores/index.ts",
+    "./ts/server": "./src/server/index.ts",
+    "./ts/tools": "./src/tools/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
+    "check:types": "tsc --noEmit",
+    "test": "CI=true vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "agentcore": "tsx src/agentcore-runtime-server.ts",
+    "build": "tsc -p tsconfig.esm.json",
+    "prepare": "pnpm build",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src"
+  },
+  "keywords": [
+    "agent",
+    "ai",
+    "rxjs",
+    "a2a",
+    "llm",
+    "aws",
+    "bedrock",
+    "agentcore"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.6.5",
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@looopy-ai/core": "workspace:*",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.207.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.207.0",
+    "@opentelemetry/instrumentation": "^0.207.0",
+    "@opentelemetry/resources": "^2.2.0",
+    "@opentelemetry/sdk-metrics": "^2.2.0",
+    "@opentelemetry/sdk-trace-base": "^2.2.0",
+    "@opentelemetry/sdk-trace-node": "^2.2.0",
+    "@opentelemetry/semantic-conventions": "^1.37.0",
+    "hono": "^4.10.5",
+    "pino-http": "^11.0.0"
+  }
+}

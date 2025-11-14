@@ -8,8 +8,10 @@
  */
 
 import { z } from 'zod';
-import type { ArtifactStore, StoredArtifact, TaskStateStore, ToolProvider } from '../core/types';
 import { ArtifactScheduler } from '../stores';
+import type { ArtifactStore, StoredArtifact } from '../types/artifact';
+import type { TaskStateStore } from '../types/state';
+import type { ToolProvider } from '../types/tools';
 import { localTools, tool } from './local-tools';
 
 /**

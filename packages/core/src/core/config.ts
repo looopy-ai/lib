@@ -5,7 +5,10 @@
  */
 
 import type pino from 'pino';
-import type { ArtifactStore, LLMProvider, TaskStateStore, ToolProvider } from './types';
+import type { ArtifactStore } from '../types/artifact';
+import type { LLMProvider } from '../types/llm';
+import type { TaskStateStore } from '../types/state';
+import type { ToolProvider } from '../types/tools';
 
 export interface AgentLoopConfig {
   /**

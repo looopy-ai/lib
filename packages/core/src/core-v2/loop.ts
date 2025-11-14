@@ -10,14 +10,9 @@ import {
   share,
   shareReplay,
 } from 'rxjs';
-import {
-  type AnyEvent,
-  type ContentCompleteEvent,
-  createTaskCompleteEvent,
-  createTaskCreatedEvent,
-  createTaskStatusEvent,
-} from '../events';
+import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
 import { startAgentLoopSpan } from '../observability/spans';
+import type { AnyEvent, ContentCompleteEvent } from '../types/event';
 import { runIteration } from './iteration';
 import type { LoopConfig, Message, TurnContext } from './types';
 

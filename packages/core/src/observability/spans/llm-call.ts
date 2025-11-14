@@ -6,9 +6,9 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { Message } from '../../core/types';
 import type { LoopContext } from '../../core-v2/types';
-import type { AnyEvent } from '../../events/types';
+import type { AnyEvent } from '../../types/event';
+import type { Message } from '../../types/message';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LLMCallSpanParams {

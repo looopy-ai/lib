@@ -1,10 +1,10 @@
 import type pino from 'pino';
 import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LLMProvider } from '../core/types';
-import type { AnyEvent } from '../events/types';
 import * as spans from '../observability/spans';
-import type { ToolProvider } from '../tools/types';
+import type { AnyEvent } from '../types/event';
+import type { LLMProvider } from '../types/llm';
+import type { ToolProvider } from '../types/tools';
 import { runIteration } from './iteration';
 import * as tools from './tools';
 import type { IterationConfig, LoopContext, Message } from './types';

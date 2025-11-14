@@ -1,18 +1,20 @@
 import * as fs from 'node:fs/promises';
 import { serve } from '@hono/node-server';
-import { Agent, setDefaultLogger } from '@looopy-ai/core/ts';
-import { initializeTracing } from '@looopy-ai/core/ts/observability';
-import { LiteLLM } from '@looopy-ai/core/ts/providers';
-import { SSEServer } from '@looopy-ai/core/ts/server';
-import { createArtifactTools, localTools } from '@looopy-ai/core/ts/tools';
-import * as dotenv from 'dotenv';
-import { Hono } from 'hono';
-import pino from 'pino';
 import {
+  Agent,
+  createArtifactTools,
   FileSystemArtifactStore,
   FileSystemMessageStore,
   FileSystemStateStore,
-} from '../../core/src/stores/filesystem';
+  initializeTracing,
+  LiteLLM,
+  localTools,
+  SSEServer,
+  setDefaultLogger,
+} from '@looopy-ai/core/ts';
+import * as dotenv from 'dotenv';
+import { Hono } from 'hono';
+import pino from 'pino';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
 const agentId = 'sse-server';

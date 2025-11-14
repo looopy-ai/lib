@@ -7,8 +7,8 @@
  * Design: design/internal-event-protocol.md (SSE Server section)
  */
 
-import type { AnyEvent } from '../events';
 import { isDebugEvent } from '../events';
+import type { AnyEvent } from '../types/event';
 
 /**
  * Event filter function

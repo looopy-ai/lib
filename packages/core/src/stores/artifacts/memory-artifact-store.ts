@@ -21,7 +21,7 @@ import type {
   DatasetSchema,
   FileArtifact,
   StoredArtifact,
-} from '../../core/types';
+} from '../../types/artifact';
 
 /**
  * In-memory artifact store using discriminated unions

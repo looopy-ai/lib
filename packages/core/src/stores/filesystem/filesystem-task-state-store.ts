@@ -9,7 +9,7 @@
 
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { PersistedLoopState, TaskStateStore } from '../../core/types';
+import type { PersistedLoopState, TaskStateStore } from '../../types/state';
 
 export interface FileSystemStateStoreConfig {
   /** Base path for storage (default: ./_agent_store) */

@@ -6,60 +6,6 @@
  * Design: design/internal-event-protocol.md
  */
 
-// Export all types
-export type {
-  // Union Types
-  AnyEvent,
-  ArtifactEvent,
-  AuthCompletedEvent,
-  AuthenticationEvent,
-  // Authentication Events
-  AuthRequiredEvent,
-  AuthType,
-  ContentCompleteEvent,
-  // Content Streaming Events
-  ContentDeltaEvent,
-  ContentStreamingEvent,
-  DatasetWriteEvent,
-  DataWriteEvent,
-  DebugEvent,
-  ExternalEvent,
-  // Artifact Events
-  FileWriteEvent,
-  InputProvider,
-  InputReceivedEvent,
-  InputRequestEvent,
-  // Input Request Events
-  InputRequiredEvent,
-  InputType,
-  InternalCheckpointEvent,
-  InternalDebugEvent,
-  InternalLLMCallEvent,
-  // Internal Debug Events
-  InternalThoughtProcessEvent,
-  JSONSchema,
-  SubAgentEvent,
-  // Sub-agent Events
-  SubtaskCreatedEvent,
-  TaskCompleteEvent,
-  // Task Lifecycle Events
-  TaskCreatedEvent,
-  TaskInitiator,
-  TaskLifecycleEvent,
-  // Common Types
-  TaskStatus,
-  TaskStatusEvent,
-  // Thought Streaming Events
-  ThoughtStreamEvent,
-  ThoughtType,
-  ThoughtVerbosity,
-  ToolCompleteEvent,
-  ToolExecutionEvent,
-  ToolProgressEvent,
-  // Tool Execution Events
-  ToolStartEvent,
-} from './types';
-
 // Export type guards
 export {
   isArtifactEvent,
@@ -72,7 +18,7 @@ export {
   isTaskLifecycleEvent,
   isThoughtStreamEvent,
   isToolExecutionEvent,
-} from './types';
+} from '../types/event';
 // Export options types for event creators
 export type {
   CreateAuthCompletedEventOptions,

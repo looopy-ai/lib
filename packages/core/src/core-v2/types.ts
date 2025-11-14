@@ -1,12 +1,13 @@
 import type pino from 'pino';
-import type { LLMProvider } from '../core/types';
-import type { ToolProvider } from '../tools/types';
+import type { AuthContext } from '../types/context';
+import type { LLMProvider } from '../types/llm';
+import type { ToolProvider } from '../types/tools';
 
 export type AgentContext = {
   agentId: string;
   contextId: string;
   parentContext: import('@opentelemetry/api').Context;
-  authContext?: import('../core/types').AuthContext;
+  authContext?: AuthContext;
   toolProviders: ToolProvider[];
   logger: pino.Logger;
   systemPrompt?: string;

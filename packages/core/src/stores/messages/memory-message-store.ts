@@ -5,8 +5,9 @@
  */
 
 import { filter, firstValueFrom } from 'rxjs';
-import type { LLMProvider, Message } from '../../core/types';
-import type { ContentCompleteEvent, LLMEvent } from '../../events/types';
+import type { ContentCompleteEvent, LLMEvent } from '../../types/event';
+import type { LLMProvider } from '../../types/llm';
+import type { Message } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,

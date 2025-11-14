@@ -6,22 +6,19 @@
 import { concat, lastValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Agent } from '../src/core/agent';
-import type { LLMProvider } from '../src/core/types';
-import { ArtifactScheduler } from '../src/stores/artifacts/artifact-scheduler';
 import { InMemoryArtifactStore } from '../src/stores/artifacts/memory-artifact-store';
 import { InMemoryStateStore } from '../src/stores/memory/memory-state-store';
 import { InMemoryMessageStore } from '../src/stores/messages/memory-message-store';
 import { createArtifactTools } from '../src/tools/artifact-tools';
+import type { LLMProvider } from '../src/types/llm';
 
 describe('Agent Artifact Tools Integration', () => {
   let artifactStore: InMemoryArtifactStore;
-  let scheduledStore: ArtifactScheduler;
   let messageStore: InMemoryMessageStore;
   let taskStateStore: InMemoryStateStore;
 
   beforeEach(() => {
     artifactStore = new InMemoryArtifactStore();
-    scheduledStore = new ArtifactScheduler(artifactStore);
     messageStore = new InMemoryMessageStore();
     taskStateStore = new InMemoryStateStore();
   });
@@ -87,19 +84,18 @@ describe('Agent Artifact Tools Integration', () => {
 
   it('should accept pre-scheduled artifact store', async () => {
     const mockLLM = createMockLLMProvider();
-    const artifactTools = createArtifactTools(scheduledStore, taskStateStore);
+    const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent = new Agent({
       contextId: 'test-context',
       llmProvider: mockLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     // biome-ignore lint/suspicious/noExplicitAny: accessing private for test verification
     const configStore = (agent as any).config.artifactStore;
-    expect(configStore).toBe(scheduledStore);
+    expect(configStore).toBe(artifactStore);
   });
 
   it('should use artifact tools to create and override file artifacts', async () => {
@@ -116,14 +112,13 @@ describe('Agent Artifact Tools Integration', () => {
       },
     ]);
 
-    const artifactTools = createArtifactTools(scheduledStore, taskStateStore);
+    const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn1$ = await agent1.startTurn('Create a file artifact');
@@ -155,7 +150,6 @@ describe('Agent Artifact Tools Integration', () => {
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn2$ = await agent2.startTurn('Override the file artifact');
@@ -183,14 +177,13 @@ describe('Agent Artifact Tools Integration', () => {
       },
     ]);
 
-    const artifactTools = createArtifactTools(scheduledStore, taskStateStore);
+    const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn1$ = await agent1.startTurn('Create a data artifact');
@@ -223,7 +216,6 @@ describe('Agent Artifact Tools Integration', () => {
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn2$ = await agent2.startTurn('Override the data artifact');
@@ -260,14 +252,13 @@ describe('Agent Artifact Tools Integration', () => {
       },
     ]);
 
-    const artifactTools = createArtifactTools(scheduledStore, taskStateStore);
+    const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn1$ = await agent1.startTurn('Create a dataset artifact');
@@ -297,7 +288,6 @@ describe('Agent Artifact Tools Integration', () => {
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: scheduledStore,
     });
 
     const turn2$ = await agent2.startTurn('Override the dataset');
@@ -320,7 +310,6 @@ describe('Agent Artifact Tools Integration', () => {
       llmProvider: mockLLM,
       toolProviders: [artifactTools],
       messageStore,
-      artifactStore: artifactStore, // Direct store, no scheduling
     });
 
     // biome-ignore lint/suspicious/noExplicitAny: accessing private for test verification

@@ -5,11 +5,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AnyEvent } from '../src/events';
 import { createTaskCreatedEvent, createTaskStatusEvent } from '../src/events';
 import { EventBuffer } from '../src/server/event-buffer';
 import { EventRouter, type Subscriber } from '../src/server/event-router';
 import { SSEConnection, type SSEResponse, SSEServer } from '../src/server/sse';
+import type { AnyEvent } from '../src/types/event';
 
 // Mock SSE Response
 class MockSSEResponse implements SSEResponse {
