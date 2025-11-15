@@ -11,9 +11,10 @@
 
 import { appendFileSync, promises as fs, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import pino from 'pino';
+import type pino from 'pino';
 import { merge, Observable } from 'rxjs';
 import { concatWith, filter, map, mergeMap, shareReplay, tap } from 'rxjs/operators';
+import { getLogger } from '../core/logger';
 import { generateEventId } from '../events/utils';
 import type {
   AnyEvent,
@@ -166,7 +167,7 @@ export class LiteLLMProvider implements LLMProvider {
       extraParams: config.extraParams ?? {},
     };
 
-    this.logger = pino({ base: { component: 'LiteLLMProvider' } });
+    this.logger = getLogger({ base: { component: 'LiteLLMProvider' } });
     this.logger.info(
       {
         baseUrl: this.config.baseUrl,
