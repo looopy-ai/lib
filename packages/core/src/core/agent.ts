@@ -1,4 +1,3 @@
-import type { AnyEvent } from '../types/event';
 /**
  * Agent - Stateful Multi-turn Conversation Manager
  *
@@ -10,7 +9,6 @@ import type { AnyEvent } from '../types/event';
 
 import type { Context } from '@opentelemetry/api';
 import { catchError, concat, Observable, of, tap } from 'rxjs';
-import { runLoop } from '../core-v2/loop';
 import { createTaskStatusEvent } from '../events';
 import {
   addMessagesCompactedEvent,
@@ -26,11 +24,12 @@ import {
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AuthContext } from '../types/context';
+import type { AnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
-import type { AgentLoopConfig } from './config';
 import { getLogger } from './logger';
+import { runLoop } from './loop';
 
 /**
  * Agent configuration
@@ -47,9 +46,6 @@ export interface AgentConfig {
 
   /** Message store for conversation history */
   messageStore: MessageStore;
-
-  /** Agent loop configuration (optional overrides) */
-  loopConfig?: Partial<AgentLoopConfig>;
 
   /** Auto-save messages after each turn (default: true) */
   autoSave?: boolean;
@@ -114,9 +110,7 @@ export interface GetMessagesOptions {
  * - Manages artifacts
  */
 export class Agent {
-  private readonly config: Omit<Required<AgentConfig>, 'loopConfig'> & {
-    loopConfig?: Partial<AgentLoopConfig>;
-  };
+  private readonly config: Omit<Required<AgentConfig>, 'loopConfig'>;
   private _state: AgentState;
 
   constructor(config: AgentConfig) {
