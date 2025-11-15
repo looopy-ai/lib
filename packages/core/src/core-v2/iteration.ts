@@ -1,9 +1,10 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
 import type { AnyEvent } from '../types/event';
+import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
-import type { IterationConfig, LoopContext, Message } from './types';
+import type { IterationConfig, LoopContext } from './types';
 
 /**
  * Execute a single agent loop iteration with LLM call and tool execution

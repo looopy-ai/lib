@@ -13,8 +13,9 @@ import {
 import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
 import { startAgentLoopSpan } from '../observability/spans';
 import type { AnyEvent, ContentCompleteEvent } from '../types/event';
+import type { Message } from '../types/message';
 import { runIteration } from './iteration';
-import type { LoopConfig, Message, TurnContext } from './types';
+import type { LoopConfig, TurnContext } from './types';
 
 /**
  * Execute the main agent loop that processes a turn through multiple iterations

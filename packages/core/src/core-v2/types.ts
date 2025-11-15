@@ -34,27 +34,3 @@ export type IterationConfig = {
   llmProvider: LLMProvider;
   iterationNumber: number;
 };
-
-/**
- * Message in the conversation
- */
-export interface Message {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
-  name?: string;
-  toolCallId?: string;
-  toolCalls?: ToolCall[]; // For assistant messages that make tool calls
-  contentDelta?: string; // For streaming: the new content chunk (not accumulated)
-}
-
-/**
- * Tool call from LLM
- */
-export interface ToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: Record<string, unknown>;
-  };
-}

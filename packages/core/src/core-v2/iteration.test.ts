@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
 import type { AnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
+import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { runIteration } from './iteration';
 import * as tools from './tools';
-import type { IterationConfig, LoopContext, Message } from './types';
+import type { IterationConfig, LoopContext } from './types';
 
 // Mock the span functions
 vi.mock('../observability/spans', () => ({
