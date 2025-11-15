@@ -4,11 +4,12 @@
  * Mocks fetch to test without a live server.
  */
 
-import { McpToolProvider } from './mcp-tool-provider';
-import type { MCPTool } from './mcp-client';
-import type { ToolCall } from '../types/tools';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { context } from '@opentelemetry/api';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExecutionContext } from '../types/context';
+import type { ToolCall } from '../types/tools';
+import type { MCPTool } from './mcp-client';
+import { McpToolProvider } from './mcp-tool-provider';
 
 // Mock the global fetch function
 const mockFetch = vi.fn();
@@ -60,10 +61,13 @@ describe('McpToolProvider', () => {
   let provider: McpToolProvider;
   const mockContext: ExecutionContext = {
     agentId: 'test-agent',
+    contextId: 'test-context',
     taskId: 'test-task',
     authContext: {
-      token: 'test-token',
+      userId: 'test-token',
+      credentials: { accessToken: 'test-token' },
     },
+    parentContext: context.active(),
   };
 
   beforeEach(() => {
@@ -71,6 +75,9 @@ describe('McpToolProvider', () => {
     provider = new McpToolProvider({
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
+      getAuthHeaders: (authContext) => ({
+        Authorization: `Bearer ${authContext?.credentials?.accessToken || ''}`,
+      }),
     });
   });
 
@@ -177,6 +184,9 @@ describe('McpToolProvider', () => {
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
       timeout: 100,
+      getAuthHeaders: (authContext) => ({
+        Authorization: `Bearer ${authContext?.credentials?.accessToken || ''}`,
+      }),
     });
 
     mockFetch.mockImplementation((_url, options) => {
@@ -218,11 +228,13 @@ describe('McpToolProvider', () => {
   });
 
   it('should use authContext from context', async () => {
-    mockFetch.mockReturnValue(createOkResponse({
-      jsonrpc: '2.0',
-      id: '1',
-      result: { result: 'ok' },
-    }));
+    mockFetch.mockReturnValue(
+      createOkResponse({
+        jsonrpc: '2.0',
+        id: '1',
+        result: { result: 'ok' },
+      }),
+    );
 
     const toolCall: ToolCall = {
       id: 'call1',
@@ -246,17 +258,18 @@ describe('McpToolProvider', () => {
     provider = new McpToolProvider({
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
-      authContextTransform: (authContext) => ({
-        ...authContext,
-        token: `transformed-${authContext.token}`,
+      getAuthHeaders: (authContext) => ({
+        Authorization: `Bearer ${authContext?.userId || ''}`,
       }),
     });
 
-    mockFetch.mockReturnValue(createOkResponse({
-      jsonrpc: '2.0',
-      id: '1',
-      result: { result: 'ok' },
-    }));
+    mockFetch.mockReturnValue(
+      createOkResponse({
+        jsonrpc: '2.0',
+        id: '1',
+        result: { result: 'ok' },
+      }),
+    );
 
     const toolCall: ToolCall = {
       id: 'call1',
@@ -272,7 +285,7 @@ describe('McpToolProvider', () => {
     const fetchOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(fetchOptions.headers).toEqual({
       'Content-Type': 'application/json',
-      Authorization: 'Bearer transformed-test-token',
+      Authorization: 'Bearer test-token',
     });
   });
 });

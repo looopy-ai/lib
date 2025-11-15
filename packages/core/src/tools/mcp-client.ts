@@ -47,10 +47,7 @@ interface MCPJSONRPCResponse<T> {
 
 export interface MCPClientConfig {
   baseUrl: string;
-  auth?: {
-    type: 'bearer';
-    token: string;
-  };
+  getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
   timeout?: number;
 }
 
@@ -59,13 +56,13 @@ const generateId = () => Math.random().toString(36).substring(2);
 
 export class MCPClient {
   private readonly baseUrl: string;
-  private readonly auth?: MCPClientConfig['auth'];
   private readonly timeout: number;
+  private readonly getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
 
   constructor(config: MCPClientConfig) {
     this.baseUrl = config.baseUrl;
-    this.auth = config.auth;
     this.timeout = config.timeout || 30000;
+    this.getAuthHeaders = config.getAuthHeaders;
   }
 
   async listTools(): Promise<MCPTool[]> {
@@ -114,7 +111,9 @@ export class MCPClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`MCP request failed with status ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `MCP request failed with status ${response.status}: ${response.statusText}`,
+        );
       }
 
       const json = (await response.json()) as MCPJSONRPCResponse<T>;
@@ -135,13 +134,5 @@ export class MCPClient {
       }
       throw error;
     }
-  }
-
-  private getAuthHeaders(authContext?: AuthContext): Record<string, string> {
-    const token = authContext?.token || this.auth?.token;
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
-    }
-    return {};
   }
 }

@@ -5,6 +5,7 @@
     "langfuse",
     "litellm",
     "looopy",
+    "MCPJSONRPC",
     "ollama"
   ]
 }

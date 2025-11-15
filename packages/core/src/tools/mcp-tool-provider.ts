@@ -13,31 +13,25 @@ import { MCPClient, type MCPTool } from './mcp-client';
 export interface MCPProviderConfig {
   serverId: string;
   serverUrl: string;
-  auth?: {
-    type: 'bearer';
-    token: string;
-  };
   timeout?: number;
-  authContextTransform?: (authContext: AuthContext) => AuthContext;
+  getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
 }
 
 export class McpToolProvider implements ToolProvider {
   readonly id: string;
   private readonly client: MCPClient;
-  private readonly authContextTransform?: (authContext: AuthContext) => AuthContext;
   private toolCache = new Map<string, ToolDefinition>();
   private cacheExpiry: number | null = null;
-  private readonly cacheTTL: number = 60000; // 1 minute
+  private readonly cacheTTL: number = 300_000; // 5 minutes
   private ongoingRequest: Promise<ToolDefinition[]> | null = null;
 
   constructor(config: MCPProviderConfig) {
     this.id = `mcp:${config.serverId}`;
     this.client = new MCPClient({
       baseUrl: config.serverUrl,
-      auth: config.auth,
       timeout: config.timeout || 30000,
+      getAuthHeaders: config.getAuthHeaders,
     });
-    this.authContextTransform = config.authContextTransform;
   }
 
   async getTools(): Promise<ToolDefinition[]> {
@@ -85,16 +79,12 @@ export class McpToolProvider implements ToolProvider {
     }
 
     try {
-      const authContext = this.authContextTransform
-        ? this.authContextTransform(context.authContext)
-        : context.authContext;
-
       const response = await this.client.callTool(
         {
           name,
           arguments: args,
         },
-        authContext,
+        context.authContext,
       );
 
       return {

@@ -75,12 +75,23 @@ Sends a chat request to the LLM.
 
 The `ToolProvider` interface is used to execute tools.
 
-### `execute(toolCall: ToolCall): Promise<ToolResult>`
+### `getTools(): Promise<ToolDefinition[]>`
 
-Executes a tool call.
+Returns the list of tool definitions that the provider can execute. Implementations normally fetch this list from their backing service (e.g., the MCP server) and may cache the results.
 
-- `toolCall`: The tool call to execute.
-- Returns: A `Promise` that resolves with the tool's result.
+### `execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>`
+
+Executes a tool call with the current `ExecutionContext` so providers can forward metadata such as the `authContext` to downstream services.
+
+### `canHandle(toolName: string): boolean`
+
+Used by the agent runtime to route tool invocations to the correct provider.
+
+### `executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>`
+
+Optional method that providers can implement when they support batching.
+
+The core package ships with three implementations: `LocalToolProvider`, `ClientToolProvider`, and `McpToolProvider` for connecting to MCP-compliant servers.
 
 ## MessageStore
 

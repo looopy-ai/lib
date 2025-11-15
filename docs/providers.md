@@ -52,10 +52,25 @@ export interface LLMProvider {
 
 ## Tool Providers
 
-Tool providers are responsible for executing tools. The `@looopy-ai/core` package includes two tool providers:
+Tool providers are responsible for executing tools. The `@looopy-ai/core` package includes three tool providers:
 
 - `LocalToolProvider`: Executes tools as local functions.
 - `ClientToolProvider`: Delegates the execution of tools to the client.
+- `McpToolProvider`: Connects to an MCP server and proxies the server's tools over JSON-RPC.
+
+```typescript
+import { McpToolProvider } from '@looopy-ai/core';
+
+const filesystemTools = new McpToolProvider({
+  serverId: 'filesystem',
+  serverUrl: 'http://localhost:3100',
+  getAuthHeaders: (authContext) => ({
+    Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
+  }),
+});
+```
+
+`McpToolProvider` automatically discovers tool definitions from the MCP server, caches them, and calls the server with the current execution's `authContext` so that per-user credentials can flow through to the remote system.
 
 ### Creating a Custom Tool Provider
 
@@ -63,6 +78,9 @@ To create a custom tool provider, you need to implement the `ToolProvider` inter
 
 ```typescript
 export interface ToolProvider {
-  execute(toolCall: ToolCall): Promise<ToolResult>;
+  getTools(): Promise<ToolDefinition[]>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
+  canHandle(toolName: string): boolean;
+  executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
 }
 ```

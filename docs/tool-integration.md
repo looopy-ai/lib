@@ -50,3 +50,27 @@ const agent = new Agent({
 ```
 
 When the agent needs to execute a client tool, it will emit an `InputRequestEvent`. The client is responsible for handling this event, executing the tool, and then sending the result back to the agent.
+
+## MCP Tools
+
+MCP (Model Context Protocol) tools allow your agent to call any MCP-compliant server. The `McpToolProvider` fetches the available tools from the remote server over JSON-RPC, caches the schema for one minute, and forwards executions through the same endpoint.
+
+```typescript
+import { Agent, McpToolProvider } from '@looopy-ai/core';
+
+const mcpProvider = new McpToolProvider({
+  serverId: 'filesystem',
+  serverUrl: 'http://localhost:3100',
+  getAuthHeaders: (authContext) => ({
+    Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
+  }),
+  timeout: 15_000, // optional, defaults to 30s
+});
+
+const agent = new Agent({
+  // ...
+  toolProviders: [mcpProvider],
+});
+```
+
+The provider automatically uses the `authContext` from the `ExecutionContext` so you can propagate user-level credentials to the MCP server. Tool listings are fetched lazily and reused until the cache expires or the process is restarted.
