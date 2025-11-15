@@ -22,6 +22,7 @@ This document lists features that are **not yet implemented** and should be eval
 **Tool System**:
 - LocalToolProvider (server-side function execution)
 - ClientToolProvider (client-side delegation via A2A input-required)
+- MCPToolProvider (integration with MCP servers)
 - Parallel tool execution with configurable concurrency (default: 5)
 - Tool definition interfaces
 
@@ -163,30 +164,6 @@ This document lists features that are **not yet implemented** and should be eval
 ---
 
 ## Priority 3: Tool System Enhancements
-
-### 4. MCP (Model Context Protocol) Tool Provider
-
-**Status**: ❌ Not implemented
-
-**Description**: Integration with MCP servers for dynamic tool discovery and execution.
-
-**Features**:
-- Connect to MCP servers via stdio or HTTP
-- Discover available tools dynamically
-- Execute MCP tools via JSON-RPC
-- Handle MCP-specific features (prompts, resources)
-- Tool caching with TTL
-
-**Benefits**:
-- Access to MCP ecosystem (file system, databases, APIs)
-- Dynamic tool discovery
-- Standard protocol for tool integration
-
-**Related Design**: `design/tool-integration.md`
-
-**File to create**: `packages/core/src/tools/mcp-tool-provider.ts`
-
-**Dependencies**: MCP client library
 
 ### 5. Tool Execution Caching
 
