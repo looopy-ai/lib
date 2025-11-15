@@ -3,11 +3,6 @@
   "extends": "//",
   "files": {
     "ignoreUnknown": true,
-    "includes": [
-      "examples/**",
-      "src/**",
-      "tests/**",
-      "*.json"
-    ]
+    "includes": ["src/**", "tests/**", "*.json"]
   }
 }

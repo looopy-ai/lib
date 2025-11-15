@@ -6,7 +6,8 @@
   "scripts": {
     "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
     "check:types": "tsc --noEmit",
-    "agentcore": "tsx src/agentcore-server.ts",
+    "agentcore:server": "tsx src/agentcore-server.ts",
+    "agentcore:client": "tsx src/agentcore-client.ts",
     "example": "tsx src/kitchen-sink.ts",
     "server": "tsx src/sse-server.ts",
     "client2": "tsx src/sse-client2.ts",

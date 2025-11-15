@@ -1,5 +1,5 @@
 import { type HttpBindings, serve as serveNodeJs } from '@hono/node-server';
-import type { Agent, AuthContext } from '@looopy-ai/core';
+import { type Agent, type AuthContext, getLogger } from '@looopy-ai/core';
 import { SSEServer } from '@looopy-ai/core/ts';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
@@ -32,7 +32,7 @@ export const serve = (config: ServeConfig) => {
 
     // map express style middleware to hono
     await new Promise((resolve) =>
-      pinoHttp()(c.env.incoming, c.env.outgoing, () => resolve(undefined)),
+      pinoHttp({ logger: getLogger({}) })(c.env.incoming, c.env.outgoing, () => resolve(undefined)),
     );
 
     c.set('logger', c.env.incoming.log);
@@ -41,7 +41,6 @@ export const serve = (config: ServeConfig) => {
   });
 
   const state = { busy: false, agent: undefined as Agent | undefined };
-  const sseServer = new SSEServer();
 
   app.get('/ping', async (c) => {
     return c.text(
@@ -54,6 +53,8 @@ export const serve = (config: ServeConfig) => {
 
   // body e.g. {"prompt": "Tell me about AWS"}
   app.post('/invocation', async (c) => {
+    const logger = c.var.logger;
+
     if (state.busy) {
       return c.json({ error: 'Agent is currently busy' }, 503);
     }
@@ -77,6 +78,7 @@ export const serve = (config: ServeConfig) => {
 
     if (!state.agent) {
       state.agent = await config.agent(contextId);
+      logger.info({ contextId }, 'Created new agent instance');
     }
     const agent = state.agent;
 
@@ -93,19 +95,18 @@ export const serve = (config: ServeConfig) => {
     }
     const { prompt } = promptValidation.data;
 
+    const sseServer = new SSEServer();
     const turn = await agent.startTurn(prompt);
     turn.subscribe({
       next: (evt) => {
         sseServer.emit(contextId, evt);
       },
       complete: async () => {
-        await agent.shutdown();
+        // await agent.shutdown();
         sseServer.shutdown();
         state.busy = false;
       },
     });
-
-    const logger = c.var.logger;
 
     const res = c.res;
     logger.info({ contextId }, 'SSE connection established');
@@ -120,7 +121,7 @@ export const serve = (config: ServeConfig) => {
               controller.enqueue(new TextEncoder().encode(chunk));
             },
             end: function (): void {
-              logger.info({ contextId }, 'SSE connection ended by client');
+              logger.info({ contextId }, 'SSE stream finished');
               this.writable = false;
               controller.close();
             },
@@ -132,7 +133,7 @@ export const serve = (config: ServeConfig) => {
         );
       },
       cancel: (): void => {
-        agent.shutdown();
+        logger.info({ contextId }, 'Stream canceled');
         sseServer.shutdown();
         state.busy = false;
       },
