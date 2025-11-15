@@ -75,7 +75,7 @@ describe('McpToolProvider', () => {
     provider = new McpToolProvider({
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
-      getAuthHeaders: (authContext) => ({
+      getHeaders: (authContext) => ({
         Authorization: `Bearer ${authContext?.credentials?.accessToken || ''}`,
       }),
     });
@@ -184,7 +184,7 @@ describe('McpToolProvider', () => {
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
       timeout: 100,
-      getAuthHeaders: (authContext) => ({
+      getHeaders: (authContext) => ({
         Authorization: `Bearer ${authContext?.credentials?.accessToken || ''}`,
       }),
     });
@@ -258,7 +258,7 @@ describe('McpToolProvider', () => {
     provider = new McpToolProvider({
       serverId: 'test-server',
       serverUrl: 'http://localhost:3100',
-      getAuthHeaders: (authContext) => ({
+      getHeaders: (authContext) => ({
         Authorization: `Bearer ${authContext?.userId || ''}`,
       }),
     });

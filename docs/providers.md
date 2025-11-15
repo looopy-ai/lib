@@ -59,12 +59,26 @@ Tool providers are responsible for executing tools. The `@looopy-ai/core` packag
 - `McpToolProvider`: Connects to an MCP server and proxies the server's tools over JSON-RPC.
 
 ```typescript
+import { mcp } from '@looopy-ai/core';
+
+const filesystemTools = mcp({
+  serverId: 'filesystem',
+  serverUrl: 'http://localhost:3100',
+  getHeaders: (authContext) => ({
+    Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
+  }),
+});
+```
+
+or
+
+```typescript
 import { McpToolProvider } from '@looopy-ai/core';
 
 const filesystemTools = new McpToolProvider({
   serverId: 'filesystem',
   serverUrl: 'http://localhost:3100',
-  getAuthHeaders: (authContext) => ({
+  getHeaders: (authContext) => ({
     Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
   }),
 });

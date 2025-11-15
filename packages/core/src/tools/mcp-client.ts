@@ -47,7 +47,7 @@ interface MCPJSONRPCResponse<T> {
 
 export interface MCPClientConfig {
   baseUrl: string;
-  getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
+  getHeaders: (authContext?: AuthContext) => Record<string, string>;
   timeout?: number;
 }
 
@@ -57,12 +57,12 @@ const generateId = () => Math.random().toString(36).substring(2);
 export class MCPClient {
   private readonly baseUrl: string;
   private readonly timeout: number;
-  private readonly getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
+  private readonly getHeaders: (authContext?: AuthContext) => Record<string, string>;
 
   constructor(config: MCPClientConfig) {
     this.baseUrl = config.baseUrl;
     this.timeout = config.timeout || 30000;
-    this.getAuthHeaders = config.getAuthHeaders;
+    this.getHeaders = config.getHeaders;
   }
 
   async listTools(): Promise<MCPTool[]> {
@@ -98,7 +98,7 @@ export class MCPClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...this.getAuthHeaders(authContext),
+          ...this.getHeaders(authContext),
         },
         body: JSON.stringify({
           jsonrpc: '2.0',

@@ -14,7 +14,7 @@ export interface MCPProviderConfig {
   serverId: string;
   serverUrl: string;
   timeout?: number;
-  getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
+  getHeaders: (authContext?: AuthContext) => Record<string, string>;
 }
 
 export const mcp = (config: MCPProviderConfig): McpToolProvider => {
@@ -34,7 +34,7 @@ export class McpToolProvider implements ToolProvider {
     this.client = new MCPClient({
       baseUrl: config.serverUrl,
       timeout: config.timeout || 30000,
-      getAuthHeaders: config.getAuthHeaders,
+      getHeaders: config.getHeaders,
     });
   }
 
