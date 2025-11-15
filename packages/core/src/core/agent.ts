@@ -31,6 +31,8 @@ import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
+import { serializeError } from '../utils/error';
+import { AgentState } from '../types/agent';
 
 /**
  * Agent configuration
@@ -65,29 +67,6 @@ export interface AgentConfig {
 
   /** Logger */
   logger?: import('pino').Logger;
-}
-
-/**
- * Agent state
- */
-export interface AgentState {
-  /** Agent lifecycle status */
-  status: 'created' | 'ready' | 'busy' | 'shutdown' | 'error';
-
-  /** Total turns executed */
-  turnCount: number;
-
-  /** Last activity timestamp */
-  lastActivity: Date;
-
-  /** Creation timestamp */
-  createdAt: Date;
-
-  /** Error if in error state */
-  error?: Error;
-
-  /** Metadata */
-  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -205,7 +184,7 @@ export class Agent {
       completeAgentInitializeSpan(span);
     } catch (error) {
       this._state.status = 'error';
-      this._state.error = error as Error;
+      this._state.error = serializeError(error);
       this.logger.error({ error }, 'Failed to initialize agent');
 
       failAgentInitializeSpan(span, error as Error);
@@ -585,7 +564,7 @@ export class Agent {
         turnCount: this._state.turnCount,
         status: this._state.status,
       },
-      'Manual save called',
+      'Saving agent state',
     );
 
     // Messages are already persisted via MessageStore.append() during startTurn()

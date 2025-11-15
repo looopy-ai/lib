@@ -4,7 +4,7 @@
  * Main execution engine for the agent framework.
  */
 
-export { Agent, type AgentConfig, type AgentState, type GetMessagesOptions } from './agent';
+export { Agent, type AgentConfig, type GetMessagesOptions } from './agent';
 export { StateCleanupService } from './cleanup';
 export {
   createLogger,
