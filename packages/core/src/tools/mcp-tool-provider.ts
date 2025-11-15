@@ -17,6 +17,10 @@ export interface MCPProviderConfig {
   getAuthHeaders: (authContext?: AuthContext) => Record<string, string>;
 }
 
+export const mcp = (config: MCPProviderConfig): McpToolProvider => {
+  return new McpToolProvider(config);
+};
+
 export class McpToolProvider implements ToolProvider {
   readonly id: string;
   private readonly client: MCPClient;
