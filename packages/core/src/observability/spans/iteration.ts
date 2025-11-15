@@ -22,6 +22,8 @@ export interface LoopIterationSpanParams {
  * Start loop iteration span
  */
 export const startLoopIterationSpan = (context: LoopContext, iteration: number) => {
+  const logger = context.logger;
+  logger.info('Starting iteration');
   const tracer = trace.getTracer('looopy');
 
   const span = tracer.startSpan(
@@ -51,6 +53,7 @@ export const startLoopIterationSpan = (context: LoopContext, iteration: number) 
             span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason);
             span.setStatus({ code: SpanStatusCode.OK });
           }
+          logger.debug({ finishReason: event.finishReason }, 'Iteration completed successfully');
         }
       },
       complete: () => span.end(),
@@ -58,6 +61,7 @@ export const startLoopIterationSpan = (context: LoopContext, iteration: number) 
         span.recordException(err);
         span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
         span.end();
+        logger.error({ error: err.message }, 'Iteration failed');
       },
     }),
   };

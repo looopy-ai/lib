@@ -56,6 +56,11 @@ export const runToolCall = (
   context: IterationContext,
   toolCall: ToolCallEvent,
 ): Observable<ToolExecutionEvent> => {
+  const logger = context.logger.child({
+    component: 'tool-call',
+    toolCallId: toolCall.toolCallId,
+    toolName: toolCall.toolName,
+  });
   // Create tool-start event
   const toolStartEvent: ToolExecutionEvent = {
     kind: 'tool-start',
@@ -72,27 +77,13 @@ export const runToolCall = (
 
   // Execute tool and create events
   const toolResultEvents$ = defer(async () => {
-    context.logger.trace(
-      {
-        taskId: context.taskId,
-        toolName: toolCall.toolName,
-        toolCallId: toolCall.toolCallId,
-      },
-      'Executing tool',
-    );
+    logger.trace('Executing tool');
 
     // Find provider that can handle this tool (check thought tools first, then regular providers)
     const provider = context.toolProviders.find((p) => p.canHandle(toolCall.toolName));
 
     if (!provider) {
-      context.logger.warn(
-        {
-          taskId: context.taskId,
-          toolName: toolCall.toolName,
-        },
-        'No provider found for tool',
-      );
-
+      logger.warn('No provider found for tool');
       const errorMessage = `No provider found for tool: ${toolCall.toolName}`;
       // failToolExecutionSpan(span, errorMessage);
 
@@ -118,10 +109,8 @@ export const runToolCall = (
         },
       ); // TODO use event and context
 
-      context.logger.trace(
+      logger.trace(
         {
-          taskId: context.taskId,
-          toolName: toolCall.toolName,
           success: result.success,
         },
         'Tool execution complete',
@@ -135,10 +124,8 @@ export const runToolCall = (
       return createToolCompleteEvent(context, toolCall, result.result);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      context.logger.error(
+      logger.error(
         {
-          taskId: context.taskId,
-          toolName: toolCall.toolName,
           error: err.message,
           stack: err.stack,
         },

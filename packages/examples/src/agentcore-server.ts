@@ -29,35 +29,37 @@ const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
 
+const agentId = 'agentcore-runtime-example';
+const agentPath = `${BASE_PATH}/agent=${agentId}`;
+await fs.mkdir(agentPath, { recursive: true });
+
+// Create logger
+const logger = pino(
+  {
+    level: 'debug',
+    base: undefined, // Omit pid and hostname
+    timestamp: false, // Omit time
+    // formatters: {
+    //   log(object) {
+    //     // Filter out taskId from log objects
+    //     const { time: _time, taskId: _taskId, contextId: _contextId, ...rest } = object;
+    //     return rest;
+    //   },
+    // },
+  },
+  pino.destination({
+    dest: `${agentPath}/logger.jsonl`,
+    sync: false,
+  }),
+);
+setDefaultLogger(logger);
+
 const llmProvider = LiteLLM.novaLite(LITELLM_URL, LITELLM_API_KEY);
 
-const agentId = 'agentcore-runtime-example';
-
 const createAgent = async (contextId: string) => {
-  const storagePath = `${BASE_PATH}/agent=${agentId}/context=${contextId}`;
+  const contextPath = `${agentPath}/context=${contextId}`;
   // Ensure directory exists for SSE log
-  await fs.mkdir(storagePath, { recursive: true });
-
-  // Create logger
-  const logger = pino(
-    {
-      level: 'debug',
-      base: undefined, // Omit pid and hostname
-      timestamp: false, // Omit time
-      formatters: {
-        log(object) {
-          // Filter out taskId from log objects
-          const { time: _time, taskId: _taskId, contextId: _contextId, ...rest } = object;
-          return rest;
-        },
-      },
-    },
-    pino.destination({
-      dest: `${storagePath}/logger.jsonl`,
-      sync: false,
-    }),
-  );
-  setDefaultLogger(logger);
+  await fs.mkdir(contextPath, { recursive: true });
 
   return new Agent({
     contextId,

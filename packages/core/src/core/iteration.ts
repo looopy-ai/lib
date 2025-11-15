@@ -73,12 +73,9 @@ export const runIteration = (
   config: IterationConfig,
   history: Message[],
 ): Observable<AnyEvent> => {
-  context.logger.info(
-    { taskId: context.taskId, iteration: config.iterationNumber, history },
-    'Starting iteration',
-  );
+  const logger = context.logger.child({ component: 'iteration', iteration: config.iterationNumber });
   const { traceContext: iterationContext, tapFinish: finishIterationSpan } = startLoopIterationSpan(
-    context,
+    { ...context, logger },
     config.iterationNumber,
   );
 
@@ -117,7 +114,9 @@ export const runIteration = (
   // If tool call, execute tools
   const toolEvents$ = llmEvents$.pipe(
     filter((event) => event.kind === 'tool-call'),
-    mergeMap((event) => runToolCall({ ...context, parentContext: iterationContext }, event)),
+    mergeMap((event) =>
+      runToolCall({ ...context, logger: context.logger.child({ iteration: config.iterationNumber }), parentContext: iterationContext }, event),
+    ),
   );
 
   return concat(llmEvents$, toolEvents$).pipe(finishIterationSpan);

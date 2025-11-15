@@ -82,6 +82,7 @@ import type { LoopConfig, TurnContext } from './types';
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
  */
 export const runLoop = (context: TurnContext, config: LoopConfig, history: Message[]) => {
+  const logger = context.logger.child({ component: 'loop' });
   const { traceContext: loopContext, tapFinish } = startAgentLoopSpan({
     agentId: context.agentId,
     contextId: context.contextId,
@@ -89,6 +90,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
     prompt: history.filter((m) => m.role === 'user').at(-1)?.content || '',
     parentContext: context.parentContext,
   });
+  logger.debug('Starting agent loop');
 
   // Emit initial events
   const taskEvent = createTaskCreatedEvent({
