@@ -82,7 +82,7 @@ describe('Agent Artifact Tools Integration', () => {
     };
   };
 
-  it('should accept pre-scheduled artifact store', async () => {
+  it('should allow artifact tools to manage scheduling internally', async () => {
     const mockLLM = createMockLLMProvider();
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
@@ -95,7 +95,9 @@ describe('Agent Artifact Tools Integration', () => {
 
     // biome-ignore lint/suspicious/noExplicitAny: accessing private for test verification
     const configStore = (agent as any).config.artifactStore;
-    expect(configStore).toBe(artifactStore);
+    // Artifact store scheduling is now handled entirely by the tool provider,
+    // so the agent configuration no longer stores a direct reference.
+    expect(configStore).toBeUndefined();
   });
 
   it('should use artifact tools to create and override file artifacts', async () => {
@@ -301,7 +303,7 @@ describe('Agent Artifact Tools Integration', () => {
     expect(artifact?.version).toBeGreaterThan(initialVersion); // Version incremented
   });
 
-  it('can also work without scheduler if user chooses', async () => {
+  it('can operate without exposing artifact store on the agent config', async () => {
     const mockLLM = createMockLLMProvider();
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
@@ -314,6 +316,7 @@ describe('Agent Artifact Tools Integration', () => {
 
     // biome-ignore lint/suspicious/noExplicitAny: accessing private for test verification
     const configStore = (agent as any).config.artifactStore;
-    expect(configStore).toBe(artifactStore);
+    // The agent no longer mutates its configuration when artifact tools are provided.
+    expect(configStore).toBeUndefined();
   });
 });

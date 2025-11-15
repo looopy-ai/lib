@@ -146,12 +146,13 @@ describe('tools', () => {
             arguments: { param: 'value' },
           },
         },
-        {
+        expect.objectContaining({
           contextId: 'ctx-456',
           taskId: 'task-789',
           agentId: 'agent-123',
           authContext: { userId: 'user-1' },
-        },
+          parentContext: expect.any(Object),
+        }),
       );
     });
 
