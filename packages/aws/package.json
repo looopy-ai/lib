@@ -49,6 +49,8 @@
   "license": "MIT",
   "packageManager": "pnpm@10.6.5",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.932.0",
+    "@aws-sdk/lib-dynamodb": "^3.932.0",
     "@hono/node-server": "^1.19.6",
     "@looopy-ai/core": "workspace:*",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.207.0",
