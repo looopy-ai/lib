@@ -1,4 +1,4 @@
-import type pino from 'pino';
+import pino from 'pino';
 import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
@@ -10,19 +10,40 @@ import { runIteration } from './iteration';
 import * as tools from './tools';
 import type { IterationConfig, LoopContext } from './types';
 
+const createTestLogger = () => pino.pino();
+type LoggerInstance = ReturnType<typeof createTestLogger>;
+type SpyInstance = ReturnType<typeof vi.fn>;
+
+const getChildLoggerAt = (logger: LoggerInstance, index: number): LoggerInstance | undefined => {
+  const childSpy = logger.child as unknown as SpyInstance;
+  return childSpy.mock.results[index]?.value as LoggerInstance | undefined;
+};
+
+const expectChildLoggerAt = (logger: LoggerInstance, index: number): LoggerInstance => {
+  const childLogger = getChildLoggerAt(logger, index);
+  expect(childLogger).toBeDefined();
+  return childLogger!;
+};
+
+// Mock the 'pino' module using the shared manual mock
+vi.mock('pino');
+
 // Mock the span functions
 vi.mock('../observability/spans', () => ({
-  startLoopIterationSpan: vi.fn(() => ({
-    span: {
-      end: vi.fn(),
-      setAttribute: vi.fn(),
-      setAttributes: vi.fn(),
-      setStatus: vi.fn(),
-      recordException: vi.fn(),
-    },
-    traceContext: {},
-    tapFinish: <T>(source: T) => source, // Pass-through operator
-  })),
+  startLoopIterationSpan: vi.fn((context: LoopContext) => {
+    context.logger.info('Starting iteration');
+    return {
+      span: {
+        end: vi.fn(),
+        setAttribute: vi.fn(),
+        setAttributes: vi.fn(),
+        setStatus: vi.fn(),
+        recordException: vi.fn(),
+      },
+      traceContext: {},
+      tapFinish: <T>(source: T) => source, // Pass-through operator
+    };
+  }),
   startLLMCallSpan: vi.fn(() => ({
     span: {
       end: vi.fn(),
@@ -78,13 +99,7 @@ describe('iteration', () => {
       turnNumber: 1,
       systemPrompt: 'You are a test assistant',
       toolProviders: [],
-      logger: {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      } as unknown as pino.Logger,
+      logger: createTestLogger(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };
 
@@ -97,18 +112,16 @@ describe('iteration', () => {
   });
 
   describe('runIteration', () => {
-    it('should log iteration start with context', async () => {
+    it('should create child logger and log iteration start', async () => {
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockContext.logger.info).toHaveBeenCalledWith(
-        {
-          taskId: 'task-789',
-          iteration: 1,
-          history: mockHistory,
-        },
-        'Starting iteration',
-      );
+      expect(mockContext.logger.child).toHaveBeenCalledWith({
+        component: 'iteration',
+        iteration: 1,
+      });
+      const childLogger = expectChildLoggerAt(mockContext.logger, 0);
+      expect(childLogger.info).toHaveBeenCalledWith('Starting iteration');
     });
 
     it('should create OpenTelemetry span with correct parameters', async () => {
@@ -488,12 +501,12 @@ describe('iteration', () => {
         5, // iteration number as second parameter
       );
 
-      expect(mockContext.logger.info).toHaveBeenCalledWith(
-        expect.objectContaining({
-          iteration: 5,
-        }),
-        'Starting iteration',
-      );
+      expect(mockContext.logger.child).toHaveBeenCalledWith({
+        component: 'iteration',
+        iteration: 5,
+      });
+      const childLogger = expectChildLoggerAt(mockContext.logger, 0);
+      expect(childLogger.info).toHaveBeenCalledWith('Starting iteration');
     });
 
     it('should use stream: true and sessionId in LLM call', async () => {

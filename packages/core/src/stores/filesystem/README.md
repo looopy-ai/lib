@@ -12,6 +12,7 @@ All data is stored in a structured directory hierarchy:
     └── context={contextId}/
         ├── context.json                  # Context/session metadata
         ├── context.lock                  # Context lock file
+        ├── agent-state.json              # Serialized AgentState
         ├── task/                         # Per-task checkpoint state
         │   └── {taskId}.json
         ├── messages/                     # Conversation history
@@ -70,6 +71,31 @@ const found = await contextStore.search('project', { agentId });
 
 // Acquire lock for concurrent processing
 const acquired = await contextStore.acquireLock(contextId, processId);
+```
+
+### FileSystemAgentStore
+
+Stores serialized `AgentState` snapshots for each context. This keeps counters
+like `turnCount`, lifecycle status, and timestamps available across restarts.
+Provide an instance via the `agentStore` field on `AgentConfig` to wire it
+into the Agent.
+
+**Features:**
+- Simple JSON blob per context (`agent-state.json`)
+- Automatic serialization of `Date` fields
+- Optional manual deletion/reset for debugging
+
+**Example:**
+```typescript
+import { FileSystemAgentStore } from '../src/stores/filesystem';
+
+const agentStore = new FileSystemAgentStore({
+  basePath: './_agent_store',
+  agentId: 'my-agent',
+});
+
+await agentStore.save('ctx-123', agent.state);
+const restored = await agentStore.load('ctx-123');
 ```
 
 ### FileSystemStateStore (now FileSystemTaskStateStore)

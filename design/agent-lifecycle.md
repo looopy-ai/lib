@@ -24,7 +24,8 @@ This design separates the stateful **Agent** (lifecycle and persistence manageme
 │  - contextId / sessionId                                   │
 │  - MessageStore (conversation history)                     │
 │  - ArtifactStore (generated artifacts)                     │
-│  - TaskStateStore (agent metadata)                             │
+│  - TaskStateStore (agent metadata)                         │
+│  - AgentStore (lifecycle snapshots)                        │
 │  - Lifecycle: start, pause, resume, shutdown               │
 │                                                            │
 │  ┌────────────────────────────────────────────────────┐    │
@@ -65,7 +66,7 @@ The **Agent** manages the lifecycle and persistence of a conversation:
 
 - **Identity**: `contextId` uniquely identifies the agent instance/session
 - **State**: Maintains conversation history, artifacts, and metadata
-- **Persistence**: Saves/loads state from stores
+- **Persistence**: Saves/loads state from stores (MessageStore, AgentStore, ArtifactStore)
 - **Multi-turn**: Coordinates multiple turns in a conversation
 - **Lifecycle**: Start → [Execute Turns] → Pause/Resume → Shutdown
 
@@ -105,6 +106,9 @@ interface AgentConfig {
 
   /** Message store for conversation history */
   messageStore: MessageStore;
+
+  /** Agent store for lifecycle persistence */
+  agentStore?: AgentStore;
 
   /** Artifact store for generated content */
   artifactStore: ArtifactStore;

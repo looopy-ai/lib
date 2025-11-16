@@ -1,4 +1,4 @@
-import type pino from 'pino';
+import pino from 'pino';
 import { lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
@@ -8,6 +8,9 @@ import type { Message } from '../types/message';
 import * as iteration from './iteration';
 import { runLoop } from './loop';
 import type { LoopConfig, TurnContext } from './types';
+
+// Mock the 'pino' module using the shared manual mock
+vi.mock('pino');
 
 // Mock the span functions
 vi.mock('../observability/spans', () => ({
@@ -57,13 +60,7 @@ describe('loop', () => {
       taskId: 'task-789',
       turnNumber: 1,
       toolProviders: [],
-      logger: {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      } as unknown as pino.Logger,
+      logger: pino.pino(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };
 

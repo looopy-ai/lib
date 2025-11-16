@@ -1,5 +1,5 @@
 import { context } from '@opentelemetry/api';
-import type pino from 'pino';
+import pino from 'pino';
 import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
@@ -7,6 +7,24 @@ import type { ToolCallEvent } from '../types/event';
 import type { ToolCall, ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
 import type { IterationContext } from './types';
+
+const createTestLogger = () => pino.pino();
+type LoggerInstance = ReturnType<typeof createTestLogger>;
+type SpyInstance = ReturnType<typeof vi.fn>;
+
+const getChildLogger = (logger: LoggerInstance): LoggerInstance | undefined => {
+  const childSpy = logger.child as unknown as SpyInstance;
+  return childSpy.mock.results[0]?.value as LoggerInstance | undefined;
+};
+
+const expectChildLogger = (logger: LoggerInstance): LoggerInstance => {
+  const childLogger = getChildLogger(logger);
+  expect(childLogger).toBeDefined();
+  return childLogger!;
+};
+
+// Mock the 'pino' module using the shared manual mock
+vi.mock('pino');
 
 // Mock the span functions
 vi.mock('../observability/spans/tool', () => ({
@@ -36,13 +54,7 @@ describe('tools', () => {
       taskId: 'task-789',
       turnNumber: 1,
       toolProviders: [],
-      logger: {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      } as unknown as pino.Logger,
+      logger: createTestLogger(),
       parentContext: context.active(),
       authContext: {
         userId: 'user-1',
@@ -246,10 +258,9 @@ describe('tools', () => {
         timestamp: expect.any(String),
       });
 
-      expect(mockContext.logger.error).toHaveBeenCalledWith(
+      const childLogger = expectChildLogger(mockContext.logger);
+      expect(childLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
-          taskId: 'task-789',
-          toolName: 'test_tool',
           error: 'Provider crashed',
         }),
         'Tool execution failed',
@@ -300,19 +311,11 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockContext.logger.trace).toHaveBeenCalledWith(
-        {
-          taskId: 'task-789',
-          toolName: 'test_tool',
-          toolCallId: 'call-abc',
-        },
-        'Executing tool',
-      );
+      const childLogger = expectChildLogger(mockContext.logger);
+      expect(childLogger.trace).toHaveBeenCalledWith('Executing tool');
 
-      expect(mockContext.logger.trace).toHaveBeenCalledWith(
+      expect(childLogger.trace).toHaveBeenCalledWith(
         {
-          taskId: 'task-789',
-          toolName: 'test_tool',
           success: true,
         },
         'Tool execution complete',
@@ -325,13 +328,8 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockContext.logger.warn).toHaveBeenCalledWith(
-        {
-          taskId: 'task-789',
-          toolName: 'test_tool',
-        },
-        'No provider found for tool',
-      );
+      const childLogger = expectChildLogger(mockContext.logger);
+      expect(childLogger.warn).toHaveBeenCalledWith('No provider found for tool');
     });
 
     it('should create OpenTelemetry span with correct parameters', async () => {

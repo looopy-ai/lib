@@ -73,7 +73,10 @@ export const runIteration = (
   config: IterationConfig,
   history: Message[],
 ): Observable<AnyEvent> => {
-  const logger = context.logger.child({ component: 'iteration', iteration: config.iterationNumber });
+  const logger = context.logger.child({
+    component: 'iteration',
+    iteration: config.iterationNumber,
+  });
   const { traceContext: iterationContext, tapFinish: finishIterationSpan } = startLoopIterationSpan(
     { ...context, logger },
     config.iterationNumber,
@@ -115,7 +118,14 @@ export const runIteration = (
   const toolEvents$ = llmEvents$.pipe(
     filter((event) => event.kind === 'tool-call'),
     mergeMap((event) =>
-      runToolCall({ ...context, logger: context.logger.child({ iteration: config.iterationNumber }), parentContext: iterationContext }, event),
+      runToolCall(
+        {
+          ...context,
+          logger: context.logger.child({ iteration: config.iterationNumber }),
+          parentContext: iterationContext,
+        },
+        event,
+      ),
     ),
   );
 

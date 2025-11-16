@@ -87,6 +87,7 @@ describe('Agent Artifact Tools Integration', () => {
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: mockLLM,
       toolProviders: [artifactTools],
@@ -117,6 +118,7 @@ describe('Agent Artifact Tools Integration', () => {
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
@@ -148,6 +150,7 @@ describe('Agent Artifact Tools Integration', () => {
     ]);
 
     const agent2 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
@@ -182,6 +185,7 @@ describe('Agent Artifact Tools Integration', () => {
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
@@ -214,6 +218,7 @@ describe('Agent Artifact Tools Integration', () => {
     ]);
 
     const agent2 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
@@ -257,6 +262,7 @@ describe('Agent Artifact Tools Integration', () => {
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent1 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
       toolProviders: [artifactTools],
@@ -286,6 +292,7 @@ describe('Agent Artifact Tools Integration', () => {
     ]);
 
     const agent2 = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
       toolProviders: [artifactTools],
@@ -308,6 +315,7 @@ describe('Agent Artifact Tools Integration', () => {
     const artifactTools = createArtifactTools(artifactStore, taskStateStore);
 
     const agent = new Agent({
+      agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: mockLLM,
       toolProviders: [artifactTools],

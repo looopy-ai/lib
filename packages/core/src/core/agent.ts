@@ -7,7 +7,7 @@
  * Design Reference: design/agent-lifecycle.md
  */
 
-import { type Context } from '@opentelemetry/api';
+import type { Context } from '@opentelemetry/api';
 import type pino from 'pino';
 import { catchError, concat, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
@@ -24,20 +24,23 @@ import {
   startAgentTurnSpan,
 } from '../observability/spans';
 import type { MessageStore } from '../stores/messages/interfaces';
+import type { AgentState, AgentStore } from '../types/agent';
 import type { AuthContext } from '../types/context';
 import type { AnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
+import { serializeError } from '../utils/error';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
-import { serializeError } from '../utils/error';
-import { AgentState } from '../types/agent';
 
 /**
  * Agent configuration
  */
 export interface AgentConfig {
+  /** Agent ID for tracing */
+  agentId: string;
+
   /** Unique identifier for this agent/session */
   contextId: string;
 
@@ -50,6 +53,9 @@ export interface AgentConfig {
   /** Message store for conversation history */
   messageStore: MessageStore;
 
+  /** Agent store for persisting AgentState */
+  agentStore?: AgentStore;
+
   /** Auto-save messages after each turn (default: true) */
   autoSave?: boolean;
 
@@ -61,9 +67,6 @@ export interface AgentConfig {
 
   /** System prompt */
   systemPrompt?: string;
-
-  /** Agent ID for tracing */
-  agentId?: string;
 
   /** Logger */
   logger?: import('pino').Logger;
@@ -80,6 +83,9 @@ export interface GetMessagesOptions {
   maxTokens?: number;
 }
 
+type AgentConfigRequired = AgentConfig &
+  Required<Pick<AgentConfig, 'logger' | 'autoSave' | 'autoCompact' | 'maxMessages'>>;
+
 /**
  * Agent - Stateful Multi-turn Manager
  *
@@ -90,7 +96,7 @@ export interface GetMessagesOptions {
  * - Manages artifacts
  */
 export class Agent {
-  private readonly config: Omit<Required<AgentConfig>, 'loopConfig'>;
+  private readonly config: AgentConfigRequired;
   private _state: AgentState;
   private logger: pino.Logger;
 
@@ -99,7 +105,6 @@ export class Agent {
       autoSave: true,
       autoCompact: false,
       maxMessages: 100,
-      agentId: 'default-agent',
       systemPrompt: 'You are a helpful AI assistant.',
       ...config,
       logger:
@@ -118,6 +123,7 @@ export class Agent {
     };
 
     this.logger.debug('Agent created');
+    this.persistStateSafely();
   }
 
   /**
@@ -161,6 +167,8 @@ export class Agent {
     try {
       this.logger.info('Initializing agent');
 
+      const hasStoredState = await this.loadPersistedState();
+
       // Try to load existing messages (resume scenario)
       // Note: If messageStore requires auth, pass authContext to startTurn instead
       const existingMessages = await this.config.messageStore.getAll(this.config.contextId);
@@ -171,13 +179,18 @@ export class Agent {
           'Resuming agent with existing message history',
         );
 
-        // Infer state from message count
-        this._state.turnCount = Math.floor(existingMessages.length / 2); // Rough estimate
+        if (!hasStoredState) {
+          // Infer state from message count when no persisted state exists
+          this._state.turnCount = Math.floor(existingMessages.length / 2); // Rough estimate
+        }
+
         setResumeAttributes(span, existingMessages.length);
       }
 
       this._state.status = 'ready';
       this._state.lastActivity = new Date();
+
+      await this.persistState();
 
       this.logger.info({ status: this._state.status }, 'Agent initialized');
 
@@ -186,6 +199,8 @@ export class Agent {
       this._state.status = 'error';
       this._state.error = serializeError(error);
       this.logger.error({ error }, 'Failed to initialize agent');
+
+      await this.persistState();
 
       failAgentInitializeSpan(span, error as Error);
       throw error;
@@ -296,6 +311,7 @@ export class Agent {
 
       this._state.status = 'busy';
       this._state.lastActivity = new Date();
+      await this.persistState();
 
       // Load conversation history and execute turn
       return this.executeInternal(
@@ -452,6 +468,7 @@ export class Agent {
                   this._state.turnCount++;
                   this._state.lastActivity = new Date();
                   this._state.status = 'ready';
+                  await this.persistState();
 
                   setTurnCountAttribute(turnSpan, this._state.turnCount);
 
@@ -486,6 +503,7 @@ export class Agent {
         catchError((error) => {
           this._state.status = 'error';
           this._state.error = error;
+          this.persistStateSafely();
 
           // Fail the span for any errors caught in the pipeline
           failAgentTurnSpan(turnSpan, error);
@@ -517,6 +535,8 @@ export class Agent {
       // Save any pending state
       if (!this.config.autoSave) {
         await this.save();
+      } else {
+        await this.persistState();
       }
 
       this.config.logger.info('Agent shutdown complete');
@@ -571,6 +591,7 @@ export class Agent {
     // This method exists for explicit save points and future extensibility
 
     // Future: Could save additional metadata or trigger backup operations here
+    await this.persistState();
   }
 
   /**
@@ -584,12 +605,61 @@ export class Agent {
 
       this._state.turnCount = 0;
       this._state.lastActivity = new Date();
+      await this.persistState();
 
       this.logger.info('Agent data cleared');
     } catch (error) {
       this.logger.error({ error }, 'Failed to clear agent');
       throw error;
     }
+  }
+
+  private async persistState(): Promise<void> {
+    if (!this.config.agentStore) {
+      return;
+    }
+
+    const stateToPersist: AgentState = {
+      ...this._state,
+      lastActivity: new Date(this._state.lastActivity),
+      createdAt: new Date(this._state.createdAt),
+    };
+
+    await this.config.agentStore.save(this.config.contextId, stateToPersist);
+  }
+
+  private persistStateSafely(): void {
+    if (!this.config.agentStore) {
+      return;
+    }
+
+    void this.persistState().catch((error) => {
+      this.logger.error({ error }, 'Failed to persist agent state');
+    });
+  }
+
+  private async loadPersistedState(): Promise<boolean> {
+    if (!this.config.agentStore) {
+      return false;
+    }
+
+    const persistedState = await this.config.agentStore.load(this.config.contextId);
+    if (!persistedState) {
+      return false;
+    }
+
+    this._state = {
+      ...persistedState,
+      lastActivity: new Date(persistedState.lastActivity),
+      createdAt: new Date(persistedState.createdAt),
+    };
+
+    this.logger.debug(
+      { turnCount: this._state.turnCount, status: this._state.status },
+      'Loaded agent state from agent store',
+    );
+
+    return true;
   }
 
   /**

@@ -1,6 +1,7 @@
 node_modules
 .env*
 _*
+!__mocks__/
 
 # Build outputs
 dist/

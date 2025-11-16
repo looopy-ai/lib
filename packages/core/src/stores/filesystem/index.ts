@@ -4,6 +4,8 @@
  * Stores data on the filesystem in a structured directory layout.
  */
 
+export type { FileSystemAgentStoreConfig } from './filesystem-agent-store';
+export { FileSystemAgentStore } from './filesystem-agent-store';
 export type { FileSystemArtifactStoreConfig } from './filesystem-artifact-store';
 export { FileSystemArtifactStore } from './filesystem-artifact-store';
 export type { FileSystemContextStoreConfig } from './filesystem-context-store';

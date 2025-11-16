@@ -1,4 +1,5 @@
 export * from './a2a';
+export * from './agent';
 export * from './artifact';
 export * from './context';
 export * from './event';

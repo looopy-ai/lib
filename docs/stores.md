@@ -1,72 +1,73 @@
 # Stores
 
-Stores are persistence layers for storing conversation history, agent state, and artifacts.
+Stores provide persistence for the runtime: conversation history, artifacts, task checkpoints, and the agent's own lifecycle state. The core package includes in-memory options for testing plus filesystem-backed implementations for local durability.
+
+## Agent Stores
+
+Agent stores persist `AgentState`, allowing the `Agent` to resume turn counters, lifecycle status, and timestamps across process restarts. Configure them via the `agentStore` field on `AgentConfig`.
+
+### AgentStore Interface
+
+```typescript
+export interface AgentStore {
+  load(contextId: string): Promise<AgentState | null>;
+  save(contextId: string, state: AgentState): Promise<void>;
+  delete?(contextId: string): Promise<void>;
+}
+```
+
+### FileSystemAgentStore
+
+`FileSystemAgentStore` stores one JSON document per context under `./_agent_store/agent={agentId}/context={contextId}/agent-state.json`. Dates are serialized to ISO strings and restored as `Date` objects on load.
+
+```typescript
+import { FileSystemAgentStore } from '@looopy-ai/core/stores/filesystem';
+
+const agentStore = new FileSystemAgentStore({
+  basePath: './_agent_store',
+  agentId: 'my-agent',
+});
+
+const state = await agentStore.load('ctx-123');
+await agentStore.save('ctx-123', {
+  status: 'ready',
+  turnCount: 4,
+  createdAt: new Date(),
+  lastActivity: new Date(),
+});
+```
+
+Provide the store to `new Agent({ agentStore, ... })` to enable automatic persistence.
 
 ## Message Stores
 
-Message stores are used to store and retrieve conversation history.
+Message stores keep the conversation history. The core package ships with:
 
-### `InMemoryMessageStore`
+- `MemoryMessageStore` – simple in-memory storage for tests
+- `FileSystemMessageStore` – filesystem-based JSON per message
+- `HybridMessageStore`, `BedrockMemoryStore`, and `Mem0MessageStore` – integrations with external memory systems
 
-The `@looopy-ai/core` package includes a single message store, `InMemoryMessageStore`, which stores messages in memory. This is useful for development and testing, but should not be used in production.
-
-### `S3MessageStore`
-
-The `@looopy-ai/aws` package includes a `S3MessageStore`, which stores messages in an S3 bucket. This is a durable, scalable option for production use.
-
-### Creating a Custom Message Store
-
-To create a custom message store, you need to implement the `MessageStore` interface:
+A custom store implements the interface from `packages/core/src/stores/messages/interfaces.ts`:
 
 ```typescript
 export interface MessageStore {
-  getMessages(contextId: string): Promise<Message[]>;
-  addMessage(contextId: string, message: Message): Promise<void>;
+  append(contextId: string, messages: Message[]): Promise<void>;
+  getRecent(
+    contextId: string,
+    options?: { maxMessages?: number; maxTokens?: number }
+  ): Promise<Message[]>;
+  getAll(contextId: string): Promise<Message[]>;
+  getCount(contextId: string): Promise<number>;
+  getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]>;
+  compact(contextId: string, options?: CompactionOptions): Promise<CompactionResult>;
+  clear(contextId: string): Promise<void>;
 }
 ```
 
 ## Artifact Stores
 
-Artifact stores are used to store and retrieve artifacts.
-
-### `InMemoryArtifactStore`
-
-The `@looopy-ai/core` package includes a single artifact store, `InMemoryArtifactStore`, which stores artifacts in memory.
-
-### `S3ArtifactStore`
-
-The `@looopy-ai/aws` package includes a `S3ArtifactStore`, which stores artifacts in an S3 bucket.
-
-### Creating a Custom Artifact Store
-
-To create a custom artifact store, you need to implement the `ArtifactStore` interface:
-
-```typescript
-export interface ArtifactStore {
-  create(artifact: Artifact): Promise<void>;
-  get(artifactId: string): Promise<Artifact | undefined>;
-}
-```
+Artifact stores manage generated artifacts (files, datasets, structured data). The filesystem implementation writes metadata under the same context directory structure used by other stores, while in-memory versions remain available for fast tests. Implementations must satisfy the interfaces in `packages/core/src/stores/artifacts`.
 
 ## Task State Stores
 
-Task state stores are used to store and retrieve the state of a task.
-
-### `InMemoryTaskStateStore`
-
-The `@looopy-ai/core` package includes a single task state store, `InMemoryTaskStateStore`, which stores task state in memory.
-
-### `S3TaskStateStore`
-
-The `@looopy-ai/aws` package includes a `S3TaskStateStore`, which stores task state in an S3 bucket.
-
-### Creating a Custom Task State Store
-
-To create a custom task state store, you need to implement the `TaskStateStore` interface:
-
-```typescript
-export interface TaskStateStore {
-  save(state: TaskState): Promise<void>;
-  load(taskId: string): Promise<TaskState | undefined>;
-}
-```
+Task state stores keep per-turn checkpoints produced by `AgentLoop`. Use `InMemoryStateStore` for tests or `FileSystemStateStore` for resilience across crashes. A custom store implements the `TaskStateStore` interface (`save`, `load`, `exists`, `delete`, `listTasks`, and `setTTL`).
