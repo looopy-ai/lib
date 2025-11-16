@@ -156,7 +156,6 @@ Be concise and helpful in your responses.`;
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
     systemPrompt,
-    autoSave: true,
     logger,
   });
 

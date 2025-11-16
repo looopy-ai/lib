@@ -7,7 +7,8 @@
  * ./_agent_store/agent={agentId}/context={contextId}/agent-state.json
  */
 
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AgentState, AgentStore } from '../../types/agent';
 
@@ -41,7 +42,7 @@ export class FileSystemAgentStore implements AgentStore {
   async load(contextId: string): Promise<AgentState | null> {
     try {
       const filePath = this.getStateFilePath(contextId);
-      const content = await readFile(filePath, 'utf-8');
+      const content = readFileSync(filePath, 'utf-8');
       const parsed = JSON.parse(content) as SerializableAgentState;
 
       return {

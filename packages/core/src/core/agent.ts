@@ -31,6 +31,7 @@ import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
+import { registerSignalListener, unregisterSignalListener } from '../utils/process-signals';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
 
@@ -55,9 +56,6 @@ export interface AgentConfig {
 
   /** Agent store for persisting AgentState */
   agentStore?: AgentStore;
-
-  /** Auto-save messages after each turn (default: true) */
-  autoSave?: boolean;
 
   /** Auto-compact messages when exceeding limit (default: false) */
   autoCompact?: boolean;
@@ -84,7 +82,7 @@ export interface GetMessagesOptions {
 }
 
 type AgentConfigRequired = AgentConfig &
-  Required<Pick<AgentConfig, 'logger' | 'autoSave' | 'autoCompact' | 'maxMessages'>>;
+  Required<Pick<AgentConfig, 'logger' | 'autoCompact' | 'maxMessages'>>;
 
 /**
  * Agent - Stateful Multi-turn Manager
@@ -99,10 +97,13 @@ export class Agent {
   private readonly config: AgentConfigRequired;
   private _state: AgentState;
   private logger: pino.Logger;
+  private sigtermHandler?: () => Promise<void>;
+  private sigintHandler?: () => Promise<void>;
+  private shuttingDown = false;
+  private shutdownComplete = false;
 
   constructor(config: AgentConfig) {
     this.config = {
-      autoSave: true,
       autoCompact: false,
       maxMessages: 100,
       systemPrompt: 'You are a helpful AI assistant.',
@@ -124,6 +125,7 @@ export class Agent {
 
     this.logger.debug('Agent created');
     this.persistStateSafely();
+    this.registerSignalHandlers();
   }
 
   /**
@@ -198,7 +200,7 @@ export class Agent {
     } catch (error) {
       this._state.status = 'error';
       this._state.error = serializeError(error);
-      this.logger.error({ error }, 'Failed to initialize agent');
+      this.logger.error({ error: serializeError(error) }, 'Failed to initialize agent');
 
       await this.persistState();
 
@@ -375,12 +377,10 @@ export class Agent {
                 content: userMessage,
               });
 
-              // Save user message immediately if autoSave
-              if (this.config.autoSave) {
-                await this.config.messageStore.append(this.config.contextId, [
-                  { role: 'user', content: userMessage },
-                ]);
-              }
+              // Save user message immediately if
+              await this.config.messageStore.append(this.config.contextId, [
+                { role: 'user', content: userMessage },
+              ]);
             }
 
             logger.debug(
@@ -412,7 +412,7 @@ export class Agent {
               tap(async (event) => {
                 switch (event.kind) {
                   case 'content-complete':
-                    if (this.config.autoSave && (event.content || event.toolCalls)) {
+                    if (event.content || event.toolCalls) {
                       await this.config.messageStore.append(this.config.contextId, [
                         {
                           role: 'assistant',
@@ -429,21 +429,20 @@ export class Agent {
                       ]);
                     }
                     break;
-                  case 'tool-complete':
-                    if (this.config.autoSave) {
-                      const message: Message = {
-                        role: 'tool',
-                        content: JSON.stringify({
-                          success: event.success,
-                          result: event.result,
-                          error: event.error,
-                        }),
-                        toolCallId: event.toolCallId,
-                      };
-                      logger.debug({ message }, 'Saving tool message to message store');
-                      await this.config.messageStore.append(this.config.contextId, [message]);
-                    }
+                  case 'tool-complete': {
+                    const message: Message = {
+                      role: 'tool',
+                      content: JSON.stringify({
+                        success: event.success,
+                        result: event.result,
+                        error: event.error,
+                      }),
+                      toolCallId: event.toolCallId,
+                    };
+                    logger.debug({ message }, 'Saving tool message to message store');
+                    await this.config.messageStore.append(this.config.contextId, [message]);
                     break;
+                  }
                   default:
                     break;
                 }
@@ -526,23 +525,34 @@ export class Agent {
    * Shutdown the agent (save state, cleanup resources)
    */
   async shutdown(): Promise<void> {
+    if (this.shutdownComplete) {
+      this.logger.debug('Agent already shutdown');
+      return;
+    }
+
+    if (this.shuttingDown) {
+      this.logger.debug('Shutdown already in progress');
+      return;
+    }
+
+    this.shuttingDown = true;
+
     this.logger.info('Shutting down agent');
 
     try {
       this._state.status = 'shutdown';
       this._state.lastActivity = new Date();
 
-      // Save any pending state
-      if (!this.config.autoSave) {
-        await this.save();
-      } else {
-        await this.persistState();
-      }
+      await this.persistState();
 
+      this.removeSignalHandlers();
+      this.shutdownComplete = true;
       this.config.logger.info('Agent shutdown complete');
     } catch (error) {
       this.config.logger.error({ error }, 'Failed to shutdown agent');
       throw error;
+    } finally {
+      this.shuttingDown = false;
     }
   }
 
@@ -554,44 +564,6 @@ export class Agent {
       return this.config.messageStore.getRecent(this.config.contextId, options);
     }
     return this.config.messageStore.getAll(this.config.contextId);
-  }
-
-  /**
-   * Manually save current conversation state
-   *
-   * This ensures all messages are persisted to the MessageStore. Useful when autoSave
-   * is disabled or when you want to ensure state is saved at a specific point.
-   *
-   * Note: This is a lightweight operation that just logs the save. Messages are
-   * already persisted by the MessageStore's append() calls during startTurn().
-   * This method exists primarily for explicit save points in your code.
-   *
-   * @example
-   * ```typescript
-   * const agent = new Agent({
-   *   contextId: 'session-123',
-   *   autoSave: false, // Disable auto-save
-   *   // ... other config
-   * });
-   *
-   * await agent.startTurn('Do something', authContext);
-   * await agent.save(); // Explicitly save
-   * ```
-   */
-  async save(): Promise<void> {
-    this.logger.info(
-      {
-        turnCount: this._state.turnCount,
-        status: this._state.status,
-      },
-      'Saving agent state',
-    );
-
-    // Messages are already persisted via MessageStore.append() during startTurn()
-    // This method exists for explicit save points and future extensibility
-
-    // Future: Could save additional metadata or trigger backup operations here
-    await this.persistState();
   }
 
   /**
@@ -690,6 +662,50 @@ export class Agent {
         strategy: 'summarization',
         keepRecent: Math.floor(this.config.maxMessages * 0.5), // Keep 50%
       });
+    }
+  }
+
+  private registerSignalHandlers(): void {
+    if (typeof process === 'undefined') {
+      return;
+    }
+    if (this.sigtermHandler || typeof process === 'undefined') {
+      return;
+    }
+
+    if (!this.sigtermHandler) {
+      this.sigtermHandler = async (): Promise<void> => {
+        this.logger.info('Received SIGTERM signal. Initiating graceful shutdown.');
+        try {
+          await this.shutdown();
+        } catch (error) {
+          this.logger.error({ error }, 'Failed to shutdown agent after SIGTERM signal');
+        }
+      };
+      registerSignalListener('SIGTERM', this.sigtermHandler);
+    }
+
+    if (!this.sigintHandler) {
+      const sigintHandler = async (): Promise<void> => {
+        this.logger.info('Received SIGINT signal. Initiating graceful shutdown.');
+        try {
+          await this.shutdown();
+        } catch (error) {
+          this.logger.error({ error }, 'Failed to shutdown agent after SIGINT signal');
+        }
+      };
+      registerSignalListener('SIGINT', sigintHandler);
+    }
+  }
+
+  private removeSignalHandlers(): void {
+    if (this.sigtermHandler) {
+      unregisterSignalListener('SIGTERM', this.sigtermHandler);
+      this.sigtermHandler = undefined;
+    }
+    if (this.sigintHandler) {
+      unregisterSignalListener('SIGINT', this.sigintHandler);
+      this.sigintHandler = undefined;
     }
   }
 }

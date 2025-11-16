@@ -74,7 +74,6 @@ const createAgent = async (contextId: string) => {
     toolProviders: [localToolProvider, artifactToolProvider(agentId)],
     messageStore: messageStore(agentId),
     systemPrompt,
-    autoSave: true,
     logger,
   });
 };
