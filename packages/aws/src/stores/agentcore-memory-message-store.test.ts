@@ -18,7 +18,7 @@ const createStore = (send?: ReturnType<typeof vi.fn>) => {
     memoryId: 'mem-123',
     client,
     agentId: 'actor-1',
-    includeLongTermMemories: true,
+    longTermMemoryNamespace: 'namespace-1',
   });
 
   return { store, sendMock };
@@ -29,7 +29,7 @@ describe('AgentCoreMemoryMessageStore', () => {
     const { store, sendMock } = createStore();
     const messages: Message[] = [
       { role: 'user', content: 'hello' },
-      { role: 'assistant', content: { text: 'hi' } },
+      { role: 'assistant', content: 'hi' },
     ];
 
     await store.append('ctx-1', messages);

@@ -1,6 +1,6 @@
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DeleteCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { AgentState } from '@looopy-ai/core';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DynamoDBAgentStore } from './dynamodb-agent-store';
