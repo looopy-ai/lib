@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import { serve } from '@looopy-ai/aws/ts';
 import { Agent, LiteLLM } from '@looopy-ai/core';
-import { initializeTracing, setDefaultLogger } from '@looopy-ai/core/ts';
+import { FileSystemAgentStore, initializeTracing, setDefaultLogger } from '@looopy-ai/core/ts';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
 import {
@@ -61,10 +61,16 @@ const createAgent = async (contextId: string) => {
   // Ensure directory exists for SSE log
   await fs.mkdir(contextPath, { recursive: true });
 
+  const agentStore = new FileSystemAgentStore({
+    basePath: BASE_PATH,
+    agentId,
+  });
+
   return new Agent({
     contextId,
     agentId,
     llmProvider,
+    agentStore,
     toolProviders: [localToolProvider, artifactToolProvider(agentId)],
     messageStore: messageStore(agentId),
     systemPrompt,
