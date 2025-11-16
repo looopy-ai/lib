@@ -70,7 +70,7 @@ export class DynamoDBAgentStore implements AgentStore {
     this.entityType = config.entityType || 'agent-state';
     this.documentClient =
       config.documentClient ||
-      DynamoDBDocumentClient.from(new DynamoDBClient(config.dynamoDbClientConfig));
+      DynamoDBDocumentClient.from(new DynamoDBClient(config.dynamoDbClientConfig ?? {}));
   }
 
   async load(contextId: string): Promise<AgentState | null> {

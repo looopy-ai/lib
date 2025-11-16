@@ -103,3 +103,54 @@ serve({
 ```
 
 This ensures each Bedrock AgentCore request can resume from the state stored in DynamoDB across separate Lambda or container invocations.
+
+## AgentCore Memory Message Store
+
+`AgentCoreMemoryMessageStore` streams conversation turns to the Bedrock AgentCore Memory APIs so short-term and long-term memories persist outside of your runtime container. The store wraps the runtime (`CreateEvent`, `ListEvents`, `DeleteEvent`) and memory retrieval APIs (`RetrieveMemoryRecords`) and implements the `MessageStore` contract used by `Agent`.
+
+### Prerequisites
+
+1. In the AWS Console open **Amazon Bedrock → Agentic Memory** (or use the `@aws-sdk/client-bedrock-agentcore` / AWS CLI equivalent) and create a Memory resource. Enable the strategies you want (summaries, user preferences, etc.).
+2. Capture the `memoryId` that is returned.
+3. Grant the runtime IAM role the following permissions scoped to that memory: `bedrock:CreateEvent`, `bedrock:ListEvents`, `bedrock:DeleteEvent`, and `bedrock:RetrieveMemoryRecords`.
+4. Provide an `agentId` that serves as the actor identifier for all sessions. This typically represents the agent or assistant identity.
+
+### Usage
+
+```ts
+import { Agent } from '@looopy-ai/core';
+import { AgentCoreMemoryMessageStore } from '@looopy-ai/aws/ts/stores';
+
+const messageStore = new AgentCoreMemoryMessageStore({
+  memoryId: process.env.AGENT_MEMORY_ID!,
+  agentId: 'agentcore-runtime',
+  region: process.env.AWS_REGION,
+  // Optional: enable long-term memory retrieval
+  longTermMemoryNamespace: 'persistent-context',
+});
+
+const agent = new Agent({
+  agentId: 'agentcore-runtime',
+  contextId: 'ctx-1234',
+  messageStore,
+  // llmProvider, toolProviders, agentStore, etc.
+});
+```
+
+### Features
+
+- **Short-term memory:** Every call to `append` persists conversation turns via `CreateEventCommand`. Messages are stored per session (`contextId`).
+- **Long-term memory (optional):** When `longTermMemoryNamespace` is configured, `getRecent` automatically retrieves and prepends relevant long-term memories to the conversation context.
+- **Token budget support:** `getRecent` honors token limits using `trimToTokenBudget` to keep conversations within model constraints.
+- **Memory search:** Use `searchMemories(query, options?)` to retrieve long-term memories semantically related to a query.
+- **Session cleanup:** Call `clear(contextId)` to remove all short-term events for a specific session. Long-term memories persist per your memory resource configuration.
+
+### Configuration Options
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `memoryId` | Yes | Pre-provisioned AgentCore memory identifier |
+| `agentId` | Yes | Static actor identifier used across all sessions |
+| `region` | No | AWS region (defaults to `AWS_REGION` env var or `us-west-2`) |
+| `client` | No | Custom `BedrockAgentCoreClient` instance (useful for testing) |
+| `longTermMemoryNamespace` | No | Namespace for retrieving long-term memories. When set, enables automatic memory retrieval in `getRecent` |
