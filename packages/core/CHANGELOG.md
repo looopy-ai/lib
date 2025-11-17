@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.0.3
+
+### Patch Changes
+
+- 70efbd2: include necessary deps
+
 ## 1.0.2
 
 ### Patch Changes
