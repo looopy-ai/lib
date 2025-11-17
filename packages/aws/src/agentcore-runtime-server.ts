@@ -7,6 +7,7 @@ import { z } from 'zod';
 export type ServeConfig = {
   agent: (contextId: string) => Promise<Agent>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
+  logger: pino.Logger;
   port?: number;
 };
 
@@ -24,7 +25,7 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
   app.use(requestId());
   app.use('*', async (c, next) => {
     const requestId = c.var.requestId;
-    const child = getLogger({
+    const child = (config.logger.child ?? getLogger)({
       requestId,
       method: c.req.method,
       path: c.req.path,
