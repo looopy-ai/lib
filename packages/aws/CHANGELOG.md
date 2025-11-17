@@ -1,5 +1,12 @@
 # @looopy-ai/aws
 
+## 1.0.6
+
+### Patch Changes
+
+- Updated dependencies [70efbd2]
+  - @looopy-ai/core@1.0.3
+
 ## 1.0.5
 
 ### Patch Changes
