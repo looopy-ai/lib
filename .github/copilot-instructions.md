@@ -521,3 +521,143 @@ Keep designs clean, conceptual, and stable. Put all the detailed implementation 
 All shell commands must be in nushell. This computer does not run bash by default.
 
 When running commands, avoid output redirection. i.e. do NOT do this: `2>&1` (that's bash syntax) and will not work.
+
+## Overview
+This is a monorepo using pnpm workspaces with changesets for version management and npm package publishing.
+
+## Key Packages
+- `@looopy-ai/core` - Core AI agent framework
+- `@looopy-ai/aws` - AWS integrations for the framework
+- `@looopy-ai/examples` - Example implementations (do not publish)
+
+## When Making Changes
+
+### 1. Create a Changeset
+Whenever you make changes to code, **always create a changeset file**. This is required for proper versioning and changelog generation.
+
+**Do this immediately after making code changes:**
+
+```bash
+pnpm -w changeset
+```
+
+This will prompt you to:
+1. Select which packages were changed
+2. Specify the type of change (major, minor, patch)
+3. Write a summary of the change
+
+**Important: The changeset summary should be clear and descriptive, as it will appear in the changelog.**
+
+### 2. Changeset File Format
+Changesets are stored in `.changeset/[id].md` files. Here's an example structure:
+```markdown
+---
+"@looopy-ai/core": minor
+"@looopy-ai/aws": patch
+---
+
+Brief description of what changed and why.
+```
+
+### 3. Guidelines for Changesets
+
+**When to create a changeset:**
+- ✅ Adding new features
+- ✅ Fixing bugs
+- ✅ Updating dependencies
+- ✅ Changing public APIs
+- ❌ Updating documentation only (no changeset needed)
+- ❌ Adding tests only (unless fixing a bug)
+- ❌ Internal refactoring without behavior changes (no changeset needed)
+
+**Version bump rules:**
+- **patch**: Bug fixes, internal improvements, documentation updates
+- **minor**: New features, new public APIs, backwards-compatible changes
+- **major**: Breaking changes, removed features, incompatible API changes
+
+### 4. Workflow Summary
+1. Make your code changes
+2. Run `pnpm -w changeset` and complete the prompt
+3. Commit both your code changes and the changeset file
+4. Push to main → CI runs tests
+5. Changesets bot creates a PR to bump versions and update CHANGELOGs
+6. PR is merged → GitHub Actions publishes to npm
+
+## Development Commands
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run tests on all packages
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Type checking on all packages
+pnpm check:types
+
+# Linting
+pnpm lint
+
+# Lint and fix
+pnpm lint:fix
+
+# Build all packages
+pnpm build
+
+# Create a changeset
+pnpm -w changeset
+
+# Version packages (run before publishing)
+pnpm -w version-packages
+
+# Publish to npm (done automatically by CI)
+pnpm -w release
+```
+
+## File Structure
+```
+.changeset/
+  config.json          # Changesets configuration
+  [id].md              # Individual changeset files (auto-generated)
+
+.github/workflows/
+  ci.yml              # Tests and validation on PR/push
+  publish.yml         # Version bumping and npm publishing
+
+packages/
+  core/               # @looopy-ai/core
+  aws/                # @looopy-ai/aws
+  examples/           # Examples (not published)
+```
+
+## Publishing Process (Automated)
+
+1. **Changesets Action** monitors the main branch
+2. **When changesets exist**, it creates a "Version Packages" PR that:
+   - Bumps all package versions
+   - Updates CHANGELOG files
+   - Removes changeset files
+3. **When PR is merged**, GitHub Actions automatically:
+   - Runs full test suite
+   - Builds packages
+   - Publishes to npm
+   - Creates GitHub releases
+
+## Troubleshooting
+
+**Q: I forgot to create a changeset**
+- A: Create one now with `pnpm -w changeset` and commit it. The PR will still work.
+
+**Q: Multiple changes to the same package**
+- A: Create separate changeset files for each logical change, or combine them in one changeset.
+
+**Q: I need to bump a package that had no code changes**
+- A: Still create a changeset for it with the appropriate version bump and explanation.
+
+## Notes
+- Never manually edit `package.json` versions - let changesets handle it
+- Always write clear, descriptive changeset summaries
+- The `examples` package is excluded from publishing by changesets config
