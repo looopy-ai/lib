@@ -25,11 +25,12 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
   app.use(requestId());
   app.use('*', async (c, next) => {
     const requestId = c.var.requestId;
-    const child = (config.logger?.child ?? getLogger)({
+    const requestContext = {
       requestId,
       method: c.req.method,
       path: c.req.path,
-    });
+    };
+    const child = config.logger?.child(requestContext) ?? getLogger(requestContext);
 
     const start = performance.now();
     c.set('logger', child);
