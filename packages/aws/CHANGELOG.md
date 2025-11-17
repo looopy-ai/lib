@@ -1,5 +1,15 @@
 # @looopy-ai/aws
 
+## 2.0.0
+
+### Major Changes
+
+- 8a1f5ca: Don't log ping requests; change endpoint to /invocations
+
+### Patch Changes
+
+- 2f87af5: Allow passing a logger in
+
 ## 1.0.7
 
 ### Patch Changes
