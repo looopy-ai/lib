@@ -37,8 +37,10 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
     try {
       await next();
     } finally {
-      const ms = performance.now() - start;
-      child.info({ status: c.res.status, ms }, 'request completed');
+      if (c.req.path !== '/ping') {
+        const ms = performance.now() - start;
+        child.info({ status: c.res.status, ms }, 'request completed');
+      }
     }
   });
 
@@ -54,7 +56,7 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
   });
 
   // body e.g. {"prompt": "Tell me about AWS"}
-  app.post('/invocation', async (c) => {
+  app.post('/invocations', async (c) => {
     const logger = c.var.logger;
 
     if (state.busy) {
