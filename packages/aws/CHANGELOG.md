@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 1.0.3
+
+### Patch Changes
+
+- e239e3c: Add secret loader
+
 ## 1.0.2
 
 ### Patch Changes
