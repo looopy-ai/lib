@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 1.0.7
+
+### Patch Changes
+
+- 995fd1c: Separate node from core hono
+
 ## 1.0.6
 
 ### Patch Changes
