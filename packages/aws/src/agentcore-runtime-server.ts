@@ -1,42 +1,44 @@
-import { type HttpBindings, serve as serveNodeJs } from '@hono/node-server';
 import { type Agent, type AuthContext, getLogger, SSEServer } from '@looopy-ai/core';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';
-import { pinoHttp } from 'pino-http';
 import { z } from 'zod';
 
-type ServeConfig = {
+export type ServeConfig = {
   agent: (contextId: string) => Promise<Agent>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
   port?: number;
 };
 
-declare module 'hono' {
-  interface ContextVariableMap {
-    logger: pino.Logger;
-  }
-}
+export type HonoVariables = {
+  logger: pino.Logger;
+};
 
 const promptValidator = z.object({
   prompt: z.string().min(1),
 });
 
-export const hono = (config: ServeConfig): Hono<{ Bindings: HttpBindings }> => {
-  const app = new Hono<{ Bindings: HttpBindings }>();
+export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> => {
+  const app = new Hono<{ Variables: HonoVariables }>();
+
   app.use(requestId());
-  app.use(async (c, next) => {
-    // pass hono's request-id to pino-http
-    c.env.incoming.id = c.var.requestId;
+  app.use('*', async (c, next) => {
+    const requestId = c.var.requestId;
+    const child = getLogger({
+      requestId,
+      method: c.req.method,
+      path: c.req.path,
+    });
 
-    // map express style middleware to hono
-    await new Promise((resolve) =>
-      pinoHttp({ logger: getLogger({}) })(c.env.incoming, c.env.outgoing, () => resolve(undefined)),
-    );
+    const start = performance.now();
+    c.set('logger', child);
 
-    c.set('logger', c.env.incoming.log);
-
-    await next();
+    try {
+      await next();
+    } finally {
+      const ms = performance.now() - start;
+      child.info({ status: c.res.status, ms }, 'request completed');
+    }
   });
 
   const state = { busy: false, agent: undefined as Agent | undefined };
@@ -142,14 +144,6 @@ export const hono = (config: ServeConfig): Hono<{ Bindings: HttpBindings }> => {
   });
 
   return app;
-};
-
-export const serve = (config: ServeConfig): void => {
-  const app = hono(config);
-  serveNodeJs({
-    fetch: app.fetch,
-    port: config.port || 8080,
-  });
 };
 
 const getAuthContext = async (
