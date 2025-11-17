@@ -16,7 +16,7 @@
     "changes": "changeset",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm -r publish --filter '@looopy-ai/*' --no-git-checks"
+    "release": "pnpm -r publish --filter '@looopy-ai/*' --filter '@looopy-ai/examples' --no-git-checks"
   },
   "keywords": [
     "agent",
