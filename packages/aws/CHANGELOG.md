@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.0.1
+
+### Patch Changes
+
+- 0743a6d: Logger optional
+
 ## 2.0.0
 
 ### Major Changes
