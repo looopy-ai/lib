@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 1.0.4
+
+### Patch Changes
+
+- b0161f5: Export secret loader
+
 ## 1.0.3
 
 ### Patch Changes
