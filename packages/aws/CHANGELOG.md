@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 1.0.5
+
+### Patch Changes
+
+- 0af932c: Export hono app for Bun usage; removed ts reference in import
+
 ## 1.0.4
 
 ### Patch Changes
