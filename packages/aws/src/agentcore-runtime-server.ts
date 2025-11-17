@@ -1,6 +1,5 @@
 import { type HttpBindings, serve as serveNodeJs } from '@hono/node-server';
-import { type Agent, type AuthContext, getLogger } from '@looopy-ai/core';
-import { SSEServer } from '@looopy-ai/core/ts';
+import { type Agent, type AuthContext, getLogger, SSEServer } from '@looopy-ai/core';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';
@@ -23,7 +22,7 @@ const promptValidator = z.object({
   prompt: z.string().min(1),
 });
 
-export const serve = (config: ServeConfig) => {
+export const hono = (config: ServeConfig): Hono<{ Bindings: HttpBindings }> => {
   const app = new Hono<{ Bindings: HttpBindings }>();
   app.use(requestId());
   app.use(async (c, next) => {
@@ -142,6 +141,11 @@ export const serve = (config: ServeConfig) => {
     return new Response(stream, res);
   });
 
+  return app;
+};
+
+export const serve = (config: ServeConfig): void => {
+  const app = hono(config);
   serveNodeJs({
     fetch: app.fetch,
     port: config.port || 8080,
