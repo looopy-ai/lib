@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.0.4
+
+### Patch Changes
+
+- cbc7225: export LocalToolDefinition
+
 ## 1.0.3
 
 ### Patch Changes
