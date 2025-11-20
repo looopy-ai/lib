@@ -5,13 +5,18 @@
   "main": "src/core/index.ts",
   "type": "module",
   "scripts": {
+    "check:all": "pnpm check:types && pnpm lint && pnpm test",
     "check:types": "pnpm -r check:types",
     "test": "pnpm -r test",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "build": "tsc --noEmit",
     "lint": "pnpm -r lint",
-    "lint:fix": "pnpm -r lint:fix"
+    "lint:fix": "pnpm -r lint:fix",
+    "changes": "changeset",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm -r publish --filter '@looopy-ai/*' --filter '!@looopy-ai/examples' --no-git-checks"
   },
   "keywords": [
     "agent",
@@ -31,6 +36,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.3",
+    "@changesets/cli": "^2.27.0",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^2.0.0",
     "chalk": "^5.6.2",

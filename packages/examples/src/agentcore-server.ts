@@ -80,6 +80,7 @@ const createAgent = async (contextId: string) => {
 
 serve({
   agent: createAgent,
+  logger,
 });
 
 console.log('Server is running');

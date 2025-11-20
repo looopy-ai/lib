@@ -13,6 +13,10 @@
       "path": "packages/aws"
     },
     {
+      "name": "💻 React",
+      "path": "packages/react"
+    },
+    {
       "name": "💡 Examples",
       "path": "packages/examples"
     }
@@ -109,6 +113,27 @@
 
     // Exclude from quick open
     "search.quickOpen.includeSymbols": false,
-    "search.quickOpen.includeHistory": true
+    "search.quickOpen.includeHistory": true,
+    "workbench.colorCustomizations": {
+      "activityBar.activeBackground": "#75912b",
+      "activityBar.background": "#75912b",
+      "activityBar.foreground": "#e7e7e7",
+      "activityBar.inactiveForeground": "#e7e7e799",
+      "activityBarBadge.background": "#9dcfe2",
+      "activityBarBadge.foreground": "#15202b",
+      "commandCenter.border": "#e7e7e799",
+      "sash.hoverBorder": "#75912b",
+      "statusBar.background": "#556a1f",
+      "statusBar.foreground": "#e7e7e7",
+      "statusBarItem.hoverBackground": "#75912b",
+      "statusBarItem.remoteBackground": "#556a1f",
+      "statusBarItem.remoteForeground": "#e7e7e7",
+      "tab.activeBorder": "#75912b",
+      "titleBar.activeBackground": "#556a1f",
+      "titleBar.activeForeground": "#e7e7e7",
+      "titleBar.inactiveBackground": "#556a1f99",
+      "titleBar.inactiveForeground": "#e7e7e799"
+    },
+    "peacock.color": "#556a1f"
   }
 }

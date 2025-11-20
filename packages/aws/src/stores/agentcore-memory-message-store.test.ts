@@ -18,7 +18,7 @@ const createStore = (send?: ReturnType<typeof vi.fn>) => {
     memoryId: 'mem-123',
     client,
     agentId: 'actor-1',
-    longTermMemoryNamespace: 'namespace-1',
+    longTermMemoryNamespace: 'long-term',
   });
 
   return { store, sendMock };
@@ -65,7 +65,7 @@ describe('AgentCoreMemoryMessageStore', () => {
 
       if (command instanceof RetrieveMemoryRecordsCommand) {
         return {
-          memoryRecords: [{ content: 'remember to ask follow-ups' }],
+          memoryRecordSummaries: [{ content: 'remember to ask follow-ups' }],
         };
       }
 

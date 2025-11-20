@@ -13,7 +13,7 @@ import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../type
 /**
  * Tool handler function with typed parameters
  */
-type ToolHandler<TParams> = (
+export type ToolHandler<TParams> = (
   params: TParams,
   context: ExecutionContext,
 ) => Promise<unknown> | unknown;
@@ -21,7 +21,7 @@ type ToolHandler<TParams> = (
 /**
  * Tool definition with Zod schema and handler
  */
-interface LocalToolDefinition<TSchema extends z.ZodObject> {
+export interface LocalToolDefinition<TSchema extends z.ZodObject> {
   name: string;
   description: string;
   schema: TSchema;
