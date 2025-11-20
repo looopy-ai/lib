@@ -43,3 +43,6 @@ pnpm-debug.log*
 # Package manager
 .yarn/
 .pnp.*
+
+*storybook.log
+storybook-static

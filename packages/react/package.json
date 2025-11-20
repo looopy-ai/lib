@@ -1,0 +1,85 @@
+{
+  "name": "@looopy-ai/react",
+  "version": "1.0.0",
+  "description": "React UI components for Looopy AI",
+  "keywords": [
+    "agent",
+    "ai",
+    "rxjs",
+    "a2a",
+    "llm",
+    "react"
+  ],
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      }
+    }
+  },
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/cjs/index.d.cts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "agentcore": "tsx src/agentcore-runtime-server.ts",
+    "build": "tsup --format esm --external react",
+    "build-storybook": "storybook build",
+    "build:watch": "pnpm run build -- --watch",
+    "check:exports": "pnpx ts-unused-exports ./tsconfig.json --excludePathsFromReport='index'",
+    "check:types": "tsc --noEmit",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "storybook": "storybook dev -p 6006",
+    "test": "CI=true vitest",
+    "test:coverage": "vitest --coverage",
+    "test:watch": "vitest --watch"
+  },
+  "dependencies": {
+    "@geee-be/sse-stream-parser": "^1.0.1",
+    "streamdown": "^1.5.1"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.0.8",
+    "@storybook/addon-onboarding": "^10.0.8",
+    "@storybook/react-vite": "^10.0.8",
+    "@tailwindcss/vite": "^4.1.17",
+    "@vitejs/plugin-react": "^5.1.1",
+    "react-hook-form": "^7.66.1",
+    "storybook": "^10.0.8",
+    "tailwindcss": "^4.1.17",
+    "tsup": "^8.5.1",
+    "vite": "^7.2.2",
+    "zod": "^4.1.11"
+  },
+  "peerDependencies": {
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "@types/react-dom": {
+      "optional": true
+    }
+  },
+  "packageManager": "pnpm@10.6.5",
+  "publishConfig": {
+    "access": "public"
+  }
+}
