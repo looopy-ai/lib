@@ -22,6 +22,8 @@ export const mcp = (config: MCPProviderConfig): McpToolProvider => {
 };
 
 export class McpToolProvider implements ToolProvider {
+  name = 'mcp-tool-provider';
+
   readonly id: string;
   private readonly client: MCPClient;
   private toolCache = new Map<string, ToolDefinition>();
@@ -36,6 +38,15 @@ export class McpToolProvider implements ToolProvider {
       timeout: config.timeout || 30000,
       getHeaders: config.getHeaders,
     });
+  }
+
+  async getTool(toolName: string): Promise<ToolDefinition | undefined> {
+    const tools = await this.getTools();
+    return tools.find((tool) => tool.name === toolName);
+  }
+
+  async executeBatch(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]> {
+    return Promise.all(toolCalls.map((call) => this.execute(call, context)));
   }
 
   async getTools(): Promise<ToolDefinition[]> {
@@ -63,10 +74,6 @@ export class McpToolProvider implements ToolProvider {
       });
 
     return this.ongoingRequest;
-  }
-
-  canHandle(toolName: string): boolean {
-    return this.toolCache.has(toolName);
   }
 
   async execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> {

@@ -7,7 +7,7 @@
 import { context as otelContext, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
 import type { IterationContext } from '../../core/types';
-import type { ToolExecutionEvent, ToolStartEvent } from '../../types/event';
+import type { ToolCallEvent, ToolExecutionEvent } from '../../types/event';
 import type { ToolCall } from '../../types/tools';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -21,7 +21,7 @@ export interface ToolExecutionSpanParams {
 /**
  * Start tool execution span
  */
-export const startToolExecuteSpan = (context: IterationContext, toolStart: ToolStartEvent) => {
+export const startToolExecuteSpan = (context: IterationContext, toolStart: ToolCallEvent) => {
   const tracer = trace.getTracer('looopy');
 
   const span = tracer.startSpan(

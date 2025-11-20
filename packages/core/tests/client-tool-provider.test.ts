@@ -188,27 +188,6 @@ describe('ClientToolProvider', () => {
     });
   });
 
-  describe('canHandle', () => {
-    it('should return true for registered tools', () => {
-      const provider = new ClientToolProvider({
-        tools: validTools,
-        onInputRequired: mockOnInputRequired,
-      });
-
-      expect(provider.canHandle('get_weather')).toBe(true);
-      expect(provider.canHandle('calculate')).toBe(true);
-    });
-
-    it('should return false for unregistered tools', () => {
-      const provider = new ClientToolProvider({
-        tools: validTools,
-        onInputRequired: mockOnInputRequired,
-      });
-
-      expect(provider.canHandle('unknown_tool')).toBe(false);
-    });
-  });
-
   describe('execute', () => {
     it('should execute valid tool call', async () => {
       const provider = new ClientToolProvider({
@@ -300,24 +279,24 @@ describe('ClientToolProvider', () => {
       expect(result.error).toBe('Client execution failed');
     });
 
-    it('should return tool definition by name', () => {
+    it('should return tool definition by name', async () => {
       const provider = new ClientToolProvider({
         tools: validTools,
         onInputRequired: mockOnInputRequired,
       });
 
-      const tool = provider.getTool('get_weather');
+      const tool = await provider.getTool('get_weather');
       expect(tool).toBeDefined();
       expect(tool?.name).toBe('get_weather');
     });
 
-    it('should return undefined for unknown tool', () => {
+    it('should return undefined for unknown tool', async () => {
       const provider = new ClientToolProvider({
         tools: validTools,
         onInputRequired: mockOnInputRequired,
       });
 
-      const tool = provider.getTool('unknown');
+      const tool = await provider.getTool('unknown');
       expect(tool).toBeUndefined();
     });
   });
@@ -328,7 +307,7 @@ describe('ClientToolProvider', () => {
       onInputRequired: mockOnInputRequired,
     });
 
-    it('should validate correct arguments', () => {
+    it('should validate correct arguments', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -338,12 +317,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeUndefined();
     });
 
-    it('should detect missing required parameters', () => {
+    it('should detect missing required parameters', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -353,12 +332,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Missing required parameter: location');
     });
 
-    it('should detect wrong parameter types', () => {
+    it('should detect wrong parameter types', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -368,11 +347,11 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
     });
 
-    it('should validate integer type correctly', () => {
+    it('should validate integer type correctly', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -382,11 +361,11 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(true);
     });
 
-    it('should detect wrong integer values', () => {
+    it('should detect wrong integer values', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -396,12 +375,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
       expect(result.errors?.some((e) => e.includes('must be an integer'))).toBe(true);
     });
 
-    it('should return error for unknown tool', () => {
+    it('should return error for unknown tool', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -411,12 +390,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Tool unknown_tool not found');
     });
 
-    it('should return error for invalid JSON', () => {
+    it('should return error for invalid JSON', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -427,12 +406,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Arguments are not valid: must be an object.');
     });
 
-    it('should allow additional properties by default', () => {
+    it('should allow additional properties by default', async () => {
       const toolCall: ToolCall = {
         id: 'call-1',
         type: 'function',
@@ -442,11 +421,11 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = provider.validateToolArguments(toolCall);
+      const result = await provider.validateToolArguments(toolCall);
       expect(result.valid).toBe(true);
     });
 
-    it('should reject additional properties when additionalProperties is false', () => {
+    it('should reject additional properties when additionalProperties is false', async () => {
       const strictTools = [
         {
           name: 'strict_tool',
@@ -476,7 +455,7 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = strictProvider.validateToolArguments(toolCall);
+      const result = await strictProvider.validateToolArguments(toolCall);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Unknown parameter: extra');
     });

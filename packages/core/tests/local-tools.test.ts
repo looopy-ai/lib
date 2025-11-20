@@ -72,7 +72,7 @@ describe('local-tools', () => {
 
       expect(provider).toBeDefined();
       expect(typeof provider.getTools).toBe('function');
-      expect(typeof provider.canHandle).toBe('function');
+      expect(typeof provider.getTool).toBe('function');
       expect(typeof provider.execute).toBe('function');
     });
 
@@ -284,19 +284,21 @@ describe('local-tools', () => {
       });
     });
 
-    describe('canHandle()', () => {
-      it('should return true for registered tool names', () => {
+    describe('getTool()', () => {
+      it('should return tool definition for known tool', async () => {
         const testTool = tool('test', 'Test', z.object({}), async () => 'result');
         const provider = localTools([testTool]);
 
-        expect(provider.canHandle('test')).toBe(true);
+        const toolDef = await provider.getTool('test');
+        expect(toolDef?.name).toBe('test');
       });
 
-      it('should return false for unknown tool names', () => {
+      it('should return undefined for unknown tool', async () => {
         const testTool = tool('test', 'Test', z.object({}), async () => 'result');
         const provider = localTools([testTool]);
 
-        expect(provider.canHandle('unknown')).toBe(false);
+        const toolDef = await provider.getTool('unknown');
+        expect(toolDef).toBeUndefined();
       });
     });
 

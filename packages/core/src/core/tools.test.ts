@@ -1,6 +1,6 @@
 import { context } from '@opentelemetry/api';
 import pino from 'pino';
-import { firstValueFrom, lastValueFrom, toArray } from 'rxjs';
+import { lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
 import type { ToolCallEvent } from '../types/event';
@@ -20,7 +20,7 @@ const getChildLogger = (logger: LoggerInstance): LoggerInstance | undefined => {
 const expectChildLogger = (logger: LoggerInstance): LoggerInstance => {
   const childLogger = getChildLogger(logger);
   expect(childLogger).toBeDefined();
-  return childLogger!;
+  return childLogger as LoggerInstance;
 };
 
 // Mock the 'pino' module using the shared manual mock
@@ -73,45 +73,27 @@ describe('tools', () => {
   });
 
   describe('runToolCall', () => {
-    it('should emit tool-start event immediately', async () => {
+    const mockToolDef = {
+      name: 'test_tool',
+      description: 'A test tool',
+      parameters: {
+        type: 'object' as const,
+        properties: {},
+      },
+      icon: 'mock-icon',
+    };
+
+    it('should emit tool-start and tool-complete when a provider supports the tool', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'test result',
         })),
-        getTools: vi.fn(async () => []),
-      };
-
-      mockContext.toolProviders = [mockProvider];
-
-      const events$ = runToolCall(mockContext, mockToolCall);
-      const firstEvent = await firstValueFrom(events$);
-
-      expect(firstEvent).toEqual({
-        kind: 'tool-start',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        arguments: { param: 'value' },
-        timestamp: expect.any(String),
-      });
-    });
-
-    it('should emit tool-complete event with success after tool execution', async () => {
-      const mockResult = { data: 'test data', count: 42 };
-      const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: mockResult,
-        })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -120,28 +102,37 @@ describe('tools', () => {
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events).toHaveLength(2);
-      expect(events[1]).toEqual({
-        kind: 'tool-complete',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        success: true,
-        result: mockResult,
-        timestamp: expect.any(String),
-      });
+      expect(events[0]).toEqual(
+        expect.objectContaining({
+          kind: 'tool-start',
+          toolCallId: 'call-abc',
+          toolName: 'test_tool',
+          arguments: { param: 'value' },
+          icon: 'mock-icon',
+        }),
+      );
+      expect(events[1]).toEqual(
+        expect.objectContaining({
+          kind: 'tool-complete',
+          toolCallId: 'call-abc',
+          toolName: 'test_tool',
+          success: true,
+          result: 'test result',
+        }),
+      );
     });
 
     it('should call provider.execute with correct parameters', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -168,28 +159,31 @@ describe('tools', () => {
       );
     });
 
-    it('should find correct provider when multiple providers exist', async () => {
+    it('should execute the first provider that returns a matching tool', async () => {
       const provider1: ToolProvider = {
-        canHandle: vi.fn(() => false),
-        execute: vi.fn(),
+        name: 'provider-1',
+        getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => []),
+        execute: vi.fn(),
       };
 
       const provider2: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'provider-2',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'correct',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       const provider3: ToolProvider = {
-        canHandle: vi.fn(() => false),
+        name: 'provider-3',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [provider1, provider2, provider3];
@@ -197,48 +191,38 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      expect(provider1.canHandle).toHaveBeenCalledWith('test_tool');
-      expect(provider2.canHandle).toHaveBeenCalledWith('test_tool');
-      expect(provider3.canHandle).not.toHaveBeenCalled(); // Should stop at provider2
-
       expect(provider1.execute).not.toHaveBeenCalled();
-      expect(provider2.execute).toHaveBeenCalled();
+      expect(provider2.execute).toHaveBeenCalledTimes(1);
       expect(provider3.execute).not.toHaveBeenCalled();
 
-      const completeEvent = events[1];
-      if (completeEvent.kind === 'tool-complete') {
-        expect(completeEvent.result).toBe('correct');
-      }
+      expect(events.at(-1)).toMatchObject({
+        kind: 'tool-complete',
+        result: 'correct',
+      });
     });
 
-    it('should emit error event when no provider found', async () => {
-      mockContext.toolProviders = []; // No providers
+    it('should warn and pass through the tool-call when no provider matches', async () => {
+      mockContext.toolProviders = [];
 
       const events$ = runToolCall(mockContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      expect(events).toHaveLength(2);
-      expect(events[1]).toEqual({
-        kind: 'tool-complete',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        success: false,
-        result: null,
-        error: 'No provider found for tool: test_tool',
-        timestamp: expect.any(String),
-      });
+      expect(events).toHaveLength(1);
+      expect(events[0]).toEqual(mockToolCall);
+
+      const childLogger = expectChildLogger(mockContext.logger);
+      expect(childLogger.warn).toHaveBeenCalledWith('No tool provider found for tool');
     });
 
     it('should handle provider throwing an error', async () => {
       const testError = new Error('Provider crashed');
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async () => {
           throw testError;
         }),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -246,17 +230,13 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      expect(events[1]).toEqual({
-        kind: 'tool-complete',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        success: false,
-        result: null,
-        error: 'Provider crashed',
-        timestamp: expect.any(String),
-      });
+      expect(events.at(-1)).toEqual(
+        expect.objectContaining({
+          kind: 'tool-complete',
+          success: false,
+          error: 'Provider crashed',
+        }),
+      );
 
       const childLogger = expectChildLogger(mockContext.logger);
       expect(childLogger.error).toHaveBeenCalledWith(
@@ -269,11 +249,12 @@ describe('tools', () => {
 
     it('should handle provider throwing non-Error object', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async () => {
-          throw 'String error'; // Throw a string instead of Error
+          throw 'String error';
         }),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -281,29 +262,26 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      expect(events[1]).toEqual({
-        kind: 'tool-complete',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        toolCallId: 'call-abc',
-        toolName: 'test_tool',
-        success: false,
-        result: null,
-        error: 'String error',
-        timestamp: expect.any(String),
-      });
+      expect(events.at(-1)).toEqual(
+        expect.objectContaining({
+          kind: 'tool-complete',
+          success: false,
+          error: 'String error',
+        }),
+      );
     });
 
     it('should log trace messages during execution', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -312,36 +290,28 @@ describe('tools', () => {
       await lastValueFrom(events$.pipe(toArray()));
 
       const childLogger = expectChildLogger(mockContext.logger);
-      expect(childLogger.trace).toHaveBeenCalledWith('Executing tool');
-
       expect(childLogger.trace).toHaveBeenCalledWith(
-        {
-          success: true,
-        },
-        'Tool execution complete',
+        { providerName: 'mock-provider' },
+        'Found tool provider for tool',
       );
-    });
-
-    it('should log warning when no provider found', async () => {
-      mockContext.toolProviders = [];
-
-      const events$ = runToolCall(mockContext, mockToolCall);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      const childLogger = expectChildLogger(mockContext.logger);
-      expect(childLogger.warn).toHaveBeenCalledWith('No provider found for tool');
+      expect(childLogger.trace).toHaveBeenCalledWith(
+        { providerName: 'mock-provider' },
+        'Executing tool',
+      );
+      expect(childLogger.trace).toHaveBeenCalledWith({ success: true }, 'Tool execution complete');
     });
 
     it('should create OpenTelemetry span with correct parameters', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -352,24 +322,24 @@ describe('tools', () => {
       expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalledWith(
         mockContext,
         expect.objectContaining({
-          kind: 'tool-start',
+          kind: 'tool-call',
           toolName: 'test_tool',
           toolCallId: 'call-abc',
-          arguments: { param: 'value' },
         }),
       );
     });
 
     it('should use tapFinish operator for span management', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -377,7 +347,6 @@ describe('tools', () => {
       const events$ = runToolCall(mockContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      // Verify that startToolExecuteSpan was called (which returns tapFinish)
       expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalled();
     });
 
@@ -391,14 +360,15 @@ describe('tools', () => {
       };
 
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: complexResult,
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -414,14 +384,15 @@ describe('tools', () => {
 
     it('should preserve contextId and taskId in all events', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -437,14 +408,15 @@ describe('tools', () => {
 
     it('should handle empty arguments object', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -472,14 +444,15 @@ describe('tools', () => {
 
     it('should include timestamps in all events', async () => {
       const mockProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
+        getTool: vi.fn(async () => mockToolDef),
+        getTools: vi.fn(async () => [mockToolDef]),
         execute: vi.fn(async (toolCall: ToolCall) => ({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,
           result: 'result',
         })),
-        getTools: vi.fn(async () => []),
       };
 
       mockContext.toolProviders = [mockProvider];

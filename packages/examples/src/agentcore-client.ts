@@ -1,7 +1,7 @@
 import { consumeSSEStream } from '@geee-be/sse-stream-parser';
 
 const prompt = process.argv[2] || 'Hey there! :)';
-const res = await fetch('http://localhost:8080/invocation', {
+const res = await fetch('http://localhost:8080/invocations', {
   method: 'POST',
   headers: {
     Accept: 'text/event-stream',

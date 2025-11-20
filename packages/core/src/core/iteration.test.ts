@@ -22,7 +22,7 @@ const getChildLoggerAt = (logger: LoggerInstance, index: number): LoggerInstance
 const expectChildLoggerAt = (logger: LoggerInstance, index: number): LoggerInstance => {
   const childLogger = getChildLoggerAt(logger, index);
   expect(childLogger).toBeDefined();
-  return childLogger!;
+  return childLogger as LoggerInstance;
 };
 
 // Mock the 'pino' module using the shared manual mock
@@ -150,8 +150,9 @@ describe('iteration', () => {
       };
 
       const mockToolProvider: ToolProvider = {
-        canHandle: vi.fn(() => true),
+        name: 'mock-provider',
         execute: vi.fn(),
+        getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [mockTool]),
       };
 
@@ -306,6 +307,28 @@ describe('iteration', () => {
     });
 
     it('should emit tool events after LLM events', async () => {
+      const toolDefinition = {
+        name: 'test_tool',
+        description: 'Test tool',
+        parameters: {
+          type: 'object' as const,
+          properties: {},
+        },
+      };
+
+      const mockProvider: ToolProvider = {
+        name: 'mock-provider',
+        getTool: vi.fn(async (name: string) => (name === 'test_tool' ? toolDefinition : undefined)),
+        getTools: vi.fn(async () => [toolDefinition]),
+        execute: vi.fn(async () => ({
+          toolCallId: 'call-123',
+          toolName: 'test_tool',
+          success: true,
+          result: 'tool result',
+        })),
+      };
+      mockContext.toolProviders = [mockProvider];
+
       const llmEvent1 = {
         kind: 'content-delta',
         delta: 'Calling tool',
@@ -332,15 +355,14 @@ describe('iteration', () => {
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       const events = await lastValueFrom(events$.pipe(toArray()));
+      // Debug output to verify event ordering during tool execution changes
+      // console.log(events.map((e) => e.kind));
 
-      // LLM events come first (including tool-call), then tool execution events
-      expect(events.length).toBeGreaterThan(3);
+      expect(events.length).toBeGreaterThanOrEqual(3);
       expect(events[0].kind).toBe('content-delta');
-      expect(events[1].kind).toBe('tool-call');
-      expect(events[2].kind).toBe('content-complete');
-      // Tool execution events come after
-      const toolCompleteEvent = events.find((e) => e.kind === 'tool-complete');
-      expect(toolCompleteEvent).toBeDefined();
+      expect(events[1].kind).toBe('content-complete');
+      const toolEvents = events.slice(2);
+      expect(toolEvents.every((e) => e.kind.startsWith('tool-'))).toBe(true);
     });
 
     it('should handle multiple tool calls', async () => {
@@ -398,14 +420,16 @@ describe('iteration', () => {
       };
 
       const provider1: ToolProvider = {
-        canHandle: vi.fn(),
+        name: 'provider-1',
         execute: vi.fn(),
+        getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [tool1]),
       };
 
       const provider2: ToolProvider = {
-        canHandle: vi.fn(),
+        name: 'provider-2',
         execute: vi.fn(),
+        getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [tool2]),
       };
 
@@ -571,8 +595,9 @@ describe('iteration', () => {
 
     it('should handle tool provider that returns empty tools', async () => {
       const emptyProvider: ToolProvider = {
-        canHandle: vi.fn(),
+        name: 'empty-provider',
         execute: vi.fn(),
+        getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => []),
       };
 

@@ -1,6 +1,7 @@
-import { concat, defer, type Observable, of } from 'rxjs';
+import { concat, defer, mergeMap, type Observable, of } from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
 import type { ToolCallEvent, ToolCompleteEvent, ToolExecutionEvent } from '../types/event';
+import type { ToolDefinition, ToolProvider } from '../types/tools';
 import type { IterationContext } from './types';
 
 /**
@@ -61,85 +62,90 @@ export const runToolCall = (
     toolCallId: toolCall.toolCallId,
     toolName: toolCall.toolName,
   });
-  // Create tool-start event
-  const toolStartEvent: ToolExecutionEvent = {
-    kind: 'tool-start',
-    contextId: context.contextId,
-    taskId: context.taskId,
-    toolCallId: toolCall.toolCallId,
-    toolName: toolCall.toolName,
-    arguments: toolCall.arguments,
-    timestamp: new Date().toISOString(),
-  };
 
-  // Start tool execution span
-  const { tapFinish } = startToolExecuteSpan(context, toolStartEvent);
+  return defer(async () => {
+    const matchingProviders = await Promise.all(
+      context.toolProviders.map(async (p) => ({
+        provider: p,
+        tool: await p.getTool(toolCall.toolName),
+      })),
+    );
 
-  // Execute tool and create events
-  const toolResultEvents$ = defer(async () => {
-    logger.trace('Executing tool');
-
-    // Find provider that can handle this tool (check thought tools first, then regular providers)
-    const provider = context.toolProviders.find((p) => p.canHandle(toolCall.toolName));
-
-    if (!provider) {
-      logger.warn('No provider found for tool');
-      const errorMessage = `No provider found for tool: ${toolCall.toolName}`;
-      // failToolExecutionSpan(span, errorMessage);
-
-      return createToolErrorEvent(context, toolCall, errorMessage);
+    const matchingProvider = matchingProviders.find(
+      (p): p is { provider: ToolProvider; tool: ToolDefinition } => p.tool !== undefined,
+    );
+    if (!matchingProvider) {
+      logger.warn('No tool provider found for tool');
+      return of(toolCall);
     }
 
-    try {
-      const result = await provider.execute(
-        {
-          id: toolCall.toolCallId,
-          type: 'function',
-          function: {
-            name: toolCall.toolName,
-            arguments: toolCall.arguments,
+    const { provider, tool } = matchingProvider;
+    logger.trace({ providerName: provider.name }, 'Found tool provider for tool');
+
+    // Create tool-start event
+    const toolStartEvent: ToolExecutionEvent = {
+      kind: 'tool-start',
+      contextId: context.contextId,
+      taskId: context.taskId,
+      toolCallId: toolCall.toolCallId,
+      icon: tool.icon,
+      toolName: toolCall.toolName,
+      arguments: toolCall.arguments,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Start tool execution span
+    const { tapFinish } = startToolExecuteSpan(context, toolCall);
+
+    // Execute tool and create events
+    const toolResultEvents$ = defer(async () => {
+      logger.trace({ providerName: provider.name }, 'Executing tool');
+
+      try {
+        const result = await provider.execute(
+          {
+            id: toolCall.toolCallId,
+            type: 'function',
+            function: {
+              name: toolCall.toolName,
+              arguments: toolCall.arguments,
+            },
           },
-        },
-        {
-          contextId: context.contextId,
-          taskId: context.taskId,
-          agentId: context.agentId,
-          parentContext: context.parentContext,
-          authContext: context.authContext,
-        },
-      ); // TODO use event and context
+          context,
+        ); // TODO use event
 
-      logger.trace(
-        {
-          success: result.success,
-        },
-        'Tool execution complete',
-      );
+        logger.trace(
+          {
+            success: result.success,
+          },
+          'Tool execution complete',
+        );
 
-      // TODO handle tool failures
+        // TODO handle tool failures
 
-      // Complete span with result
-      // completeToolExecutionSpan(span, result);
+        // Complete span with result
+        // completeToolExecutionSpan(span, result);
 
-      return createToolCompleteEvent(context, toolCall, result.result);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(
-        {
-          error: err.message,
-          stack: err.stack,
-        },
-        'Tool execution failed',
-      );
+        return createToolCompleteEvent(context, toolCall, result.result);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(
+          {
+            error: err.message,
+            stack: err.stack,
+          },
+          'Tool execution failed',
+        );
 
-      // Fail span with exception
-      // failToolExecutionSpanWithException(span, err);
+        // Fail span with exception
+        // failToolExecutionSpanWithException(span, err);
 
-      return createToolErrorEvent(context, toolCall, err.message);
-    }
-  });
+        return createToolErrorEvent(context, toolCall, err.message);
+      }
+    });
 
-  return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish);
+    return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish);
+  }).pipe(mergeMap((obs) => obs));
 };
 
 /**

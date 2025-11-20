@@ -92,6 +92,7 @@ export const ToolDefinitionSchema = z.object({
       'Tool name must contain only alphanumeric characters, underscores, and hyphens',
     ),
   description: z.string().min(1).max(1024),
+  icon: z.string().optional(),
   parameters: FunctionParametersSchema,
 });
 
@@ -142,6 +143,13 @@ export const ToolCallSchema = z.object({
  * - ClientToolProvider: Delegate to client via input-required
  */
 export type ToolProvider = {
+  get name(): string;
+
+  /**
+   * Get tool definition by name
+   */
+  getTool(toolName: string): Promise<ToolDefinition | undefined>;
+
   /**
    * Get available tools from this provider
    */
@@ -151,11 +159,6 @@ export type ToolProvider = {
    * Execute a tool call
    */
   execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
-
-  /**
-   * Check if this provider can handle a tool
-   */
-  canHandle(toolName: string): boolean;
 
   /**
    * Optional: Execute multiple tools in batch

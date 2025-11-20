@@ -37,6 +37,7 @@ export interface ClientToolConfig {
  * Tool execution delegates to the client via the "input-required" mechanism.
  */
 export class ClientToolProvider implements ToolProvider {
+  name = 'client-tool-provider';
   private readonly tools: ToolDefinition[];
   private readonly toolNames: Set<string>;
   private readonly onInputRequired: (
@@ -76,13 +77,6 @@ export class ClientToolProvider implements ToolProvider {
   }
 
   /**
-   * Check if this provider can handle the tool
-   */
-  canHandle(toolName: string): boolean {
-    return this.toolNames.has(toolName);
-  }
-
-  /**
    * Execute tool by delegating to client
    *
    * This triggers the "input-required" flow:
@@ -92,7 +86,8 @@ export class ClientToolProvider implements ToolProvider {
    * 4. Agent continues with the tool result
    */
   async execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> {
-    if (!this.canHandle(toolCall.function.name)) {
+    const tool = await this.getTool(toolCall.function.name);
+    if (!tool) {
       return {
         toolCallId: toolCall.id,
         toolName: toolCall.function.name,
@@ -131,7 +126,7 @@ export class ClientToolProvider implements ToolProvider {
   /**
    * Get tool definition by name
    */
-  getTool(name: string): ToolDefinition | undefined {
+  async getTool(name: string): Promise<ToolDefinition | undefined> {
     return this.tools.find((t) => t.name === name);
   }
 
@@ -141,8 +136,8 @@ export class ClientToolProvider implements ToolProvider {
    * Note: This is a basic structural validation. Full JSON Schema validation
    * would require a JSON Schema validator library.
    */
-  validateToolArguments(toolCall: ToolCall): { valid: boolean; errors?: string[] } {
-    const tool = this.getTool(toolCall.function.name);
+  async validateToolArguments(toolCall: ToolCall): Promise<{ valid: boolean; errors?: string[] }> {
+    const tool = await this.getTool(toolCall.function.name);
     if (!tool) {
       return { valid: false, errors: [`Tool ${toolCall.function.name} not found`] };
     }

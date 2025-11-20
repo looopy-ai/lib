@@ -210,6 +210,7 @@ export interface ToolStartEvent {
   contextId: string;
   taskId: string;
   toolCallId: string; // Unique ID for this tool invocation
+  icon?: string;
   toolName: string;
   arguments: Record<string, unknown>;
   timestamp: string;
@@ -228,6 +229,7 @@ export interface ToolProgressEvent {
   contextId: string;
   taskId: string;
   toolCallId: string;
+  icon?: string;
   progress: number; // 0.0 to 1.0
   message?: string; // Progress description
   timestamp: string;
@@ -247,6 +249,7 @@ export interface ToolCompleteEvent {
   contextId: string;
   taskId: string;
   toolCallId: string;
+  icon?: string;
   toolName: string;
   success: boolean;
   result?: unknown; // Tool result data

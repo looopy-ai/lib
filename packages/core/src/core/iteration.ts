@@ -129,7 +129,13 @@ export const runIteration = (
     ),
   );
 
-  return concat(llmEvents$, toolEvents$).pipe(finishIterationSpan);
+  return concat(
+    llmEvents$.pipe(
+      // filter out tool-call events as they will be re-emitted in toolEvents$ if necessary
+      filter((event) => event.kind !== 'tool-call'),
+    ),
+    toolEvents$,
+  ).pipe(finishIterationSpan);
 };
 
 /**

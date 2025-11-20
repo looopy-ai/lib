@@ -24,6 +24,7 @@ export type ToolHandler<TParams> = (
 export interface LocalToolDefinition<TSchema extends z.ZodObject> {
   name: string;
   description: string;
+  icon?: string;
   schema: TSchema;
   handler: ToolHandler<z.infer<TSchema>>;
 }
@@ -118,14 +119,27 @@ export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvi
   }
 
   return {
+    name: 'local-tool-provider',
     getTools: async (): Promise<ToolDefinition[]> =>
       tools.map((t) => ({
         name: t.name,
         description: t.description,
+        icon: t.icon,
         parameters: zodToJsonSchema(t.schema),
       })),
 
-    canHandle: (toolName: string): boolean => toolMap.has(toolName),
+    getTool: async (toolName: string): Promise<ToolDefinition | undefined> => {
+      const toolDef = toolMap.get(toolName);
+      if (!toolDef) {
+        return undefined;
+      }
+      return {
+        name: toolDef.name,
+        description: toolDef.description,
+        icon: toolDef.icon,
+        parameters: zodToJsonSchema(toolDef.schema),
+      };
+    },
 
     execute: async (toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> => {
       const toolDef = toolMap.get(toolCall.function.name);

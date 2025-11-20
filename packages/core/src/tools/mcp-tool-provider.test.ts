@@ -210,11 +210,7 @@ describe('McpToolProvider', () => {
     await expect(provider.getTools()).rejects.toThrow('MCP request timed out after 100ms');
   });
 
-  it('should return false for canHandle if tool is not in cache', () => {
-    expect(provider.canHandle('file_read')).toBe(false);
-  });
-
-  it('should return true for canHandle if tool is in cache', async () => {
+  it('should return tool definition via getTool', async () => {
     mockFetch.mockReturnValueOnce(
       createOkResponse({
         jsonrpc: '2.0',
@@ -222,9 +218,22 @@ describe('McpToolProvider', () => {
         result: { tools: MOCK_TOOL_DEFS },
       }),
     );
-    await provider.getTools();
-    expect(provider.canHandle('file_read')).toBe(true);
-    expect(provider.canHandle('non_existent_tool')).toBe(false);
+
+    const tool = await provider.getTool('file_read');
+    expect(tool?.name).toBe('file_read');
+  });
+
+  it('should return undefined for unknown tools', async () => {
+    mockFetch.mockReturnValueOnce(
+      createOkResponse({
+        jsonrpc: '2.0',
+        id: '1',
+        result: { tools: MOCK_TOOL_DEFS },
+      }),
+    );
+
+    const tool = await provider.getTool('non_existent_tool');
+    expect(tool).toBeUndefined();
   });
 
   it('should use authContext from context', async () => {
