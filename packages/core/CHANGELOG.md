@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.1.0
+
+### Minor Changes
+
+- 6bd8b8b: Updates to tool provider and tool execution
+
 ## 1.0.4
 
 ### Patch Changes
