@@ -3,14 +3,11 @@ import {
   concat,
   defer,
   EMPTY,
-  filter,
   from,
-  map,
   mergeMap,
   type Observable,
   of,
   shareReplay,
-  switchMap,
 } from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
 import type {
