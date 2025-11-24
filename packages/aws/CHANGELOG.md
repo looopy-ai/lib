@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.0.4
+
+### Patch Changes
+
+- 6dc8058: Change shutdown handling
+- Updated dependencies [6dc8058]
+  - @looopy-ai/core@1.1.1
+
 ## 2.0.3
 
 ### Patch Changes
