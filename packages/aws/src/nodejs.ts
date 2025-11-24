@@ -3,8 +3,13 @@ import { hono, type ServeConfig } from './agentcore-runtime-server';
 
 export const serve = (config: ServeConfig): void => {
   const app = hono(config);
-  serveNodeJs({
+  const server = serveNodeJs({
     fetch: app.fetch,
     port: config.port || 8080,
   });
+
+  config.shutdown.registerWatcher(async () => {
+    server.close();
+    config.logger?.info('Server has been shut down');
+  }, 1000);
 };

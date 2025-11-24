@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { serve } from '@looopy-ai/aws/ts';
-import { Agent, LiteLLM } from '@looopy-ai/core';
+import { Agent, LiteLLM, ShutdownManager } from '@looopy-ai/core';
 import { FileSystemAgentStore, initializeTracing, setDefaultLogger } from '@looopy-ai/core/ts';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
@@ -78,9 +78,12 @@ const createAgent = async (contextId: string) => {
   });
 };
 
+const shutdown = new ShutdownManager();
+
 serve({
   agent: createAgent,
   logger,
+  shutdown,
 });
 
 console.log('Server is running');

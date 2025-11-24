@@ -21,6 +21,8 @@ export {
   type SubscriptionConfig,
 } from './event-router';
 
+export * from './shutdown';
+
 // SSE server exports
 export {
   SSEConnection,

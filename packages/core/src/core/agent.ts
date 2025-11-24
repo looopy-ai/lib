@@ -31,7 +31,6 @@ import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
-import { registerSignalListener, unregisterSignalListener } from '../utils/process-signals';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
 
@@ -97,8 +96,6 @@ export class Agent {
   private readonly config: AgentConfigRequired;
   private _state: AgentState;
   private logger: pino.Logger;
-  private sigtermHandler?: () => Promise<void>;
-  private sigintHandler?: () => Promise<void>;
   private shuttingDown = false;
   private shutdownComplete = false;
 
@@ -125,7 +122,6 @@ export class Agent {
 
     this.logger.debug('Agent created');
     this.persistStateSafely();
-    this.registerSignalHandlers();
   }
 
   /**
@@ -545,7 +541,6 @@ export class Agent {
 
       await this.persistState();
 
-      this.removeSignalHandlers();
       this.shutdownComplete = true;
       this.config.logger.info('Agent shutdown complete');
     } catch (error) {
@@ -662,50 +657,6 @@ export class Agent {
         strategy: 'summarization',
         keepRecent: Math.floor(this.config.maxMessages * 0.5), // Keep 50%
       });
-    }
-  }
-
-  private registerSignalHandlers(): void {
-    if (typeof process === 'undefined') {
-      return;
-    }
-    if (this.sigtermHandler || typeof process === 'undefined') {
-      return;
-    }
-
-    if (!this.sigtermHandler) {
-      this.sigtermHandler = async (): Promise<void> => {
-        this.logger.info('Received SIGTERM signal. Initiating graceful shutdown.');
-        try {
-          await this.shutdown();
-        } catch (error) {
-          this.logger.error({ error }, 'Failed to shutdown agent after SIGTERM signal');
-        }
-      };
-      registerSignalListener('SIGTERM', this.sigtermHandler);
-    }
-
-    if (!this.sigintHandler) {
-      const sigintHandler = async (): Promise<void> => {
-        this.logger.info('Received SIGINT signal. Initiating graceful shutdown.');
-        try {
-          await this.shutdown();
-        } catch (error) {
-          this.logger.error({ error }, 'Failed to shutdown agent after SIGINT signal');
-        }
-      };
-      registerSignalListener('SIGINT', sigintHandler);
-    }
-  }
-
-  private removeSignalHandlers(): void {
-    if (this.sigtermHandler) {
-      unregisterSignalListener('SIGTERM', this.sigtermHandler);
-      this.sigtermHandler = undefined;
-    }
-    if (this.sigintHandler) {
-      unregisterSignalListener('SIGINT', this.sigintHandler);
-      this.sigintHandler = undefined;
     }
   }
 }

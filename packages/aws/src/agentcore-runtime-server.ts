@@ -1,4 +1,10 @@
-import { type Agent, type AuthContext, getLogger, SSEServer } from '@looopy-ai/core';
+import {
+  type Agent,
+  type AuthContext,
+  getLogger,
+  type ShutdownManager,
+  SSEServer,
+} from '@looopy-ai/core';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';
@@ -7,6 +13,7 @@ import { z } from 'zod';
 export type ServeConfig = {
   agent: (contextId: string) => Promise<Agent>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
+  shutdown: ShutdownManager;
   logger?: pino.Logger;
   port?: number;
 };
@@ -84,6 +91,10 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
     if (!state.agent) {
       state.agent = await config.agent(contextId);
       logger.info({ contextId }, 'Created new agent instance');
+      config.shutdown.registerWatcher(async () => {
+        logger.info({ contextId }, 'Shutting down agent');
+        state.agent = undefined;
+      });
     }
     const agent = state.agent;
 
