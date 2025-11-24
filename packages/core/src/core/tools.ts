@@ -121,12 +121,9 @@ export const runToolCall = (
           'Tool execution complete',
         );
 
-        // TODO handle tool failures
-
-        // Complete span with result
-        // completeToolExecutionSpan(span, result);
-
-        return createToolCompleteEvent(context, toolCall, result.result);
+        return result.success
+          ? createToolCompleteEvent(context, toolCall, result.result)
+          : createToolErrorEvent(context, toolCall, result.error || 'Unknown error');
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
@@ -136,9 +133,6 @@ export const runToolCall = (
           },
           'Tool execution failed',
         );
-
-        // Fail span with exception
-        // failToolExecutionSpanWithException(span, err);
 
         return createToolErrorEvent(context, toolCall, err.message);
       }

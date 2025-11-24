@@ -4,6 +4,7 @@
  * Get current weather for a city (simulated)
  */
 
+import { getLogger } from '@looopy-ai/core';
 import { tool } from '@looopy-ai/core/ts';
 import { z } from 'zod';
 
@@ -30,10 +31,10 @@ export const weatherTool = tool(
       .describe('Temperature units (default: celsius)'),
   }),
   async ({ city, location, units }) => {
+    const logger = getLogger({ component: 'weather-tool', city, location, units });
     const cityName = (city || location || 'San Francisco').toLowerCase();
 
-    console.log(`\n🔧 [LOCAL] Executing: get_weather`);
-    console.log(`   Arguments:`, { city: cityName, units });
+    logger.info({ city: cityName, units }, `🔧 [LOCAL] Executing: get_weather`);
 
     // Simulate weather API call
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -50,7 +51,7 @@ export const weatherTool = tool(
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`   ✓ Weather:`, weatherResult);
+    logger.info({ weather: weatherResult }, 'Success');
 
     return weatherResult;
   },

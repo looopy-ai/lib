@@ -4,6 +4,7 @@
  * Evaluates mathematical expressions
  */
 
+import { getLogger } from '@looopy-ai/core';
 import { tool } from '@looopy-ai/core/ts';
 import { evaluate } from 'mathjs';
 import { z } from 'zod';
@@ -15,17 +16,17 @@ export const calculateTool = tool(
     expression: z.string().describe('The mathematical expression to evaluate (e.g., "2 + 2 * 3")'),
   }),
   async ({ expression }) => {
-    console.log(`\n🔧 [LOCAL] Executing: calculate`);
-    console.log(`   Arguments:`, { expression });
+    const logger = getLogger({ component: 'calculate-tool', expression });
+    logger.info(`🔧 [LOCAL] Executing: calculate`);
 
     try {
       const result = evaluate(expression);
-      console.log(`   ✓ Result: ${result}`);
+      logger.info({ result }, 'Success');
 
       return { expression, result };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`   ✗ Error: ${err.message}`);
+      logger.error({ error: err.message }, 'Error');
       throw err;
     }
   },
