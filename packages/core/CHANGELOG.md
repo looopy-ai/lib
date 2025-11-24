@@ -1,5 +1,13 @@
 # @looopy-ai/core
 
+## 1.1.4
+
+### Patch Changes
+
+- 2f95cac: Refresh documentation to match the current core runtime APIs, tool definition helpers, and system prompt utilities.
+- ff2bf63: export prompt utilities from utils module
+- cd6518d: add systemPrompt to Agent context and update type definition
+
 ## 1.1.3
 
 ### Patch Changes
