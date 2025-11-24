@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.0.5
+
+### Patch Changes
+
+- b701c03: Make shutdown manager optional
+- Updated dependencies [29dccbc]
+  - @looopy-ai/core@1.1.2
+
 ## 2.0.4
 
 ### Patch Changes
