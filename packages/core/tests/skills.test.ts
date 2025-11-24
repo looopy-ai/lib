@@ -1,11 +1,11 @@
-
-import { describe, it, expect, vi } from 'vitest';
-import { z } from 'zod';
 import { from } from 'rxjs';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { Agent } from '../src/core/agent';
 import { SkillRegistry } from '../src/skills';
 import { createLearnSkillTool } from '../src/tools/learn_skill';
 import { localTools } from '../src/tools/local-tools';
+import type { AnyEvent } from '../src/types';
 
 describe('Skill Learning', () => {
   const mockLLMProvider = {
@@ -18,6 +18,8 @@ describe('Skill Learning', () => {
     clear: vi.fn(),
     getRecent: vi.fn().mockResolvedValue([]),
     compact: vi.fn(),
+    getCount: vi.fn().mockResolvedValue(0),
+    getRange: vi.fn().mockResolvedValue([]),
   };
 
   const mockAgentStore = {
@@ -28,23 +30,24 @@ describe('Skill Learning', () => {
   const diagramTool = {
     name: 'diagram',
     description: 'Renders a Mermaid diagram.',
-    parameters: z.object({
+    schema: z.object({
       diagram: z.string(),
     }),
-    execute: vi.fn(),
+    handler: vi.fn(),
   };
 
   const skillRegistry = new SkillRegistry([
     {
       name: 'diagrammer',
       description: 'learn how to draw diagrams by using Mermaid markdown',
-      instruction: 'To draw a diagram, use the `diagram` tool with the `diagram` parameter containing the Mermaid markdown.',
+      instruction:
+        'To draw a diagram, use the `diagram` tool with the `diagram` parameter containing the Mermaid markdown.',
     },
   ]);
 
   it('should add a skill to the message history when learned', async () => {
     const learnSkillTool = createLearnSkillTool(skillRegistry);
-    const localToolProvider = localTools([learnSkillTool.definition, diagramTool]);
+    const localToolProvider = localTools([learnSkillTool, diagramTool]);
 
     const agent = new Agent({
       agentId: 'test-agent',
@@ -89,8 +92,8 @@ describe('Skill Learning', () => {
     mockMessageStore.getRecent.mockResolvedValue([]);
 
     const events$ = await agent.startTurn('learn the diagrammer skill');
-    const events = await new Promise<any[]>((resolve) => {
-      const events: any[] = [];
+    const events = await new Promise<AnyEvent[]>((resolve) => {
+      const events: AnyEvent[] = [];
       events$.subscribe({
         next: (event) => events.push(event),
         complete: () => resolve(events),
@@ -99,18 +102,20 @@ describe('Skill Learning', () => {
 
     const toolCompleteEvent = events.find((e) => e.kind === 'tool-complete');
     expect(toolCompleteEvent).toBeDefined();
+    if (!toolCompleteEvent) return;
     expect(toolCompleteEvent.success).toBe(true);
     expect(toolCompleteEvent.result).toBe("Successfully learned the 'diagrammer' skill.");
 
     const messageEvent = events.find((e) => e.kind === 'message');
     expect(messageEvent).toBeDefined();
+    if (!messageEvent) return;
     expect(messageEvent.message.role).toBe('system');
     expect(messageEvent.message.content).toContain('You have learned the following skill:');
   });
 
   it('should return an error when trying to learn a non-existent skill', async () => {
     const learnSkillTool = createLearnSkillTool(skillRegistry);
-    const localToolProvider = localTools([learnSkillTool.definition, diagramTool]);
+    const localToolProvider = localTools([learnSkillTool, diagramTool]);
 
     const agent = new Agent({
       agentId: 'test-agent',
@@ -155,8 +160,8 @@ describe('Skill Learning', () => {
     mockMessageStore.getRecent.mockResolvedValue([]);
 
     const events$ = await agent.startTurn('learn a non-existent skill');
-    const events = await new Promise<any[]>((resolve) => {
-      const events: any[] = [];
+    const events = await new Promise<AnyEvent[]>((resolve) => {
+      const events: AnyEvent[] = [];
       events$.subscribe({
         next: (event) => events.push(event),
         complete: () => resolve(events),
@@ -165,6 +170,7 @@ describe('Skill Learning', () => {
 
     const toolCompleteEvent = events.find((e) => e.kind === 'tool-complete');
     expect(toolCompleteEvent).toBeDefined();
+    if (!toolCompleteEvent) return;
     expect(toolCompleteEvent.success).toBe(false);
     expect(toolCompleteEvent.error).toContain("Skill 'non-existent-skill' not found.");
   });

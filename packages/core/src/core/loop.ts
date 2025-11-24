@@ -102,9 +102,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
   if (context.skillRegistry) {
     const skills = context.skillRegistry.list();
     if (skills.length > 0) {
-      const skillList = skills
-        .map((s) => `* **${s.name}**: ${s.description}`)
-        .join('\n');
+      const skillList = skills.map((s) => `* **${s.name}**: ${s.description}`).join('\n');
       const skillMessage: Message = {
         role: 'system',
         content: `You can learn new skills by using the 'learn_skill' tool. Available skills:\n${skillList}`,

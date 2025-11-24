@@ -1,9 +1,9 @@
 import type pino from 'pino';
+import type { SkillRegistry } from '../skills';
 import type { AuthContext } from '../types/context';
 import type { LLMProvider } from '../types/llm';
 import type { ToolProvider } from '../types/tools';
 import type { SystemPromptProp } from '../utils';
-import { SkillRegistry } from '../skills';
 
 export type AgentContext = {
   agentId: string;

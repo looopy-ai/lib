@@ -1,4 +1,4 @@
-import { Skill, SkillRegistration } from '../types';
+import type { Skill, SkillRegistration } from '../types';
 
 export class SkillRegistry {
   private skills: SkillRegistration = {};

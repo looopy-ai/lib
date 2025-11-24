@@ -82,7 +82,7 @@ export const runToolCall = (
     );
     if (!matchingProvider) {
       logger.warn('No tool provider found for tool');
-      return of(toolCall);
+      return of(createToolErrorEvent(context, toolCall, 'No tool provider found for tool'));
     }
 
     const { provider, tool } = matchingProvider;
@@ -153,8 +153,8 @@ export const runToolCall = (
       }
     }).pipe(mergeMap((events) => events));
 
-    return concat(of(toolStartEvent), toolResultEvents$ as any).pipe(tapFinish as any);
-  }).pipe(mergeMap((obs) => obs));
+    return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish as any);
+  }).pipe(mergeMap((obs) => obs) as any);
 };
 
 /**
@@ -166,10 +166,7 @@ export const runToolCall = (
  * @param result - The result returned by the tool
  * @returns A `tool-complete` event with `success: true` and the result
  */
-const createMessageEvent = (
-  context: IterationContext,
-  message: Message,
-): MessageEvent =>
+const createMessageEvent = (context: IterationContext, message: Message): MessageEvent =>
   ({
     kind: 'message',
     contextId: context.contextId,

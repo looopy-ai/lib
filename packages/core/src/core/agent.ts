@@ -23,6 +23,7 @@ import {
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
+import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
 import type { AuthContext } from '../types/context';
@@ -33,7 +34,6 @@ import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
 import type { SystemPromptProp } from '../utils/prompt';
 import { getLogger } from './logger';
-import type { SkillRegistry } from '../skills';
 import { runLoop } from './loop';
 
 /**

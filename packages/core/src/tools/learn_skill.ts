@@ -1,33 +1,17 @@
-
 import { z } from 'zod';
-import {
-  type ToolDefinition,
-  type ToolResult,
-  type Message,
-  type LocalTool,
-} from '../types';
-import { SkillRegistry } from '../skills/registry';
+import type { SkillRegistry } from '../skills/registry';
+import type { Message } from '../types';
 
 export const learnSkillToolName = 'learn_skill';
 
-export const learnSkillToolDefinition: ToolDefinition = {
-  name: learnSkillToolName,
-  description: 'Learns a new skill from the available skill registry.',
-  parameters: {
-    type: 'object',
-    properties: {
-      name: { type: 'string', description: 'The name of the skill to learn.' },
-    },
-    required: ['name'],
-  },
-};
-
-export function createLearnSkillTool(
-  skillRegistry: SkillRegistry,
-): LocalTool<z.ZodObject<{ name: z.ZodString }>> {
+export function createLearnSkillTool(skillRegistry: SkillRegistry): any {
   return {
-    definition: learnSkillToolDefinition,
-    execute: async ({ name }: { name: string }) => {
+    name: learnSkillToolName,
+    description: 'Learns a new skill from the available skill registry.',
+    schema: z.object({
+      name: z.string().describe('The name of the skill to learn.'),
+    }),
+    handler: async ({ name }: { name: string }) => {
       const skill = skillRegistry.get(name);
 
       if (!skill) {
