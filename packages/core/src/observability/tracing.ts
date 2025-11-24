@@ -237,7 +237,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
 
   const spanProcessor = new BatchSpanProcessor(exporter, {
     maxQueueSize: 1000,
-    scheduledDelayMillis: 1000,
+    scheduledDelayMillis: 1000, // cspell:ignore Millis
     maxExportBatchSize: 512,
   });
 
