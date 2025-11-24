@@ -4,7 +4,7 @@ export const reduceToolComplete = (
   state: ConversationState,
   data: {
     taskId: string;
-    toolId: string;
+    toolCallId: string;
     toolName: string;
     success: boolean;
     result: Record<string, unknown>;
@@ -15,7 +15,7 @@ export const reduceToolComplete = (
   const task = updatedTasks.get(data.taskId);
   if (task) {
     const existingEventIndex = task.events.findIndex(
-      (e) => e.type === 'tool-call' && e.id === data.toolId,
+      (e) => e.type === 'tool-call' && e.id === data.toolCallId,
     );
     if (existingEventIndex !== -1) {
       const toolCall = task.events[existingEventIndex] as ToolCall;

@@ -6,6 +6,7 @@ export const reduceToolStart = (
     taskId: string;
     toolCallId: string;
     toolName: string;
+    icon?: string;
     arguments: Record<string, unknown>;
     timestamp: string;
   },
@@ -21,6 +22,7 @@ export const reduceToolStart = (
           type: 'tool-call',
           id: data.toolCallId,
           status: 'started',
+          icon: data.icon,
           toolName: data.toolName,
           arguments: data.arguments,
           timestamp: data.timestamp,

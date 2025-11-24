@@ -10,6 +10,7 @@ export type ToolCall = {
   type: 'tool-call';
   id: string;
   toolName: string;
+  icon?: string;
   status: 'started' | 'completed';
   success?: boolean;
   arguments: Record<string, unknown>;

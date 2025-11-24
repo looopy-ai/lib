@@ -40,5 +40,8 @@
     "@opentelemetry/semantic-conventions": "^1.37.0",
     "hono": "^4.10.5",
     "pino-pretty": "^13.1.2"
+  },
+  "devDependencies": {
+    "@langfuse/client": "^4.4.2"
   }
 }

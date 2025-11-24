@@ -37,6 +37,7 @@
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
+import { LangfuseClient } from '@langfuse/client';
 import type { AnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
 import {
   Agent,
@@ -45,6 +46,7 @@ import {
   FileSystemContextStore,
   FileSystemMessageStore,
   FileSystemStateStore,
+  getLogger,
   initializeTracing,
   LiteLLM,
   localTools,
@@ -73,6 +75,20 @@ if (process.env.OTEL_ENABLED === 'true') {
 const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
+
+const langfuse = new LangfuseClient();
+
+const getSystemPrompt = async () => {
+  const prompt = await langfuse.prompt.get(
+    process.env.LANGFUSE_PROMPT_NAME || 'looopy-kitchen-sink',
+  );
+  getLogger({ component: 'kitchen-sink' }).info(
+    { name: prompt.name, version: prompt.version },
+    'Fetched system prompt from Langfuse',
+  );
+  const compiledPrompt = prompt.compile({});
+  return { prompt: compiledPrompt, name: prompt.name, version: prompt.version };
+};
 
 // Parse command line arguments
 function parseArgs(): { agentId: string; contextId: string | null } {
@@ -161,68 +177,6 @@ async function main() {
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
 
-  // System prompt
-  const systemPrompt = `You are a helpful AI assistant with access to various tools.
-
-Available capabilities:
-- Mathematical calculations (calculate)
-- Random number generation (get_random_number)
-- Weather information (get_weather)
-- Artifact creation and management:
-  - create_file_artifact: Create text/file artifacts with streaming chunks
-  - append_file_chunk: Append content to file artifacts
-  - create_data_artifact: Create structured data artifacts
-  - update_data_artifact: Update data artifact content
-  - create_dataset_artifact: Create tabular datasets
-  - append_dataset_row: Add a row to a dataset
-  - append_dataset_rows: Add multiple rows to a dataset
-  - list_artifacts: List all artifacts
-  - get_artifact: Retrieve artifact details
-
-Streaming Your Thoughts:
-You can share your internal reasoning process with users by wrapping your thoughts in <thinking> tags.
-The content inside these tags will be streamed to the user in real-time as you generate your response.
-
-Examples of when to use thinking tags:
-- When planning your approach to a complex task
-- When working through multi-step reasoning
-- When making decisions or weighing alternatives
-- When you want to show your work transparently
-- Only use the following tag names, everything else must be outside of tags: thinking, analysis, planning, reasoning, reflection, decision
-- Do not omit or rename tags
-- Output and answers must be outside these tags
-
-Example:
-<analysis>
-The user has provided information about the task they want to accomplish. Including details...
-</analysis>
-<planning>
-To accomplish this, I will:
-[] First, think about ...
-[] Then, ...
-[] Finally, ...
-</planning>
-<thinking>
-The user wants weather information and a calculation. I'll:
-1. First get the weather data
-2. Then perform any needed calculations
-3. Present the results clearly
-</thinking>
-<planning>
-[x] Task xyz complete
-</planning>
-<reasoning>
-Expand on the logic and steps that lead to your conclusion. Show your full chain of reasoning here.
-</reasoning>
-Here is my answer...
-
-When creating artifacts:
-- File artifacts: Use create_file_artifact, then append_file_chunk (set isLastChunk=true on final chunk)
-- Data artifacts: Use create_data_artifact with JSON data object
-- Dataset artifacts: Use create_dataset_artifact with schema, then append_dataset_row or append_dataset_rows
-
-Be concise and helpful in your responses.`;
-
   // Create agent
   console.log('🎯 Creating agent...\n');
   const agent = new Agent({
@@ -231,37 +185,11 @@ Be concise and helpful in your responses.`;
     llmProvider,
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
-    systemPrompt,
+    systemPrompt: getSystemPrompt,
     logger,
   });
 
-  // Initialize or load context state
-  let contextState = await contextStore.load(contextId);
-  if (!contextState) {
-    // Create new context
-    contextState = {
-      contextId,
-      agentId,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastActivityAt: new Date().toISOString(),
-      turnCount: 0,
-      systemPrompt,
-    };
-    await contextStore.save(contextState);
-    console.log('✨ Created new context session');
-  } else {
-    console.log(`📂 Loaded existing context (${contextState.turnCount} turns)`);
-    if (contextState.title) {
-      console.log(`   Title: ${contextState.title}`);
-    }
-    if (contextState.tags?.length) {
-      console.log(`   Tags: ${contextState.tags.join(', ')}`);
-    }
-  }
   console.log('');
-
   console.log('✅ Agent ready! Type your messages below.');
   console.log('   Commands: /quit, /exit, /history, /artifacts, /clear');
   console.log('            /contexts, /title <title>, /tag <tag>, /info');
@@ -636,27 +564,6 @@ Be concise and helpful in your responses.`;
           rl.prompt();
         },
         complete: async () => {
-          // Update context state after turn
-          const updates: {
-            turnCount: number;
-            lastActivityAt: string;
-            title?: string;
-          } = {
-            turnCount: (contextState?.turnCount || 0) + 1,
-            lastActivityAt: new Date().toISOString(),
-          };
-
-          // Auto-generate title from first user message if not set
-          if (!contextState?.title && contextState?.turnCount === 0) {
-            const truncated = input.slice(0, 50);
-            updates.title = truncated.length < input.length ? `${truncated}...` : truncated;
-          }
-
-          await contextStore.update(contextId, updates);
-
-          // Reload context state for next turn
-          contextState = await contextStore.load(contextId);
-
           console.log('');
           rl.prompt();
         },
