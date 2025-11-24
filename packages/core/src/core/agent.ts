@@ -277,7 +277,7 @@ export class Agent {
         const error = new Error(
           `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`,
         );
-        logger.error(error.message);
+        logger.error(this._state.error, 'Cannot execute turn due to agent error state');
 
         failAgentTurnSpan(rootSpan, error);
 
