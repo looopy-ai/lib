@@ -4,7 +4,7 @@ export const reduceToolStart = (
   state: ConversationState,
   data: {
     taskId: string;
-    toolId: string;
+    toolCallId: string;
     toolName: string;
     arguments: Record<string, unknown>;
     timestamp: string;
@@ -19,7 +19,7 @@ export const reduceToolStart = (
         ...task.events,
         {
           type: 'tool-call',
-          id: data.toolId,
+          id: data.toolCallId,
           status: 'started',
           toolName: data.toolName,
           arguments: data.arguments,
