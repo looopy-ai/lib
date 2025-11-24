@@ -9,6 +9,7 @@ import { tap } from 'rxjs/internal/operators/tap';
 import type { LoopContext } from '../../core/types';
 import type { AnyEvent } from '../../types/event';
 import type { Message } from '../../types/message';
+import type { SystemPrompt } from '../../utils/prompt';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LLMCallSpanParams {
@@ -21,7 +22,11 @@ export interface LLMCallSpanParams {
 /**
  * Start LLM call span
  */
-export const startLLMCallSpan = (context: LoopContext, messages: Message[]) => {
+export const startLLMCallSpan = (
+  context: LoopContext,
+  systemPrompt: SystemPrompt | undefined,
+  messages: Message[],
+) => {
   const tracer = trace.getTracer('looopy');
 
   const span = tracer.startSpan(
@@ -32,6 +37,8 @@ export const startLLMCallSpan = (context: LoopContext, messages: Message[]) => {
         [SpanAttributes.TASK_ID]: context.taskId,
         [SpanAttributes.GEN_AI_PROMPT]: JSON.stringify(messages),
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
+        [SpanAttributes.LANGFUSE_PROMPT_NAME]: systemPrompt?.name,
+        [SpanAttributes.LANGFUSE_PROMPT_VERSION]: systemPrompt?.version,
       },
     },
     context.parentContext,

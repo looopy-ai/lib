@@ -3,6 +3,7 @@ import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans
 import type { AnyEvent } from '../types/event';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
+import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
 import { runToolCall } from './tools';
 import type { IterationConfig, LoopContext } from './types';
 
@@ -83,13 +84,15 @@ export const runIteration = (
   );
 
   const llmEvents$ = defer(async () => {
-    const messages = prepareMessages(context, history);
+    const systemPrompt = await getSystemPrompt(context.systemPrompt);
+    const messages = await prepareMessages(systemPrompt, context.skillPrompts, history);
     const tools = await prepareTools(context.toolProviders);
-    return { messages, tools };
+    return { messages, tools, systemPrompt };
   }).pipe(
-    mergeMap(({ messages, tools }) => {
+    mergeMap(({ messages, tools, systemPrompt }) => {
       const { tapFinish: finishLLMCallSpan } = startLLMCallSpan(
         { ...context, parentContext: iterationContext },
+        systemPrompt,
         messages,
       );
       return config.llmProvider
@@ -138,63 +141,25 @@ export const runIteration = (
   ).pipe(finishIterationSpan);
 };
 
-/**
- * Prepare the complete message array for the LLM call
- *
- * Constructs the final message array by prepending system-level messages
- * (system prompt and skill prompts) to the conversation history.
- *
- * Message order:
- * 1. System prompt (if present) - with name 'system-prompt'
- * 2. Skill prompts (if present) - each with its own name
- * 3. Conversation history (user messages, assistant responses, tool results)
- *
- * @internal
- * @param context - The loop context containing system prompt and skill prompts
- * @param history - The conversation message history
- * @returns A complete message array ready for LLM consumption
- *
- * @example
- * ```typescript
- * const context = {
- *   systemPrompt: 'You are a helpful assistant',
- *   skillPrompts: {
- *     'code-generation': 'You can write Python code',
- *     'data-analysis': 'You can analyze data'
- *   }
- * };
- *
- * const history = [
- *   { role: 'user', content: 'Hello' },
- *   { role: 'assistant', content: 'Hi there!' }
- * ];
- *
- * const messages = prepareMessages(context, history);
- * // Result:
- * // [
- * //   { role: 'system', content: 'You are a helpful assistant', name: 'system-prompt' },
- * //   { role: 'system', content: 'You can write Python code', name: 'code-generation' },
- * //   { role: 'system', content: 'You can analyze data', name: 'data-analysis' },
- * //   { role: 'user', content: 'Hello' },
- * //   { role: 'assistant', content: 'Hi there!' }
- * // ]
- * ```
- */
-const prepareMessages = (context: LoopContext, history: Message[]): Message[] => {
+const prepareMessages = async (
+  systemPrompt: SystemPrompt | undefined,
+  skillPrompts: Record<string, string> | undefined,
+  history: Message[],
+): Promise<Message[]> => {
   const messages: Message[] = [];
 
   // Add system prompt if available
-  if (context.systemPrompt) {
+  if (systemPrompt) {
     messages.push({
       role: 'system',
-      content: context.systemPrompt,
-      name: 'system-prompt',
+      content: systemPrompt.prompt,
+      name: systemPrompt.name || 'system-prompt',
     });
   }
 
   // Add skill prompts if available
-  if (context.skillPrompts) {
-    for (const [name, content] of Object.entries(context.skillPrompts)) {
+  if (skillPrompts) {
+    for (const [name, content] of Object.entries(skillPrompts)) {
       messages.push({
         role: 'system',
         content,

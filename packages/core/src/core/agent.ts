@@ -31,6 +31,7 @@ import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
+import type { SystemPromptProp } from '../utils/prompt';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
 
@@ -63,7 +64,7 @@ export interface AgentConfig {
   maxMessages?: number;
 
   /** System prompt */
-  systemPrompt?: string;
+  systemPrompt?: SystemPromptProp;
 
   /** Logger */
   logger?: import('pino').Logger;
@@ -103,7 +104,6 @@ export class Agent {
     this.config = {
       autoCompact: false,
       maxMessages: 100,
-      systemPrompt: 'You are a helpful AI assistant.',
       ...config,
       logger:
         config.logger?.child({ contextId: config.contextId }) ||

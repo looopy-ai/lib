@@ -318,6 +318,8 @@ export const SpanAttributes = {
   LANGFUSE_METADATA: 'langfuse.metadata', // Additional metadata (JSON string)
   LANGFUSE_VERSION: 'langfuse.version', // Version/release tracking
   LANGFUSE_RELEASE: 'langfuse.release', // Release identifier
+  LANGFUSE_PROMPT_NAME: 'langfuse.prompt.name', // Prompt name
+  LANGFUSE_PROMPT_VERSION: 'langfuse.prompt.version', // Prompt version
 
   // GenAI semantic conventions (OpenTelemetry standard)
   GEN_AI_SYSTEM: 'gen_ai.system', // e.g., "openai", "anthropic"
