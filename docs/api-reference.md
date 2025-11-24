@@ -2,111 +2,87 @@
 
 This document provides a detailed overview of the most important classes and interfaces in the `@looopy-ai/core` package.
 
-## Agent
+# Agent
 
-The `Agent` class is the main entry point for interacting with the framework. It manages the conversation history and orchestrates the execution of turns.
+The `Agent` class is the main entry point for interacting with the framework. It manages message history, orchestrates each turn via the agent loop, and emits a unified event stream.
 
 ### `constructor(config: AgentConfig)`
 
 Creates a new `Agent` instance.
 
-- `config`: The agent's configuration. See `AgentConfig` for more details.
+- `config`: Agent configuration with the fields below.
 
-### `startTurn(prompt: string): Promise<Observable<A2A.Event>>`
+### `startTurn(userMessage: string | null, options?: { authContext?: AuthContext; taskId?: string; }): Promise<Observable<AnyEvent>>`
 
-Starts a new turn in the conversation.
+Starts a new turn in the conversation and streams events for that turn.
 
-- `prompt`: The user's message.
-- Returns: An RxJS `Observable` that emits events from the agent.
+- `userMessage`: The user's input (or `null` for tool-only turns).
+- `options.authContext`: Optional auth context that is forwarded to tool providers.
+- `options.taskId`: Optional task identifier; defaults to an auto-generated value.
+- Returns: An RxJS `Observable` that emits agent events such as content deltas, tool calls, tool results, and task status updates.
 
 ### `AgentConfig`
 
-The `AgentConfig` interface has the following properties:
-
-- `agentId`: A unique ID for the agent.
+- `agentId`: Unique ID for the agent.
+- `contextId`: Stable identifier for the conversation thread.
 - `llmProvider`: The LLM provider to use.
-- `toolProviders`: An array of tool providers to use.
-- `systemPrompt`: The system prompt to use.
-- `maxIterations`: The maximum number of iterations to run the agent loop for.
-- `messageStore`: The message store to use.
-- `artifactStore`: The artifact store to use.
-- `taskStateStore`: The task state store to use.
+- `toolProviders`: Array of tool providers to enable (can be empty).
+- `messageStore`: Where conversation history is persisted.
+- `agentStore?`: Optional persistence for agent state.
+- `autoCompact?`: Whether to compact history automatically (default `false`).
+- `maxMessages?`: Cap before compaction warnings (default `100`).
+- `systemPrompt?`: Either a string, `{ prompt, name?, version? }`, or an async function returning that shape.
+- `logger?`: Optional pino logger instance.
 
-## AgentLoop
+# LLMProvider
 
-The `AgentLoop` class is the stateless engine that executes a single turn of a conversation.
+Connects to external LLMs.
 
-### `constructor(config: AgentLoopConfig)`
+### `call(request: { messages: Message[]; tools?: ToolDefinition[]; stream?: boolean; sessionId?: string; }): Observable<LLMEvent<AnyEvent>>`
 
-Creates a new `AgentLoop` instance.
+- `messages`: The conversation history to send to the LLM.
+- `tools`: Tool definitions the LLM may invoke.
+- `stream`: Whether to stream responses (core always passes `true`).
+- `sessionId`: Stable identifier for tracing/logging.
+- Returns: An `Observable` of LLM events (content deltas, tool calls, usage metrics, etc.).
 
-- `config`: The agent loop's configuration. See `AgentLoopConfig` for more details.
+# ToolProvider
 
-### `startTurn(messages: Message[], metadata: TaskMetadata): Observable<A2A.Event>`
+Executes tools for the agent runtime.
 
-Starts a new turn.
+### Interface
 
-- `messages`: The conversation history.
-- `metadata`: The task's metadata.
-- Returns: An RxJS `Observable` that emits events from the agent loop.
+```typescript
+export type ToolProvider = {
+  readonly name: string;
+  getTool(toolName: string): Promise<ToolDefinition | undefined>;
+  getTools(): Promise<ToolDefinition[]>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
+  executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
+};
+```
 
-### `AgentLoopConfig`
+- `getTool`: Fetch a single tool definition by name (used for routing).
+- `getTools`: List all tool definitions exposed by the provider.
+- `execute`: Run a tool call with the current `ExecutionContext`.
+- `executeBatch`: Optional bulk execution helper.
 
-The `AgentLoopConfig` interface has the following properties:
+The core package ships with `localTools` for in-process tools, `ClientToolProvider` for client-executed tools, and `McpToolProvider` for MCP-compliant servers.
 
-- `agentId`: A unique ID for the agent.
-- `llmProvider`: The LLM provider to use.
-- `toolProviders`: An array of tool providers to use.
-- `maxIterations`: The maximum number of iterations to run the agent loop for.
+# MessageStore
 
-## LLMProvider
+Stores and retrieves conversation history.
 
-The `LLMProvider` interface is used to connect to external LLM providers.
+```typescript
+export interface MessageStore {
+  append(contextId: string, messages: Message[]): Promise<void>;
+  getRecent(contextId: string, options?: { maxMessages?: number; maxTokens?: number }): Promise<Message[]>;
+  getAll(contextId: string): Promise<Message[]>;
+  getCount(contextId: string): Promise<number>;
+  getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]>;
+  compact(contextId: string, options?: CompactionOptions): Promise<CompactionResult>;
+  clear(contextId: string): Promise<void>;
+}
+```
 
-### `chat(messages: Message[], tools?: Tool[]): Observable<Message>`
-
-Sends a chat request to the LLM.
-
-- `messages`: The conversation history.
-- `tools`: The tools that the LLM can use.
-- Returns: An RxJS `Observable` that emits the LLM's response.
-
-## ToolProvider
-
-The `ToolProvider` interface is used to execute tools.
-
-### `getTools(): Promise<ToolDefinition[]>`
-
-Returns the list of tool definitions that the provider can execute. Implementations normally fetch this list from their backing service (e.g., the MCP server) and may cache the results.
-
-### `execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>`
-
-Executes a tool call with the current `ExecutionContext` so providers can forward metadata such as the `authContext` to downstream services.
-
-### `canHandle(toolName: string): boolean`
-
-Used by the agent runtime to route tool invocations to the correct provider.
-
-### `executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>`
-
-Optional method that providers can implement when they support batching.
-
-The core package ships with three implementations: `LocalToolProvider`, `ClientToolProvider`, and `McpToolProvider` for connecting to MCP-compliant servers.
-
-## MessageStore
-
-The `MessageStore` interface is used to store and retrieve conversation history.
-
-### `getMessages(contextId: string): Promise<Message[]>`
-
-Retrieves the conversation history for a given context.
-
-- `contextId`: The context's ID.
-- Returns: A `Promise` that resolves with the conversation history.
-
-### `addMessage(contextId: string, message: Message): Promise<void>`
-
-Adds a message to the conversation history.
-
-- `contextId`: The context's ID.
-- `message`: The message to add.
+Implementations include `InMemoryMessageStore` (development), `MemoryAgentStore` for agent state, and filesystem-based stores for persistence.

@@ -4,35 +4,35 @@ Looopy AI provides a flexible system for integrating tools into your agents.
 
 ## Local Tools
 
-Local tools are functions that are executed in the same process as the agent. To create a local tool, you need to create a `Tool` object:
+Local tools are functions that are executed in the same process as the agent. Use the `tool` helper to define tools with Zod schemas and `localTools` to build a provider:
 
 ```typescript
-import { Tool } from '@looopy-ai/core';
+import { localTools, tool } from '@looopy-ai/core';
+import { z } from 'zod';
 
-const myTool: Tool = {
-  name: 'my-tool',
-  description: 'A tool that does something.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      arg1: { type: 'string' },
+const localToolProvider = localTools([
+  tool({
+    name: 'my-tool',
+    description: 'A tool that does something.',
+    schema: z.object({
+      arg1: z.string().describe('Argument to process'),
+    }),
+    handler: async ({ arg1 }) => {
+      // ...
+      return { echo: arg1 };
     },
-    required: ['arg1'],
-  },
-  execute: async (args) => {
-    // ...
-  },
-};
+  }),
+]);
 ```
 
-Then, you can pass the tool to the `Agent` or `AgentLoop` constructor in a `LocalToolProvider`:
+Then, pass the provider to the `Agent` constructor:
 
 ```typescript
-import { Agent, LocalToolProvider } from '@looopy-ai/core';
+import { Agent } from '@looopy-ai/core';
 
 const agent = new Agent({
   // ...
-  toolProviders: [new LocalToolProvider([myTool])],
+  toolProviders: [localToolProvider],
 });
 ```
 

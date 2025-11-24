@@ -21,35 +21,47 @@ This guide will walk you through the process of setting up your development envi
 ## Creating Your First Agent
 
 1. Create a new file, for example, `my-agent.ts`.
-2. In this file, import the necessary classes and interfaces from `@looopy-ai/core`:
+2. Import the core runtime, a message store, and (optionally) tool helpers:
    ```typescript
-   import { Agent, AgentConfig, liteLLMProvider } from '@looopy-ai/core';
+   import { Agent, InMemoryMessageStore, LiteLLMProvider, localTools, tool } from '@looopy-ai/core';
+   import { z } from 'zod';
    ```
-3. Configure your agent. The `AgentConfig` interface has the following properties:
+3. Configure your agent. The important `AgentConfig` properties are:
    - `agentId`: A unique ID for the agent.
-   - `llmProvider`: The LLM provider to use.
-   - `toolProviders`: An array of tool providers to use.
-   - `systemPrompt`: The system prompt to use.
-   - `maxIterations`: The maximum number of iterations to run the agent loop for.
+   - `contextId`: A stable identifier for the conversation thread.
+   - `llmProvider`: The LLM provider to use (e.g., `LiteLLMProvider`).
+   - `toolProviders`: Tool providers to enable (can be an empty array).
+   - `messageStore`: Where conversation history is persisted (e.g., `InMemoryMessageStore`).
+   - `systemPrompt`: Either a string or `{ prompt, name?, version? }`, or an async function returning that shape.
    ```typescript
-   const config: AgentConfig = {
+   const llmProvider = new LiteLLMProvider({
+     baseUrl: 'http://localhost:4000',
+     model: 'gpt-4o-mini',
+   });
+
+   const localToolProvider = localTools([
+     tool({
+       name: 'echo',
+       description: 'Echo text back to the caller',
+       schema: z.object({ text: z.string() }),
+       handler: ({ text }) => text,
+     }),
+   ]);
+
+   const agent = new Agent({
      agentId: 'my-first-agent',
-     llmProvider: liteLLMProvider,
-     systemPrompt: 'You are a helpful assistant.',
-   };
+     contextId: 'demo-session',
+     llmProvider,
+     toolProviders: [localToolProvider],
+     messageStore: new InMemoryMessageStore(),
+     systemPrompt: { prompt: 'You are a helpful assistant.' },
+   });
    ```
-4. Create a new agent instance:
-   ```typescript
-   const agent = new Agent(config);
-   ```
-5. Start a conversation. The `startTurn` method returns an RxJS `Observable` that emits events from the agent.
+4. Start a conversation. The `startTurn` method returns an `Observable<AnyEvent>` stream.
    ```typescript
    const events$ = await agent.startTurn('Hello, world!');
    ```
-6. Subscribe to the events to get the agent's response. The `A2A.Event` type is a discriminated union that can be one of the following:
-   - `TaskEvent`: An event that represents the start or end of a task.
-   - `StatusUpdateEvent`: An event that represents a status update.
-   - `ArtifactUpdateEvent`: An event that represents an update to an artifact.
+5. Subscribe to the events to get the agent's response. Event kinds include task status updates, content deltas/finals, thought streams, and tool lifecycle events.
    ```typescript
    events$.subscribe({
      next: (event) => console.log(event),

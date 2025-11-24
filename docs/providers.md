@@ -6,9 +6,9 @@ Providers are connectors to external services, such as LLM providers and tool pr
 
 LLM providers are responsible for translating between the framework's internal data model and the external service's API.
 
-### `liteLLMProvider`
+### `LiteLLMProvider`
 
-The `@looopy-ai/core` package includes a single LLM provider, `liteLLMProvider`, which connects to the [LiteLLM](https://github.com/BerriAI/litellm) proxy. This allows you to use a wide variety of LLMs with a single interface.
+The `@looopy-ai/core` package includes a `LiteLLMProvider`, which connects to the [LiteLLM](https://github.com/BerriAI/litellm) proxy. This allows you to use a wide variety of LLMs with a single interface.
 
 To use the `liteLLMProvider`, you first need to run the LiteLLM proxy. You can do this with the following command:
 
@@ -16,13 +16,14 @@ To use the `liteLLMProvider`, you first need to run the LiteLLM proxy. You can d
 litellm --model openai/gpt-3.5-turbo
 ```
 
-Then, you can create a `liteLLMProvider` instance like this:
+Then, you can create a `LiteLLMProvider` instance like this:
 
 ```typescript
-import { liteLLMProvider } from '@looopy-ai/core';
+import { LiteLLMProvider } from '@looopy-ai/core';
 
-const provider = liteLLMProvider({
-  model: 'openai/gpt-3.5-turbo',
+const provider = new LiteLLMProvider({
+  baseUrl: 'http://localhost:4000',
+  model: 'gpt-4o-mini',
 });
 ```
 
@@ -42,11 +43,16 @@ const provider = bedrockProvider({
 
 ### Creating a Custom LLM Provider
 
-To create a custom LLM provider, you need to implement the `LLMProvider` interface:
+To create a custom LLM provider, implement the `LLMProvider` interface:
 
 ```typescript
 export interface LLMProvider {
-  chat(messages: Message[], tools?: Tool[]): Observable<Message>;
+  call(request: {
+    messages: Message[];
+    tools?: ToolDefinition[];
+    stream?: boolean;
+    sessionId?: string;
+  }): Observable<LLMEvent<AnyEvent>>;
 }
 ```
 
@@ -88,13 +94,14 @@ const filesystemTools = new McpToolProvider({
 
 ### Creating a Custom Tool Provider
 
-To create a custom tool provider, you need to implement the `ToolProvider` interface:
+To create a custom tool provider, implement the `ToolProvider` interface:
 
 ```typescript
-export interface ToolProvider {
+export type ToolProvider = {
+  readonly name: string;
+  getTool(toolName: string): Promise<ToolDefinition | undefined>;
   getTools(): Promise<ToolDefinition[]>;
   execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
-  canHandle(toolName: string): boolean;
   executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
-}
+};
 ```

@@ -21,18 +21,34 @@ pnpm install
 Here's a basic example of how to create and use an agent:
 
 ```typescript
-import { Agent, AgentConfig } from '@looopy-ai/core';
-import { liteLLMProvider } from './providers'; // Your LLM provider
+import { Agent, InMemoryMessageStore, LiteLLMProvider, localTools, tool } from '@looopy-ai/core';
+import { z } from 'zod';
 
-// Configure the agent
-const config: AgentConfig = {
-  agentId: 'my-first-agent',
-  llmProvider: liteLLMProvider,
-  systemPrompt: 'You are a helpful assistant.',
-};
+// LLM provider that points at your LiteLLM proxy
+const llmProvider = new LiteLLMProvider({
+  baseUrl: 'http://localhost:4000',
+  model: 'gpt-4o-mini',
+});
+
+// Optional: add local tools with typed schemas
+const tools = localTools([
+  tool({
+    name: 'echo',
+    description: 'Echo text back to the caller',
+    schema: z.object({ text: z.string() }),
+    handler: ({ text }) => text,
+  }),
+]);
 
 // Create a new agent
-const agent = new Agent(config);
+const agent = new Agent({
+  agentId: 'my-first-agent',
+  contextId: 'demo-session',
+  llmProvider,
+  toolProviders: [tools],
+  messageStore: new InMemoryMessageStore(),
+  systemPrompt: { prompt: 'You are a helpful assistant.' },
+});
 
 // Start a conversation
 const events$ = await agent.startTurn('Hello, world!');

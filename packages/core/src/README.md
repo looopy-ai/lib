@@ -6,49 +6,15 @@ This directory contains the actual implementation code for the Looopy framework.
 
 ```
 src/
-├── core/                      # Core agent implementation
-│   ├── agent.ts               # Multi-turn conversation manager (stateful)
-│   ├── agent-loop.ts          # Single-turn execution engine (stateless)
-│   ├── operators/             # RxJS operator factories
-│   │   ├── execute-operators.ts    # Root span management
-│   │   ├── iteration-operators.ts  # Iteration loop
-│   │   └── llm-operators.ts        # LLM calls and responses
-│   ├── types.ts               # Core type definitions
-│   ├── config.ts              # Configuration interfaces
-│   ├── logger.ts              # Pino logger setup
-│   ├── cleanup.ts             # State cleanup service
-│   ├── events.ts              # Event helper utilities
-│   ├── sanitize.ts            # Input sanitization
-│   └── index.ts               # Exports
-│
-├── stores/                    # State and artifact persistence
-│   ├── interfaces.ts          # TaskStateStore, ArtifactStore interfaces
-│   ├── factory.ts             # Store creation factory
-│   ├── redis/                 # Redis implementations
-│   │   └── redis-state-store.ts
-│   ├── memory/                # In-memory implementations
-│   │   └── memory-state-store.ts
-│   └── artifacts/             # Artifact store implementations
-│       ├── memory-artifact-store.ts
-│       ├── artifact-store-with-events.ts
-│       └── index.ts
-│
-├── tools/                     # Tool integration
-│   ├── interfaces.ts          # ToolProvider interface
-│   ├── local-tools.ts         # Local function tools
-│   ├── client-tool-provider.ts # Client-delegated tools
-│   ├── artifact-tools.ts      # Artifact management tools
-│   └── index.ts               # Exports
-│
-├── providers/                 # LLM providers
-│   ├── litellm-provider.ts    # LiteLLM proxy integration
-│   └── index.ts               # Exports
-│
-└── observability/             # Tracing and logging
-    ├── tracing.ts             # OpenTelemetry setup
-    ├── spans/                 # Span helper functions
-    │   └── agent-turn.ts
-    └── index.ts               # Exports
+├── core/                      # Agent orchestration (Agent, loop, logger)
+├── events/                    # Event factories and utilities
+├── observability/             # OpenTelemetry spans and logging helpers
+├── providers/                 # LLM providers (LiteLLM) and chat-completion helpers
+├── server/                    # HTTP runtime helpers (serve entrypoints)
+├── stores/                    # Message, agent-state, artifact stores (in-memory, filesystem, etc.)
+├── tools/                     # Tool providers (local, client, MCP) and helpers
+├── types/                     # Shared types for events, messages, tools, context
+└── utils/                     # Shared utilities (error serialization, system prompt helpers)
 ```
 
 ## Not Yet Implemented
@@ -56,13 +22,9 @@ src/
 The following directories from the design docs are planned but not yet implemented:
 
 ```
-├── a2a/                       # A2A protocol (planned)
-│   ├── server.ts              # SSE server
-│   └── client.ts              # SSE client
-│
-├── auth/                      # Authentication (planned)
-├── extensions/                # Extension points (planned)
-└── discovery/                 # Dynamic discovery (planned)
+- a2a protocol support (planned)
+- authentication hooks (planned)
+- dynamic discovery and extension points (planned)
 ```
 
 ## Design Reference
@@ -73,7 +35,8 @@ All code in this directory implements the designs in `/design`:
 | ---------------------------- | ------------------------------------------------------------------- |
 | `core/agent.ts`              | [design/agent-lifecycle.md](../design/agent-lifecycle.md)          |
 | `core/agent-loop.ts`         | [design/agent-loop.md](../design/agent-loop.md)                    |
-| `core/operators/*`           | [design/agent-loop.md](../design/agent-loop.md)                    |
+| `core/*`                     | [design/agent-lifecycle.md](../design/agent-lifecycle.md)          |
+| `core/loop.ts`, `core/iteration.ts` | [design/agent-loop.md](../design/agent-loop.md)             |
 | `stores/*`                   | [design/agent-loop.md](../design/agent-loop.md)                    |
 | `stores/artifacts/*`         | [design/artifact-management.md](../design/artifact-management.md)  |
 | `tools/*`                    | [design/tool-integration.md](../design/tool-integration.md)        |
