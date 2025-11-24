@@ -33,6 +33,7 @@ import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
 import type { SystemPromptProp } from '../utils/prompt';
 import { getLogger } from './logger';
+import type { SkillRegistry } from '../skills';
 import { runLoop } from './loop';
 
 /**
@@ -65,6 +66,9 @@ export interface AgentConfig {
 
   /** System prompt */
   systemPrompt?: SystemPromptProp;
+
+  /** Skill registry */
+  skillRegistry?: SkillRegistry;
 
   /** Logger */
   logger?: import('pino').Logger;
@@ -396,6 +400,7 @@ export class Agent {
                 parentContext: turnContext,
                 systemPrompt: this.config.systemPrompt,
                 toolProviders: this.config.toolProviders,
+                skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
                 turnNumber,
               },

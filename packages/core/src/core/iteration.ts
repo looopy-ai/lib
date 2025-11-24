@@ -119,17 +119,17 @@ export const runIteration = (
 
   // If tool call, execute tools
   const toolEvents$ = llmEvents$.pipe(
-    filter((event) => event.kind === 'tool-call'),
-    mergeMap((event) =>
-      runToolCall(
+    filter((event): event is AnyEvent & { kind: 'tool-call' } => event.kind === 'tool-call'),
+    mergeMap((event) => {
+      return runToolCall(
         {
           ...context,
           logger: context.logger.child({ iteration: config.iterationNumber }),
           parentContext: iterationContext,
         },
         event,
-      ),
-    ),
+      );
+    }),
   );
 
   return concat(

@@ -8,6 +8,7 @@
  * Design: design/internal-event-protocol.md
  */
 
+import type { Message } from './message';
 import type { ToolCall } from './tools';
 
 // ============================================================================
@@ -608,6 +609,21 @@ export type UsageEvent = LLMUsageEvent;
 /**
  * All internal events (both external and internal)
  */
+// ============================================================================
+// 11. Message Events
+// ============================================================================
+
+/**
+ * Add a message to the history
+ */
+export interface MessageEvent {
+  kind: 'message';
+  contextId: string;
+  taskId: string;
+  message: Message;
+  timestamp: string;
+}
+
 export type AnyEvent =
   | TaskLifecycleEvent
   | ContentStreamingEvent
@@ -618,7 +634,8 @@ export type AnyEvent =
   | SubAgentEvent
   | ThoughtStreamEvent
   | InternalDebugEvent
-  | UsageEvent;
+  | UsageEvent
+  | MessageEvent;
 
 export type LLMEvent<T> = Omit<T, 'contextId' | 'taskId'>;
 

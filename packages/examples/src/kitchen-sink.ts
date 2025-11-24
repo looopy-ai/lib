@@ -53,11 +53,12 @@ import {
   ShutdownManager,
   setDefaultLogger,
   shutdownTracing,
+  SkillRegistry,
 } from '@looopy-ai/core/ts';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
-import { calculateTool, randomNumberTool, weatherTool } from './tools';
+import { calculateTool, randomNumberTool, weatherTool, diagramTool } from './tools';
 
 dotenv.config();
 
@@ -173,10 +174,19 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
+  const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool, diagramTool]);
 
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
+
+  // Create skill registry
+  const skillRegistry = new SkillRegistry([
+    {
+      name: 'diagrammer',
+      description: 'learn how to draw diagrams by using Mermaid markdown',
+      instruction: 'To draw a diagram, use the `diagram` tool with the `diagram` parameter containing the Mermaid markdown.',
+    },
+  ]);
 
   // Create agent
   console.log('🎯 Creating agent...\n');
@@ -187,6 +197,7 @@ async function main() {
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
     systemPrompt: getSystemPrompt,
+    skillRegistry,
     logger,
   });
 

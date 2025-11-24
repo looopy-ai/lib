@@ -98,9 +98,24 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
     metadata: {},
   });
 
+  const initialMessages = [...history];
+  if (context.skillRegistry) {
+    const skills = context.skillRegistry.list();
+    if (skills.length > 0) {
+      const skillList = skills
+        .map((s) => `* **${s.name}**: ${s.description}`)
+        .join('\n');
+      const skillMessage: Message = {
+        role: 'system',
+        content: `You can learn new skills by using the 'learn_skill' tool. Available skills:\n${skillList}`,
+      };
+      initialMessages.unshift(skillMessage);
+    }
+  }
+
   const merged$ = recursiveMerge(
     {
-      messages: history,
+      messages: initialMessages,
       completed: false,
       iteration: 0,
     },
@@ -217,6 +232,9 @@ const eventsToMessages = (events: AnyEvent[]): Message[] => {
             : event.error || 'Error executing tool',
           toolCallId: event.toolCallId,
         });
+        break;
+      case 'message':
+        messages.push(event.message);
         break;
       default:
         break;

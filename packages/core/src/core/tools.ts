@@ -1,6 +1,12 @@
 import { concat, defer, mergeMap, type Observable, of } from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
-import type { ToolCallEvent, ToolCompleteEvent, ToolExecutionEvent } from '../types/event';
+import type {
+  MessageEvent,
+  ToolCallEvent,
+  ToolCompleteEvent,
+  ToolExecutionEvent,
+} from '../types/event';
+import type { Message } from '../types/message';
 import type { ToolDefinition, ToolProvider } from '../types/tools';
 import type { IterationContext } from './types';
 
@@ -56,7 +62,7 @@ import type { IterationContext } from './types';
 export const runToolCall = (
   context: IterationContext,
   toolCall: ToolCallEvent,
-): Observable<ToolExecutionEvent> => {
+): Observable<ToolExecutionEvent | MessageEvent> => {
   const logger = context.logger.child({
     component: 'tool-call',
     toolCallId: toolCall.toolCallId,
@@ -124,9 +130,15 @@ export const runToolCall = (
           'Tool execution complete',
         );
 
-        return result.success
+        const toolCompleteEvent = result.success
           ? createToolCompleteEvent(context, toolCall, result.result)
           : createToolErrorEvent(context, toolCall, result.error || 'Unknown error');
+
+        const messageEvents = (result.messages || []).map((message) =>
+          createMessageEvent(context, message),
+        );
+
+        return concat(of(toolCompleteEvent), ...(messageEvents as any));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
@@ -137,11 +149,11 @@ export const runToolCall = (
           'Tool execution failed',
         );
 
-        return createToolErrorEvent(context, toolCall, err.message);
+        return of(createToolErrorEvent(context, toolCall, err.message));
       }
-    });
+    }).pipe(mergeMap((events) => events));
 
-    return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish);
+    return concat(of(toolStartEvent), toolResultEvents$ as any).pipe(tapFinish as any);
   }).pipe(mergeMap((obs) => obs));
 };
 
@@ -154,11 +166,23 @@ export const runToolCall = (
  * @param result - The result returned by the tool
  * @returns A `tool-complete` event with `success: true` and the result
  */
+const createMessageEvent = (
+  context: IterationContext,
+  message: Message,
+): MessageEvent =>
+  ({
+    kind: 'message',
+    contextId: context.contextId,
+    taskId: context.taskId,
+    message,
+    timestamp: new Date().toISOString(),
+  }) satisfies MessageEvent;
+
 const createToolCompleteEvent = (
   context: IterationContext,
   toolCall: ToolCallEvent,
   result: unknown,
-): ToolExecutionEvent =>
+): ToolCompleteEvent =>
   ({
     kind: 'tool-complete',
     contextId: context.contextId,
@@ -183,7 +207,7 @@ const createToolErrorEvent = (
   context: IterationContext,
   toolCall: ToolCallEvent,
   errorMessage: string,
-): ToolExecutionEvent =>
+): ToolCompleteEvent =>
   ({
     kind: 'tool-complete',
     contextId: context.contextId,
