@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.1.2
+
+### Patch Changes
+
+- 29dccbc: streamline imports and enhance logging in tools; add recursiveMerge utility
+
 ## 1.1.1
 
 ### Patch Changes
