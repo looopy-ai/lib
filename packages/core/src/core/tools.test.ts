@@ -290,8 +290,8 @@ describe('tools', () => {
       await lastValueFrom(events$.pipe(toArray()));
 
       const childLogger = expectChildLogger(mockContext.logger);
-      expect(childLogger.trace).toHaveBeenCalledWith(
-        { providerName: 'mock-provider' },
+      expect(childLogger.debug).toHaveBeenCalledWith(
+        { providerName: 'mock-provider', toolIcon: 'mock-icon' },
         'Found tool provider for tool',
       );
       expect(childLogger.trace).toHaveBeenCalledWith(
