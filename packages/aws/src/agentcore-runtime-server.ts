@@ -13,7 +13,7 @@ import { z } from 'zod';
 export type ServeConfig = {
   agent: (contextId: string) => Promise<Agent>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
-  shutdown: ShutdownManager;
+  shutdown?: ShutdownManager;
   logger?: pino.Logger;
   port?: number;
 };
@@ -91,7 +91,7 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
     if (!state.agent) {
       state.agent = await config.agent(contextId);
       logger.info({ contextId }, 'Created new agent instance');
-      config.shutdown.registerWatcher(async () => {
+      config.shutdown?.registerWatcher(async () => {
         logger.info({ contextId }, 'Shutting down agent');
         state.agent = undefined;
       });

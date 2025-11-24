@@ -8,7 +8,7 @@ export const serve = (config: ServeConfig): void => {
     port: config.port || 8080,
   });
 
-  config.shutdown.registerWatcher(async () => {
+  config.shutdown?.registerWatcher(async () => {
     server.close();
     config.logger?.info('Server has been shut down');
   }, 1000);
