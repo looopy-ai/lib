@@ -114,7 +114,7 @@ export const runIteration = (
           finishLLMCallSpan,
         );
     }),
-    shareReplay(),
+    shareReplay({ refCount: true }),
   );
 
   // If tool call, execute tools

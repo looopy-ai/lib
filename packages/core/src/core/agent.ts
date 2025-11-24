@@ -9,7 +9,7 @@
 
 import type { Context } from '@opentelemetry/api';
 import type pino from 'pino';
-import { catchError, concat, Observable, of, tap } from 'rxjs';
+import { catchError, concat, filter, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
 import {
   addMessagesCompactedEvent,
@@ -445,10 +445,18 @@ export class Agent {
                     await this.config.messageStore.append(this.config.contextId, [message]);
                     break;
                   }
+                  case 'internal:tool-message':
+                    logger.debug(
+                      { message: event.message },
+                      'Saving internal tool message to message store',
+                    );
+                    await this.config.messageStore.append(this.config.contextId, [event.message]);
+                    break;
                   default:
                     break;
                 }
               }),
+              filter((event) => event.kind !== 'internal:tool-message'),
             );
 
             // Subscribe to turn events

@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import type { ExecutionContext } from './context';
-import type { Message } from './message';
+import type { SystemMessage } from './message';
 
 /**
  * Tool call from LLM
@@ -31,7 +31,7 @@ export interface ToolResult {
   success: boolean;
   result: unknown;
   error?: string;
-  messages?: Message[];
+  messages?: SystemMessage[];
 }
 
 /**

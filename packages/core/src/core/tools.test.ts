@@ -243,7 +243,7 @@ describe('tools', () => {
         expect.objectContaining({
           error: 'Provider crashed',
         }),
-        'Tool execution failed',
+        'Tool execution error',
       );
     });
 
@@ -298,7 +298,10 @@ describe('tools', () => {
         { providerName: 'mock-provider' },
         'Executing tool',
       );
-      expect(childLogger.trace).toHaveBeenCalledWith({ success: true }, 'Tool execution complete');
+      expect(childLogger.trace).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+        'Tool execution complete',
+      );
     });
 
     it('should create OpenTelemetry span with correct parameters', async () => {

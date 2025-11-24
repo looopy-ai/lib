@@ -1,4 +1,4 @@
-import { from } from 'rxjs';
+import { from, lastValueFrom, toArray } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Agent } from '../src/core/agent';
@@ -160,13 +160,7 @@ describe('Skill Learning', () => {
     mockMessageStore.getRecent.mockResolvedValue([]);
 
     const events$ = await agent.startTurn('learn a non-existent skill');
-    const events = await new Promise<AnyEvent[]>((resolve) => {
-      const events: AnyEvent[] = [];
-      events$.subscribe({
-        next: (event) => events.push(event),
-        complete: () => resolve(events),
-      });
-    });
+    const events = await lastValueFrom(events$.pipe(toArray()));
 
     const toolCompleteEvent = events.find((e) => e.kind === 'tool-complete');
     expect(toolCompleteEvent).toBeDefined();

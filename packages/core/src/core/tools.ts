@@ -1,12 +1,24 @@
-import { concat, defer, mergeMap, type Observable, of } from 'rxjs';
+import {
+  catchError,
+  concat,
+  defer,
+  EMPTY,
+  filter,
+  from,
+  map,
+  mergeMap,
+  type Observable,
+  of,
+  shareReplay,
+  switchMap,
+} from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
 import type {
-  MessageEvent,
+  InternalToolMessageEvent,
   ToolCallEvent,
   ToolCompleteEvent,
   ToolExecutionEvent,
 } from '../types/event';
-import type { Message } from '../types/message';
 import type { ToolDefinition, ToolProvider } from '../types/tools';
 import type { IterationContext } from './types';
 
@@ -62,7 +74,7 @@ import type { IterationContext } from './types';
 export const runToolCall = (
   context: IterationContext,
   toolCall: ToolCallEvent,
-): Observable<ToolExecutionEvent | MessageEvent> => {
+): Observable<ToolExecutionEvent | InternalToolMessageEvent> => {
   const logger = context.logger.child({
     component: 'tool-call',
     toolCallId: toolCall.toolCallId,
@@ -82,7 +94,7 @@ export const runToolCall = (
     );
     if (!matchingProvider) {
       logger.warn('No tool provider found for tool');
-      return of(createToolErrorEvent(context, toolCall, 'No tool provider found for tool'));
+      return of(toolCall);
     }
 
     const { provider, tool } = matchingProvider;
@@ -106,74 +118,70 @@ export const runToolCall = (
     // Start tool execution span
     const { tapFinish } = startToolExecuteSpan(context, toolCall);
 
-    // Execute tool and create events
-    const toolResultEvents$ = defer(async () => {
+    const toolResults$ = defer(async () => {
       logger.trace({ providerName: provider.name }, 'Executing tool');
 
-      try {
-        const result = await provider.execute(
-          {
-            id: toolCall.toolCallId,
-            type: 'function',
-            function: {
-              name: toolCall.toolName,
-              arguments: toolCall.arguments,
-            },
+      return await provider.execute(
+        {
+          id: toolCall.toolCallId,
+          type: 'function',
+          function: {
+            name: toolCall.toolName,
+            arguments: toolCall.arguments,
           },
-          context,
-        ); // TODO use event
+        },
+        context,
+      );
+    }).pipe(tapFinish, shareReplay({ refCount: true }));
 
-        logger.trace(
-          {
-            success: result.success,
-          },
-          'Tool execution complete',
-        );
-
-        const toolCompleteEvent = result.success
-          ? createToolCompleteEvent(context, toolCall, result.result)
-          : createToolErrorEvent(context, toolCall, result.error || 'Unknown error');
-
-        const messageEvents = (result.messages || []).map((message) =>
-          createMessageEvent(context, message),
-        );
-
-        return concat(of(toolCompleteEvent), ...(messageEvents as any));
-      } catch (error) {
+    // Convert tool results into tool-complete events
+    const toolCompleteEvents$ = toolResults$.pipe(
+      mergeMap((result) => {
+        if (result.success) {
+          logger.trace({ providerName: provider.name, success: true }, 'Tool execution complete');
+          return of(createToolCompleteEvent(context, toolCall, result.result));
+        } else {
+          logger.trace({ providerName: provider.name, success: false }, 'Tool execution failed');
+          return of(createToolErrorEvent(context, toolCall, result.error || 'Unknown error'));
+        }
+      }),
+      catchError((error) => {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
           {
+            providerName: provider.name,
             error: err.message,
             stack: err.stack,
           },
-          'Tool execution failed',
+          'Tool execution error',
         );
-
         return of(createToolErrorEvent(context, toolCall, err.message));
-      }
-    }).pipe(mergeMap((events) => events));
+      }),
+    );
 
-    return concat(of(toolStartEvent), toolResultEvents$).pipe(tapFinish as any);
-  }).pipe(mergeMap((obs) => obs) as any);
+    const toolMessageEvents$ = toolResults$.pipe(
+      mergeMap((result) =>
+        result.success && result.messages
+          ? from(
+              result.messages?.map(
+                (message) =>
+                  ({
+                    kind: 'internal:tool-message',
+                    message,
+                    timestamp: new Date().toISOString(),
+                  }) as InternalToolMessageEvent,
+              ),
+            )
+          : EMPTY,
+      ),
+      catchError(() => {
+        return EMPTY;
+      }),
+    );
+
+    return concat(of(toolStartEvent), toolCompleteEvents$, toolMessageEvents$);
+  }).pipe(mergeMap((obs) => obs));
 };
-
-/**
- * Create a successful tool completion event
- *
- * @internal
- * @param context - The iteration context
- * @param toolCall - The original tool call event
- * @param result - The result returned by the tool
- * @returns A `tool-complete` event with `success: true` and the result
- */
-const createMessageEvent = (context: IterationContext, message: Message): MessageEvent =>
-  ({
-    kind: 'message',
-    contextId: context.contextId,
-    taskId: context.taskId,
-    message,
-    timestamp: new Date().toISOString(),
-  }) satisfies MessageEvent;
 
 const createToolCompleteEvent = (
   context: IterationContext,

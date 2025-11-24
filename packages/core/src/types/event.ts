@@ -8,7 +8,7 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { Message } from './message';
+import type { Message, SystemMessage } from './message';
 import type { ToolCall } from './tools';
 
 // ============================================================================
@@ -529,6 +529,17 @@ export interface InternalLLMCallEvent {
 }
 
 /**
+ * Tool emitted SystemMessages as part of its execution
+ */
+export interface InternalToolMessageEvent {
+  kind: 'internal:tool-message';
+  contextId: string;
+  taskId: string;
+  message: SystemMessage;
+  timestamp: string;
+}
+
+/**
  * State checkpoint saved
  */
 export interface InternalCheckpointEvent {
@@ -570,6 +581,7 @@ export interface InternalToolCompleteEvent {
  */
 export type InternalDebugEvent =
   | InternalLLMCallEvent
+  | InternalToolMessageEvent
   | InternalCheckpointEvent
   | InternalToolStartEvent
   | InternalToolCompleteEvent

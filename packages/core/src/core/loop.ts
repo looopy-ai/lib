@@ -131,7 +131,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
     (e) => e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
-  ).pipe(shareReplay());
+  ).pipe(shareReplay({ refCount: true }));
 
   // Build a final task-complete event from the last content-complete event
   const finalSummary$ = merged$.pipe(

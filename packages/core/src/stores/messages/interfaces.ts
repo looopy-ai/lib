@@ -9,7 +9,7 @@ import type { Message } from '../../types/message';
 /**
  * Stored message with metadata
  */
-export interface StoredMessage extends Message {
+export type StoredMessage = Message & {
   /** Unique message ID */
   id: string;
 
@@ -33,7 +33,7 @@ export interface StoredMessage extends Message {
 
   /** Original message indices if this is a summary */
   summarizedRange?: { start: number; end: number };
-}
+};
 
 /**
  * Message store interface

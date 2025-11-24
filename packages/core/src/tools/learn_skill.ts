@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import type { SkillRegistry } from '../skills/registry';
 import type { Message } from '../types';
+import { tool } from './local-tools';
 
 export const learnSkillToolName = 'learn_skill';
 
-export function createLearnSkillTool(skillRegistry: SkillRegistry): any {
-  return {
+export function createLearnSkillTool(skillRegistry: SkillRegistry) {
+  return tool({
     name: learnSkillToolName,
     description: 'Learns a new skill from the available skill registry.',
     schema: z.object({
@@ -36,5 +37,5 @@ export function createLearnSkillTool(skillRegistry: SkillRegistry): any {
         messages: [systemMessage],
       };
     },
-  };
+  });
 }
