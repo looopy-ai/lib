@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.1.5
+
+### Patch Changes
+
+- 30c4609: Bump
+
 ## 1.1.4
 
 ### Patch Changes
