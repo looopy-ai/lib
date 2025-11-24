@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 1.1.3
+
+### Patch Changes
+
+- 1235817: update tool definition structure to use a single object parameter for name, description, schema, and handler
+- ab4d215: introduce SystemPrompt type and update agent and iteration logic to utilize it
+
 ## 1.1.2
 
 ### Patch Changes
