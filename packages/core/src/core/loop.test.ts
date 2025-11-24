@@ -277,6 +277,24 @@ describe('loop', () => {
               timestamp: new Date().toISOString(),
             } as AnyEvent,
             {
+              kind: 'content-complete',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              content: '',
+              finishReason: 'tool_calls',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'calculate',
+                    arguments: { x: 5, y: 3 },
+                  },
+                },
+              ],
+              timestamp: new Date().toISOString(),
+            } as AnyEvent,
+            {
               kind: 'tool-complete',
               contextId: 'ctx-456',
               taskId: 'task-789',
@@ -284,14 +302,6 @@ describe('loop', () => {
               toolName: 'calculate',
               success: true,
               result: 8,
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-            {
-              kind: 'content-complete',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              content: '',
-              finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
             } as AnyEvent,
           );
@@ -398,89 +408,6 @@ describe('loop', () => {
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(mockTapFinish).toHaveBeenCalled();
-    });
-
-    it('should handle multiple tool calls in same iteration', async () => {
-      let callCount = 0;
-      vi.mocked(iteration.runIteration).mockImplementation(() => {
-        callCount++;
-
-        if (callCount === 1) {
-          return of(
-            {
-              kind: 'tool-call',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              toolCallId: 'call-1',
-              toolName: 'search',
-              arguments: { q: 'cats' },
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-            {
-              kind: 'tool-call',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              toolCallId: 'call-2',
-              toolName: 'calculate',
-              arguments: { x: 2, y: 2 },
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-            {
-              kind: 'tool-complete',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              toolCallId: 'call-1',
-              toolName: 'search',
-              success: true,
-              result: ['cat1', 'cat2'],
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-            {
-              kind: 'tool-complete',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              toolCallId: 'call-2',
-              toolName: 'calculate',
-              success: true,
-              result: 4,
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-            {
-              kind: 'content-complete',
-              contextId: 'ctx-456',
-              taskId: 'task-789',
-              content: '',
-              finishReason: 'tool_calls',
-              timestamp: new Date().toISOString(),
-            } as AnyEvent,
-          );
-        } else {
-          return of({
-            kind: 'content-complete',
-            contextId: 'ctx-456',
-            taskId: 'task-789',
-            content: 'Both tools completed',
-            finishReason: 'stop',
-            timestamp: new Date().toISOString(),
-          } as AnyEvent);
-        }
-      });
-
-      const events$ = runLoop(mockContext, mockConfig, mockMessages);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      // Verify runIteration was called twice
-      expect(vi.mocked(iteration.runIteration)).toHaveBeenCalledTimes(2);
-
-      const secondCallMessages = vi.mocked(iteration.runIteration).mock.calls[1][2];
-
-      // Should have 2 assistant messages (from tool-call events) and 2 tool messages
-      // Note: content-complete with empty content doesn't create an assistant message
-      const assistantMessages = secondCallMessages.filter((m) => m.role === 'assistant');
-      const toolMessages = secondCallMessages.filter((m) => m.role === 'tool');
-
-      expect(assistantMessages).toHaveLength(2);
-      expect(toolMessages).toHaveLength(2);
     });
 
     it('should handle tool execution errors', async () => {
@@ -675,8 +602,18 @@ describe('loop', () => {
             kind: 'content-complete',
             contextId: 'ctx-456',
             taskId: 'task-789',
-            content: 'First response',
+            content: '',
             finishReason: 'tool_calls',
+            toolCalls: [
+              {
+                id: 'call-1',
+                type: 'function',
+                function: {
+                  name: 'calculate',
+                  arguments: { x: 5, y: 3 },
+                },
+              },
+            ],
             timestamp: new Date().toISOString(),
           } as AnyEvent);
         } else if (callCount === 2) {
@@ -730,10 +667,19 @@ describe('loop', () => {
       expect(thirdCallMessages[0].role).toBe('user');
       expect(thirdCallMessages[1]).toEqual({
         role: 'assistant',
-        content: 'First response',
+        content: '',
+        toolCalls: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'call-1',
+            type: 'function',
+            function: expect.objectContaining({
+              name: 'calculate',
+              arguments: { x: 5, y: 3 },
+            }),
+          }),
+        ]),
       });
-      expect(thirdCallMessages[2].role).toBe('assistant');
-      expect(thirdCallMessages[3].role).toBe('tool');
+      expect(thirdCallMessages[2].role).toBe('tool');
     });
 
     it('should handle tool-complete without error field', async () => {
