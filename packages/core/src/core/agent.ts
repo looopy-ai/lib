@@ -394,6 +394,7 @@ export class Agent {
                 taskId,
                 authContext,
                 parentContext: turnContext,
+                systemPrompt: this.config.systemPrompt,
                 toolProviders: this.config.toolProviders,
                 logger: this.config.logger.child({ taskId, turnNumber }),
                 turnNumber,

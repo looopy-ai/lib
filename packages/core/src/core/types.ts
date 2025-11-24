@@ -2,6 +2,7 @@ import type pino from 'pino';
 import type { AuthContext } from '../types/context';
 import type { LLMProvider } from '../types/llm';
 import type { ToolProvider } from '../types/tools';
+import type { SystemPromptProp } from '../utils';
 
 export type AgentContext = {
   agentId: string;
@@ -10,7 +11,7 @@ export type AgentContext = {
   authContext?: AuthContext;
   toolProviders: ToolProvider[];
   logger: pino.Logger;
-  systemPrompt?: string;
+  systemPrompt?: SystemPromptProp;
   skillPrompts?: Record<string, string>;
   metadata?: Record<string, unknown>;
 };
