@@ -50,6 +50,7 @@ import {
   initializeTracing,
   LiteLLM,
   localTools,
+  ShutdownManager,
   setDefaultLogger,
   shutdownTracing,
 } from '@looopy-ai/core/ts';
@@ -82,7 +83,7 @@ const getSystemPrompt = async () => {
   const prompt = await langfuse.prompt.get(
     process.env.LANGFUSE_PROMPT_NAME || 'looopy-kitchen-sink',
   );
-  getLogger({ component: 'kitchen-sink' }).info(
+  getLogger({ component: 'kitchen-sink' }).debug(
     { name: prompt.name, version: prompt.version },
     'Fetched system prompt from Langfuse',
   );
@@ -187,6 +188,12 @@ async function main() {
     messageStore,
     systemPrompt: getSystemPrompt,
     logger,
+  });
+
+  const shutdown = new ShutdownManager();
+  shutdown.registerWatcher(async () => {
+    console.log('\n👋 Shutting down agent...');
+    await agent.shutdown();
   });
 
   console.log('');
@@ -578,18 +585,10 @@ async function main() {
   rl.on('close', () => {
     process.exit(0);
   });
-
-  // Handle process termination
-  process.on('SIGINT', async () => {
-    console.log('\n\n👋 Shutting down agent...');
-    await agent.shutdown();
-    console.log('✅ Goodbye!');
-    process.exit(0);
-  });
 }
 
 // Run
 main().catch((error) => {
-  console.error('Fatal error:', error);
+  console.error('💣 Fatal error:', error);
   process.exit(1);
 });
