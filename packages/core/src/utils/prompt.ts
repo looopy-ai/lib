@@ -1,7 +1,7 @@
 export type SystemPrompt = {
   prompt: string;
   name?: string;
-  version?: string;
+  version?: number;
 };
 
 export type SystemPromptProp = string | SystemPrompt | (() => Promise<SystemPrompt> | SystemPrompt);
