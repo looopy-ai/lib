@@ -7,14 +7,14 @@
 import { tool } from '@looopy-ai/core/ts';
 import { z } from 'zod';
 
-export const randomNumberTool = tool(
-  'get_random_number',
-  'Generate a random number between min and max',
-  z.object({
+export const randomNumberTool = tool({
+  name: 'get_random_number',
+  description: 'Generate a random number between min and max',
+  schema: z.object({
     min: z.number().describe('Minimum value (inclusive)'),
     max: z.number().describe('Maximum value (inclusive)'),
   }),
-  async ({ min, max }) => {
+  handler: async ({ min, max }) => {
     const result = Math.floor(Math.random() * (max - min + 1)) + min;
     return {
       min,
@@ -22,4 +22,4 @@ export const randomNumberTool = tool(
       result,
     };
   },
-);
+});

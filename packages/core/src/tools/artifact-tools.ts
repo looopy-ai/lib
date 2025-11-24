@@ -55,10 +55,11 @@ export function createArtifactTools(
     // File Artifact Tools
     // ============================================================================
 
-    tool(
-      'create_file_artifact',
-      'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content. Set override=true to replace existing artifact.',
-      z.object({
+    tool({
+      name: 'create_file_artifact',
+      description:
+        'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content. Set override=true to replace existing artifact.',
+      schema: z.object({
         artifactId: z
           .string()
           .describe('Unique identifier for the artifact (e.g., "report-2025", "analysis-results")'),
@@ -80,7 +81,7 @@ export function createArtifactTools(
           .default(false)
           .describe('Set to true to replace an existing artifact with the same ID'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.createFileArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
@@ -104,12 +105,13 @@ export function createArtifactTools(
             : 'File artifact created. Use append_file_chunk to add content.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'append_file_chunk',
-      'Append a chunk of content to a file artifact. Call multiple times to stream content.',
-      z.object({
+    tool({
+      name: 'append_file_chunk',
+      description:
+        'Append a chunk of content to a file artifact. Call multiple times to stream content.',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to append to'),
         content_chunk: z.string().describe('Content chunk to append to the file'),
         isLastChunk: z
@@ -118,7 +120,7 @@ export function createArtifactTools(
           .default(false)
           .describe('Set to true on the final chunk to mark artifact as complete'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.appendFileChunk(
           context.contextId,
           params.artifactId,
@@ -137,31 +139,32 @@ export function createArtifactTools(
             : 'Chunk appended successfully.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'get_file_content',
-      'Get the complete content of a file artifact',
-      z.object({
+    tool({
+      name: 'get_file_content',
+      description: 'Get the complete content of a file artifact',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         const content = await scheduledStore.getFileContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           content,
         };
       },
-    ),
+    }),
 
     // ============================================================================
     // Data Artifact Tools
     // ============================================================================
 
-    tool(
-      'create_data_artifact',
-      'Create a data artifact with structured JSON data. Set override=true to replace existing artifact.',
-      z.object({
+    tool({
+      name: 'create_data_artifact',
+      description:
+        'Create a data artifact with structured JSON data. Set override=true to replace existing artifact.',
+      schema: z.object({
         artifactId: z.string().describe('Unique identifier for the artifact'),
         name: z.string().optional().describe('Human-readable name'),
         description: z.string().optional().describe('Description of the data'),
@@ -172,7 +175,7 @@ export function createArtifactTools(
           .default(false)
           .describe('Set to true to replace an existing artifact with the same ID'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         // Create the artifact
         await scheduledStore.createDataArtifact({
           artifactId: params.artifactId,
@@ -198,16 +201,16 @@ export function createArtifactTools(
             : 'Data artifact created successfully.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'update_data_artifact',
-      'Update the data content of an existing data artifact',
-      z.object({
+    tool({
+      name: 'update_data_artifact',
+      description: 'Update the data content of an existing data artifact',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to update'),
         data: z.record(z.string(), z.unknown()).describe('The new data object'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.writeData(context.contextId, params.artifactId, params.data);
 
         return {
@@ -217,46 +220,47 @@ export function createArtifactTools(
           message: 'Data artifact updated successfully.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'get_data_content',
-      'Get the content of a data artifact',
-      z.object({
+    tool({
+      name: 'get_data_content',
+      description: 'Get the content of a data artifact',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           data,
         };
       },
-    ),
+    }),
 
-    tool(
-      'get_data_artifact',
-      'Get the data content of a data artifact',
-      z.object({
+    tool({
+      name: 'get_data_artifact',
+      description: 'Get the data content of a data artifact',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
           data,
         };
       },
-    ),
+    }),
 
     // ============================================================================
     // Dataset Artifact Tools
     // ============================================================================
 
-    tool(
-      'create_dataset_artifact',
-      'Create a dataset artifact for tabular data with a schema. Set override=true to replace existing artifact.',
-      z.object({
+    tool({
+      name: 'create_dataset_artifact',
+      description:
+        'Create a dataset artifact for tabular data with a schema. Set override=true to replace existing artifact.',
+      schema: z.object({
         artifactId: z.string().describe('Unique identifier for the dataset'),
         name: z.string().optional().describe('Human-readable name'),
         description: z.string().optional().describe('Description of the dataset'),
@@ -275,7 +279,7 @@ export function createArtifactTools(
           .default(false)
           .describe('Set to true to replace an existing artifact with the same ID'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.createDatasetArtifact({
           artifactId: params.artifactId,
           taskId: context.taskId,
@@ -298,16 +302,16 @@ export function createArtifactTools(
             : 'Dataset artifact created. Use append_dataset_row(s) to add data.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'append_dataset_row',
-      'Append a single row to a dataset artifact',
-      z.object({
+    tool({
+      name: 'append_dataset_row',
+      description: 'Append a single row to a dataset artifact',
+      schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
         row: z.record(z.string(), z.unknown()).describe('Row data matching the dataset schema'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         // Append as a batch of one row
         await scheduledStore.appendDatasetBatch(context.contextId, params.artifactId, [params.row]);
 
@@ -317,17 +321,17 @@ export function createArtifactTools(
           message: 'Row appended to dataset.',
         };
       },
-    ),
+    }),
 
-    tool(
-      'append_dataset_rows',
-      'Append multiple rows to a dataset artifact',
-      z.object({
+    tool({
+      name: 'append_dataset_rows',
+      description: 'Append multiple rows to a dataset artifact',
+      schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
         rows: z.array(z.record(z.string(), z.unknown())).describe('Array of rows to append'),
         isLastBatch: z.boolean().optional().describe('Set to true on the final batch'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.appendDatasetBatch(context.contextId, params.artifactId, params.rows, {
           isLastBatch: params.isLastBatch,
         });
@@ -338,15 +342,15 @@ export function createArtifactTools(
           message: `${params.rows.length} rows appended to dataset.`,
         };
       },
-    ),
+    }),
 
-    tool(
-      'get_dataset_rows',
-      'Get all rows from a dataset artifact',
-      z.object({
+    tool({
+      name: 'get_dataset_rows',
+      description: 'Get all rows from a dataset artifact',
+      schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         const rows = await scheduledStore.getDatasetRows(context.contextId, params.artifactId);
         return {
           artifactId: params.artifactId,
@@ -354,19 +358,19 @@ export function createArtifactTools(
           totalRows: rows.length,
         };
       },
-    ),
+    }),
 
     // ============================================================================
     // Common Artifact Tools
     // ============================================================================
 
-    tool(
-      'list_artifacts',
-      'List all artifacts in the current context, optionally filtered by task',
-      z.object({
+    tool({
+      name: 'list_artifacts',
+      description: 'List all artifacts in the current context, optionally filtered by task',
+      schema: z.object({
         taskId: z.string().optional().describe('Filter artifacts by task ID'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         // Use the new listArtifacts method with context scoping
         const artifactIds = await scheduledStore.listArtifacts(context.contextId, params.taskId);
         const artifacts = await Promise.all(
@@ -387,15 +391,15 @@ export function createArtifactTools(
           totalCount: validArtifacts.length,
         };
       },
-    ),
+    }),
 
-    tool(
-      'get_artifact',
-      'Get metadata for a specific artifact by ID',
-      z.object({
+    tool({
+      name: 'get_artifact',
+      description: 'Get metadata for a specific artifact by ID',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         const artifact = await scheduledStore.getArtifact(context.contextId, params.artifactId);
 
         if (!artifact) {
@@ -424,15 +428,15 @@ export function createArtifactTools(
           }),
         };
       },
-    ),
+    }),
 
-    tool(
-      'delete_artifact',
-      'Delete an artifact by ID',
-      z.object({
+    tool({
+      name: 'delete_artifact',
+      description: 'Delete an artifact by ID',
+      schema: z.object({
         artifactId: z.string().describe('The artifact ID to delete'),
       }),
-      async (params, context) => {
+      handler: async (params, context) => {
         await scheduledStore.deleteArtifact(context.contextId, params.artifactId);
 
         return {
@@ -441,6 +445,6 @@ export function createArtifactTools(
           message: 'Artifact deleted successfully.',
         };
       },
-    ),
+    }),
   ]);
 }

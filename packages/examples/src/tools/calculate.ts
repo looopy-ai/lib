@@ -9,13 +9,14 @@ import { tool } from '@looopy-ai/core/ts';
 import { evaluate } from 'mathjs';
 import { z } from 'zod';
 
-export const calculateTool = tool(
-  'calculate',
-  'Evaluate a mathematical expression. Supports +, -, *, /, parentheses.',
-  z.object({
+export const calculateTool = tool({
+  name: 'calculate',
+  icon: 'lucide:calculator',
+  description: 'Evaluate a mathematical expression. Supports +, -, *, /, parentheses.',
+  schema: z.object({
     expression: z.string().describe('The mathematical expression to evaluate (e.g., "2 + 2 * 3")'),
   }),
-  async ({ expression }) => {
+  handler: async ({ expression }) => {
     const logger = getLogger({ component: 'calculate-tool', expression });
     logger.info(`🔧 [LOCAL] Executing: calculate`);
 
@@ -30,4 +31,4 @@ export const calculateTool = tool(
       throw err;
     }
   },
-);
+});

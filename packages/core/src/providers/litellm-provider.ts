@@ -311,6 +311,7 @@ export class LiteLLMProvider implements LLMProvider {
     );
 
     const toolCalls$ = contentComplete$.pipe(
+      filter((event) => event.finishReason === 'tool_calls'),
       mergeMap(
         (event) =>
           event.toolCalls?.map<LLMEvent<ToolCallEvent>>((tc) => ({
@@ -324,7 +325,8 @@ export class LiteLLMProvider implements LLMProvider {
     );
 
     // Merge all event streams
-    return merge(contentDeltas$, thoughts$, usageComplete$, toolCalls$).pipe(
+    return merge(contentDeltas$, thoughts$, usageComplete$).pipe(
+      concatWith(toolCalls$),
       concatWith(contentComplete$),
     );
   }

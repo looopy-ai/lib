@@ -8,14 +8,14 @@ import type { ExecutionContext } from '../src/types';
 describe('local-tools', () => {
   describe('tool()', () => {
     it('should create a tool definition with Zod schema', () => {
-      const testTool = tool(
-        'test-tool',
-        'A test tool',
-        z.object({
+      const testTool = tool({
+        name: 'test-tool',
+        description: 'A test tool',
+        schema: z.object({
           input: z.string().describe('Test input'),
         }),
-        async ({ input }) => `Processed: ${input}`,
-      );
+        handler: async ({ input }) => `Processed: ${input}`,
+      });
 
       expect(testTool.name).toBe('test-tool');
       expect(testTool.description).toBe('A test tool');
@@ -24,10 +24,10 @@ describe('local-tools', () => {
     });
 
     it('should support complex Zod schemas', () => {
-      const complexTool = tool(
-        'complex',
-        'Complex tool',
-        z.object({
+      const complexTool = tool({
+        name: 'complex',
+        description: 'Complex tool',
+        schema: z.object({
           name: z.string().min(1).max(50),
           age: z.number().int().min(0).max(120),
           email: z.string().email(),
@@ -38,8 +38,8 @@ describe('local-tools', () => {
             score: z.number().optional(),
           }),
         }),
-        async (params) => params,
-      );
+        handler: async (params) => params,
+      });
 
       expect(complexTool.name).toBe('complex');
       expect(complexTool.schema).toBeDefined();
@@ -48,25 +48,25 @@ describe('local-tools', () => {
 
   describe('localTools()', () => {
     it('should create a ToolProvider from tool definitions', () => {
-      const tool1 = tool(
-        'add',
-        'Add two numbers',
-        z.object({
+      const tool1 = tool({
+        name: 'add',
+        description: 'Add two numbers',
+        schema: z.object({
           a: z.number(),
           b: z.number(),
         }),
-        async ({ a, b }) => a + b,
-      );
+        handler: async ({ a, b }) => a + b,
+      });
 
-      const tool2 = tool(
-        'multiply',
-        'Multiply two numbers',
-        z.object({
+      const tool2 = tool({
+        name: 'multiply',
+        description: 'Multiply two numbers',
+        schema: z.object({
           x: z.number(),
           y: z.number(),
         }),
-        async ({ x, y }) => x * y,
-      );
+        handler: async ({ x, y }) => x * y,
+      });
 
       const provider = localTools([tool1, tool2]);
 
@@ -77,8 +77,18 @@ describe('local-tools', () => {
     });
 
     it('should throw error for duplicate tool names', () => {
-      const tool1 = tool('duplicate', 'First', z.object({}), async () => 'first');
-      const tool2 = tool('duplicate', 'Second', z.object({}), async () => 'second');
+      const tool1 = tool({
+        name: 'duplicate',
+        description: 'First',
+        schema: z.object({}),
+        handler: async () => 'first',
+      });
+      const tool2 = tool({
+        name: 'duplicate',
+        description: 'Second',
+        schema: z.object({}),
+        handler: async () => 'second',
+      });
 
       expect(() => {
         localTools([tool1, tool2]);
@@ -87,15 +97,15 @@ describe('local-tools', () => {
 
     describe('getTools()', () => {
       it('should return tool definitions with JSON Schema parameters', async () => {
-        const calculatorTool = tool(
-          'calculate',
-          'Perform calculation',
-          z.object({
+        const calculatorTool = tool({
+          name: 'calculate',
+          description: 'Perform calculation',
+          schema: z.object({
             expression: z.string().describe('Math expression to evaluate'),
             precision: z.number().int().min(0).max(10).optional(),
           }),
-          async ({ expression }) => evaluate(expression),
-        );
+          handler: async ({ expression }) => evaluate(expression),
+        });
 
         const provider = localTools([calculatorTool]);
         const tools = await provider.getTools();
@@ -122,16 +132,16 @@ describe('local-tools', () => {
       });
 
       it('should convert Zod string constraints to JSON Schema', async () => {
-        const stringTool = tool(
-          'string-test',
-          'Test strings',
-          z.object({
+        const stringTool = tool({
+          name: 'string-test',
+          description: 'Test strings',
+          schema: z.object({
             name: z.string().min(3).max(20),
             email: z.string().email(),
             url: z.string().url(),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([stringTool]);
         const tools = await provider.getTools();
@@ -153,16 +163,16 @@ describe('local-tools', () => {
       });
 
       it('should convert Zod number constraints to JSON Schema', async () => {
-        const numberTool = tool(
-          'number-test',
-          'Test numbers',
-          z.object({
+        const numberTool = tool({
+          name: 'number-test',
+          description: 'Test numbers',
+          schema: z.object({
             age: z.number().int().min(0).max(120),
             score: z.number().min(0).max(100),
             multiple: z.number().multipleOf(5),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([numberTool]);
         const tools = await provider.getTools();
@@ -184,15 +194,15 @@ describe('local-tools', () => {
       });
 
       it('should convert Zod arrays to JSON Schema', async () => {
-        const arrayTool = tool(
-          'array-test',
-          'Test arrays',
-          z.object({
+        const arrayTool = tool({
+          name: 'array-test',
+          description: 'Test arrays',
+          schema: z.object({
             tags: z.array(z.string()).min(1).max(10),
             numbers: z.array(z.number()),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([arrayTool]);
         const tools = await provider.getTools();
@@ -210,14 +220,14 @@ describe('local-tools', () => {
       });
 
       it('should convert Zod enums to JSON Schema', async () => {
-        const enumTool = tool(
-          'enum-test',
-          'Test enums',
-          z.object({
+        const enumTool = tool({
+          name: 'enum-test',
+          description: 'Test enums',
+          schema: z.object({
             role: z.enum(['admin', 'user', 'guest']),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([enumTool]);
         const tools = await provider.getTools();
@@ -229,10 +239,10 @@ describe('local-tools', () => {
       });
 
       it('should handle nested objects', async () => {
-        const nestedTool = tool(
-          'nested-test',
-          'Test nested objects',
-          z.object({
+        const nestedTool = tool({
+          name: 'nested-test',
+          description: 'Test nested objects',
+          schema: z.object({
             user: z.object({
               name: z.string(),
               settings: z.object({
@@ -241,8 +251,8 @@ describe('local-tools', () => {
               }),
             }),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([nestedTool]);
         const tools = await provider.getTools();
@@ -267,15 +277,15 @@ describe('local-tools', () => {
       });
 
       it('should handle optional fields', async () => {
-        const optionalTool = tool(
-          'optional-test',
-          'Test optional fields',
-          z.object({
+        const optionalTool = tool({
+          name: 'optional-test',
+          description: 'Test optional fields',
+          schema: z.object({
             required: z.string(),
             optional: z.string().optional(),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([optionalTool]);
         const tools = await provider.getTools();
@@ -286,7 +296,12 @@ describe('local-tools', () => {
 
     describe('getTool()', () => {
       it('should return tool definition for known tool', async () => {
-        const testTool = tool('test', 'Test', z.object({}), async () => 'result');
+        const testTool = tool({
+          name: 'test',
+          description: 'Test',
+          schema: z.object({}),
+          handler: async () => 'result',
+        });
         const provider = localTools([testTool]);
 
         const toolDef = await provider.getTool('test');
@@ -294,7 +309,12 @@ describe('local-tools', () => {
       });
 
       it('should return undefined for unknown tool', async () => {
-        const testTool = tool('test', 'Test', z.object({}), async () => 'result');
+        const testTool = tool({
+          name: 'test',
+          description: 'Test',
+          schema: z.object({}),
+          handler: async () => 'result',
+        });
         const provider = localTools([testTool]);
 
         const toolDef = await provider.getTool('unknown');
@@ -311,15 +331,15 @@ describe('local-tools', () => {
       };
 
       it('should execute tool with valid arguments', async () => {
-        const addTool = tool(
-          'add',
-          'Add numbers',
-          z.object({
+        const addTool = tool({
+          name: 'add',
+          description: 'Add numbers',
+          schema: z.object({
             a: z.number(),
             b: z.number(),
           }),
-          async ({ a, b }) => a + b,
-        );
+          handler: async ({ a, b }) => a + b,
+        });
 
         const provider = localTools([addTool]);
         const result = await provider.execute(
@@ -339,15 +359,15 @@ describe('local-tools', () => {
       });
 
       it('should validate arguments with Zod schema', async () => {
-        const strictTool = tool(
-          'strict',
-          'Strict validation',
-          z.object({
+        const strictTool = tool({
+          name: 'strict',
+          description: 'Strict validation',
+          schema: z.object({
             email: z.string().email(),
             age: z.number().int().min(0),
           }),
-          async (params) => params,
-        );
+          handler: async (params) => params,
+        });
 
         const provider = localTools([strictTool]);
 
@@ -397,7 +417,12 @@ describe('local-tools', () => {
       });
 
       it('should handle JSON parse errors', async () => {
-        const testTool = tool('test', 'Test', z.object({}), async () => 'result');
+        const testTool = tool({
+          name: 'test',
+          description: 'Test',
+          schema: z.object({}),
+          handler: async () => 'result',
+        });
         const provider = localTools([testTool]);
 
         const result = await provider.execute(
@@ -418,8 +443,13 @@ describe('local-tools', () => {
       });
 
       it('should handle handler errors', async () => {
-        const errorTool = tool('error', 'Throws error', z.object({}), async () => {
-          throw new Error('Test error');
+        const errorTool = tool({
+          name: 'error',
+          description: 'Throws error',
+          schema: z.object({}),
+          handler: async () => {
+            throw new Error('Test error');
+          },
         });
 
         const provider = localTools([errorTool]);
@@ -440,7 +470,12 @@ describe('local-tools', () => {
       });
 
       it('should return error for unknown tools', async () => {
-        const testTool = tool('test', 'Test', z.object({}), async () => 'result');
+        const testTool = tool({
+          name: 'test',
+          description: 'Test',
+          schema: z.object({}),
+          handler: async () => 'result',
+        });
         const provider = localTools([testTool]);
 
         const result = await provider.execute(
@@ -462,15 +497,15 @@ describe('local-tools', () => {
       it('should provide execution context to handler', async () => {
         let receivedContext: ExecutionContext | null = null;
 
-        const contextTool = tool(
-          'context-test',
-          'Test context',
-          z.object({}),
-          async (_params, context) => {
+        const contextTool = tool({
+          name: 'context-test',
+          description: 'Test context',
+          schema: z.object({}),
+          handler: async (_params, context) => {
             receivedContext = context;
             return 'success';
           },
-        );
+        });
 
         const provider = localTools([contextTool]);
         await provider.execute(
@@ -489,11 +524,16 @@ describe('local-tools', () => {
       });
 
       it('should handle complex return values', async () => {
-        const complexTool = tool('complex', 'Complex return', z.object({}), async () => ({
-          status: 'success',
-          data: [1, 2, 3],
-          nested: { key: 'value' },
-        }));
+        const complexTool = tool({
+          name: 'complex',
+          description: 'Complex return',
+          schema: z.object({}),
+          handler: async () => ({
+            status: 'success',
+            data: [1, 2, 3],
+            nested: { key: 'value' },
+          }),
+        });
 
         const provider = localTools([complexTool]);
         const result = await provider.execute(

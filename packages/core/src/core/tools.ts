@@ -80,7 +80,10 @@ export const runToolCall = (
     }
 
     const { provider, tool } = matchingProvider;
-    logger.trace({ providerName: provider.name }, 'Found tool provider for tool');
+    logger.debug(
+      { providerName: provider.name, toolIcon: tool.icon },
+      'Found tool provider for tool',
+    );
 
     // Create tool-start event
     const toolStartEvent: ToolExecutionEvent = {

@@ -45,12 +45,9 @@ export interface LocalToolDefinition<TSchema extends z.ZodObject> {
  * );
  */
 export function tool<TSchema extends z.ZodObject>(
-  name: string,
-  description: string,
-  schema: TSchema,
-  handler: ToolHandler<z.infer<TSchema>>,
+  definition: LocalToolDefinition<TSchema>,
 ): LocalToolDefinition<TSchema> {
-  return { name, description, schema, handler };
+  return { ...definition };
 }
 
 /**

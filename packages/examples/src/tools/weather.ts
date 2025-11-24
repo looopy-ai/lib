@@ -19,10 +19,11 @@ const weatherData: Record<string, { temp: number; condition: string }> = {
   london: { temp: 12, condition: 'rainy' },
 };
 
-export const weatherTool = tool(
-  'get_weather',
-  'Get current weather for a city (simulated)',
-  z.object({
+export const weatherTool = tool({
+  name: 'get_weather',
+  icon: 'lucide:cloud-sun',
+  description: 'Get current weather for a city (simulated)',
+  schema: z.object({
     city: z.string().describe('City name'),
     location: z.string().optional().describe('Alternative location parameter'),
     units: z
@@ -30,7 +31,7 @@ export const weatherTool = tool(
       .optional()
       .describe('Temperature units (default: celsius)'),
   }),
-  async ({ city, location, units }) => {
+  handler: async ({ city, location, units }) => {
     const logger = getLogger({ component: 'weather-tool', city, location, units });
     const cityName = (city || location || 'San Francisco').toLowerCase();
 
@@ -55,4 +56,4 @@ export const weatherTool = tool(
 
     return weatherResult;
   },
-);
+});
