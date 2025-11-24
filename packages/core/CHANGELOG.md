@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.1.6
+
+### Patch Changes
+
+- 699164d: change version type from string to number in SystemPrompt
+
 ## 1.1.5
 
 ### Patch Changes
