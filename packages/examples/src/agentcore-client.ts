@@ -5,7 +5,7 @@ const res = await fetch('http://localhost:8080/invocations', {
   method: 'POST',
   headers: {
     Accept: 'text/event-stream',
-    'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': `ctx-${Date.now()}`,
+    'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': `ctx-1234`,
   },
   body: JSON.stringify({ prompt }),
 });
