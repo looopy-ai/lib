@@ -4,6 +4,17 @@ import type { Message, Skill, SkillRegistration } from '../types';
 
 export const learnSkillToolName = 'learn_skill';
 
+const getInstruction = async (instruction: string | (() => Promise<string>)): Promise<string> => {
+  if (typeof instruction === 'string') {
+    return instruction;
+  }
+  return await instruction();
+};
+
+export const skill = (definition: Skill): Skill => {
+  return { ...definition };
+};
+
 export class SkillRegistry {
   private skills: SkillRegistration = {};
 
@@ -33,9 +44,9 @@ export class SkillRegistry {
         name: z.string().describe('The name of the skill to learn.'),
       }),
       handler: async ({ name }: { name: string }) => {
-        const skill = this.get(name);
+        const foundSkill = this.get(name);
 
-        if (!skill) {
+        if (!foundSkill) {
           const availableSkills = this.list()
             .map((s) => `'${s.name}'`)
             .join(', ');
@@ -48,7 +59,7 @@ export class SkillRegistry {
 
         const systemMessage: Message = {
           role: 'system',
-          content: `You have learned the following skill:\n\n**${skill.name}**\n${skill.instruction}`,
+          content: `You have learned the following skill:\n\n**${foundSkill.name}**\n${await getInstruction(foundSkill.instruction)}`,
         };
 
         return {

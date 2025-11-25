@@ -1,4 +1,6 @@
-export const diagrammerSkill = {
+import { skill } from '@looopy-ai/core/ts';
+
+export const diagrammerSkill = skill({
   name: 'diagrammer',
   description: 'learn how to draw diagrams by using Mermaid markdown',
   instruction: `### Skill: Mermaid Diagram Generator
@@ -133,4 +135,4 @@ If the user requests:
 * **Interactivity:** use links via \`click\` for drill-downs.
 * **Embedded Notes or Metadata:** include inline comments starting with \`%%\`.
 `,
-};
+});
