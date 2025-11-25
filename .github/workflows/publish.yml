@@ -12,6 +12,7 @@ jobs:
       contents: write
       pull-requests: write
       packages: read
+      id-token: write
     outputs:
       published: ${{ steps.changesets.outputs.published }}
       publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}

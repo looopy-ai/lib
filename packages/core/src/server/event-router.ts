@@ -8,12 +8,12 @@
  */
 
 import { isDebugEvent } from '../events';
-import type { AnyEvent } from '../types/event';
+import type { ContextAnyEvent } from '../types/event';
 
 /**
  * Event filter function
  */
-export type EventFilter = (event: AnyEvent) => boolean;
+export type EventFilter = (event: ContextAnyEvent) => boolean;
 
 /**
  * Subscription configuration
@@ -49,7 +49,7 @@ export interface Subscriber {
   config: SubscriptionConfig;
 
   /** Send event to subscriber */
-  send(event: AnyEvent, eventId: string): void;
+  send(event: ContextAnyEvent, eventId: string): void;
 
   /** Close the subscription */
   close(): void;
@@ -108,7 +108,7 @@ export class EventRouter {
    * @param eventId - Event ID for reconnection
    * @returns Number of subscribers that received the event
    */
-  route(contextId: string, event: AnyEvent, eventId: string): number {
+  route(contextId: string, event: ContextAnyEvent, eventId: string): number {
     const contextSubscribers = this.subscribers.get(contextId);
     if (!contextSubscribers || contextSubscribers.size === 0) {
       return 0;
@@ -138,7 +138,7 @@ export class EventRouter {
    * @param event - Event to check
    * @returns true if event should be sent
    */
-  private shouldSendToSubscriber(subscriber: Subscriber, event: AnyEvent): boolean {
+  private shouldSendToSubscriber(subscriber: Subscriber, event: ContextAnyEvent): boolean {
     const { config } = subscriber;
 
     // Filter by task ID if specified

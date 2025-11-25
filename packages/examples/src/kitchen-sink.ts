@@ -38,7 +38,7 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { LangfuseClient } from '@langfuse/client';
-import type { AnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
+import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
 import {
   Agent,
   createArtifactTools,
@@ -219,7 +219,7 @@ async function main() {
   const sseLogPath = path.join(storagePath, 'sse-debug.log');
 
   // Helper to log events in SSE format
-  async function logSSEEvent(event: AnyEvent): Promise<void> {
+  async function logSSEEvent(event: ContextAnyEvent): Promise<void> {
     try {
       if (event.kind === 'content-delta') return; // Skip content deltas
 
@@ -488,7 +488,7 @@ async function main() {
   }
 
   // Handle agent events
-  async function handleAgentEvent(event: AnyEvent) {
+  async function handleAgentEvent(event: ContextAnyEvent) {
     // Log all events to SSE log file
     await logSSEEvent(event);
 

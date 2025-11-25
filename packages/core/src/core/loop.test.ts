@@ -2,7 +2,7 @@ import pino from 'pino';
 import { lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
-import type { AnyEvent } from '../types/event';
+import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import * as iteration from './iteration';
@@ -37,7 +37,7 @@ vi.mock('./iteration', () => ({
       content: 'Test response',
       finishReason: 'stop',
       timestamp: new Date().toISOString(),
-    } as AnyEvent),
+    } as ContextAnyEvent),
   ),
 }));
 
@@ -177,7 +177,7 @@ describe('loop', () => {
           content: 'Final response',
           finishReason: 'stop',
           timestamp: new Date().toISOString(),
-        } as AnyEvent),
+        } as ContextAnyEvent),
       );
 
       const events$ = runLoop(mockContext, mockConfig, mockMessages);
@@ -208,7 +208,7 @@ describe('loop', () => {
               toolName: 'search',
               arguments: { q: 'test' },
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'tool-complete',
               contextId: 'ctx-456',
@@ -218,7 +218,7 @@ describe('loop', () => {
               success: true,
               result: { items: ['result1'] },
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -226,7 +226,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           // Second iteration: LLM finishes
@@ -237,7 +237,7 @@ describe('loop', () => {
             content: 'Final answer',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -275,7 +275,7 @@ describe('loop', () => {
               toolName: 'calculate',
               arguments: { x: 5, y: 3 },
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -293,7 +293,7 @@ describe('loop', () => {
                 },
               ],
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'tool-complete',
               contextId: 'ctx-456',
@@ -303,7 +303,7 @@ describe('loop', () => {
               success: true,
               result: 8,
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           return of({
@@ -313,7 +313,7 @@ describe('loop', () => {
             content: 'Result is 8',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -360,14 +360,14 @@ describe('loop', () => {
             taskId: 'task-789',
             delta: 'Hello',
             timestamp: new Date().toISOString(),
-          } as AnyEvent,
+          } as ContextAnyEvent,
           {
             kind: 'content-delta',
             contextId: 'ctx-456',
             taskId: 'task-789',
             delta: ' world',
             timestamp: new Date().toISOString(),
-          } as AnyEvent,
+          } as ContextAnyEvent,
           {
             kind: 'content-complete',
             contextId: 'ctx-456',
@@ -375,7 +375,7 @@ describe('loop', () => {
             content: 'Hello world',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent,
+          } as ContextAnyEvent,
         ),
       );
 
@@ -391,7 +391,7 @@ describe('loop', () => {
     });
 
     it('should finalize span when stream completes', async () => {
-      const mockTapFinish = vi.fn((source: Observable<AnyEvent>) => source);
+      const mockTapFinish = vi.fn((source: Observable<ContextAnyEvent>) => source);
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
         span: {
@@ -425,7 +425,7 @@ describe('loop', () => {
               toolName: 'broken_tool',
               arguments: {},
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'tool-complete',
               contextId: 'ctx-456',
@@ -436,7 +436,7 @@ describe('loop', () => {
               result: null,
               error: 'Tool execution failed',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -444,7 +444,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           return of({
@@ -454,7 +454,7 @@ describe('loop', () => {
             content: 'Tool failed but continuing',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -487,14 +487,14 @@ describe('loop', () => {
               taskId: 'task-789',
               delta: 'Streaming',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-delta',
               contextId: 'ctx-456',
               taskId: 'task-789',
               delta: ' response',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -502,7 +502,7 @@ describe('loop', () => {
               content: 'Streaming response',
               finishReason: 'stop',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           return of({
@@ -512,7 +512,7 @@ describe('loop', () => {
             content: 'Should not reach here',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -536,7 +536,7 @@ describe('loop', () => {
             content: 'Intermediate response',
             finishReason: 'tool_calls',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         } else {
           return of({
             kind: 'content-complete',
@@ -545,7 +545,7 @@ describe('loop', () => {
             content: 'Final response',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -615,7 +615,7 @@ describe('loop', () => {
               },
             ],
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         } else if (callCount === 2) {
           return of(
             {
@@ -626,7 +626,7 @@ describe('loop', () => {
               toolName: 'test',
               arguments: {},
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'tool-complete',
               contextId: 'ctx-456',
@@ -636,7 +636,7 @@ describe('loop', () => {
               success: true,
               result: 'result',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -644,7 +644,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           return of({
@@ -654,7 +654,7 @@ describe('loop', () => {
             content: 'Final response',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -697,7 +697,7 @@ describe('loop', () => {
               toolName: 'test',
               arguments: {},
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'tool-complete',
               contextId: 'ctx-456',
@@ -708,7 +708,7 @@ describe('loop', () => {
               result: null,
               // No error field
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
             {
               kind: 'content-complete',
               contextId: 'ctx-456',
@@ -716,7 +716,7 @@ describe('loop', () => {
               content: '',
               finishReason: 'tool_calls',
               timestamp: new Date().toISOString(),
-            } as AnyEvent,
+            } as ContextAnyEvent,
           );
         } else {
           return of({
@@ -726,7 +726,7 @@ describe('loop', () => {
             content: 'Handled gracefully',
             finishReason: 'stop',
             timestamp: new Date().toISOString(),
-          } as AnyEvent);
+          } as ContextAnyEvent);
         }
       });
 
@@ -744,7 +744,7 @@ describe('loop', () => {
     });
 
     it('should finalize span even if error occurs', async () => {
-      const mockTapFinish = vi.fn((source: Observable<AnyEvent>) => source);
+      const mockTapFinish = vi.fn((source: Observable<ContextAnyEvent>) => source);
 
       vi.mocked(spans.startAgentLoopSpan).mockReturnValue({
         span: {

@@ -5,7 +5,7 @@
  */
 
 import { filter, firstValueFrom } from 'rxjs';
-import type { ContentCompleteEvent, LLMEvent } from '../../types/event';
+import type { ContentCompleteEvent } from '../../types/event';
 import type { LLMProvider } from '../../types/llm';
 import type { Message } from '../../types/message';
 import type {
@@ -295,9 +295,7 @@ export class InMemoryMessageStore implements MessageStore {
     // Filter for content-complete event and extract content
     const completeEvent = await firstValueFrom(
       response$.pipe(
-        filter(
-          (event): event is LLMEvent<ContentCompleteEvent> => event.kind === 'content-complete',
-        ),
+        filter((event): event is ContentCompleteEvent => event.kind === 'content-complete'),
       ),
     );
 

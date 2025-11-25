@@ -4,7 +4,7 @@ import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
 import { toolResultToEvents } from '../tools/tool-result-events';
-import type { ToolCallEvent } from '../types/event';
+import type { ContextEvent, ToolCallEvent } from '../types/event';
 import type { ToolCall, ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
 import type { IterationContext } from './types';
@@ -44,7 +44,7 @@ vi.mock('../observability/spans/tool', () => ({
 
 describe('tools', () => {
   let mockContext: IterationContext;
-  let mockToolCall: ToolCallEvent;
+  let mockToolCall: ContextEvent<ToolCallEvent>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -357,25 +357,6 @@ describe('tools', () => {
       }
     });
 
-    it('should preserve contextId and taskId in all events', async () => {
-      const mockProvider: ToolProvider = {
-        name: 'mock-provider',
-        getTool: vi.fn(async () => mockToolDef),
-        getTools: vi.fn(async () => [mockToolDef]),
-        execute: createSuccessExecute('result'),
-      };
-
-      mockContext.toolProviders = [mockProvider];
-
-      const events$ = runToolCall(mockContext, mockToolCall);
-      const events = await lastValueFrom(events$.pipe(toArray()));
-
-      for (const event of events) {
-        expect(event.contextId).toBe('ctx-456');
-        expect(event.taskId).toBe('task-789');
-      }
-    });
-
     it('should handle empty arguments object', async () => {
       const mockProvider: ToolProvider = {
         name: 'mock-provider',
@@ -386,7 +367,7 @@ describe('tools', () => {
 
       mockContext.toolProviders = [mockProvider];
 
-      const toolCallWithEmptyArgs: ToolCallEvent = {
+      const toolCallWithEmptyArgs: ContextEvent<ToolCallEvent> = {
         ...mockToolCall,
         arguments: {},
       };

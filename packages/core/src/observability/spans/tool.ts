@@ -7,7 +7,12 @@
 import { context as otelContext, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs';
 import type { IterationContext } from '../../core/types';
-import type { AnyEvent, ToolCallEvent, ToolCompleteEvent } from '../../types/event';
+import type {
+  AnyEvent,
+  ContextAnyEvent,
+  ToolCallEvent,
+  ToolCompleteEvent,
+} from '../../types/event';
 import type { ToolCall } from '../../types/tools';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -44,7 +49,7 @@ export const startToolExecuteSpan = (context: IterationContext, toolStart: ToolC
   return {
     span,
     traceContext,
-    tapFinish: tap<AnyEvent>({
+    tapFinish: tap<ContextAnyEvent>({
       next: (event) => {
         if (!isToolCompleteEvent(event)) {
           return;

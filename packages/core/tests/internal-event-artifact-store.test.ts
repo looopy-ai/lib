@@ -8,12 +8,12 @@ import {
   InternalEventArtifactStore,
   type InternalEventEmitter,
 } from '../src/stores/artifacts';
-import type { AnyEvent } from '../src/types/event';
+import type { ContextAnyEvent } from '../src/types/event';
 
 describe('InternalEventArtifactStore', () => {
   describe('File Artifacts', () => {
     it('should emit file-write events when appending chunks', async () => {
-      const events: AnyEvent[] = [];
+      const events: ContextAnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -62,7 +62,7 @@ describe('InternalEventArtifactStore', () => {
     });
 
     it('should not emit events when disabled', async () => {
-      const events: AnyEvent[] = [];
+      const events: ContextAnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -88,7 +88,7 @@ describe('InternalEventArtifactStore', () => {
 
   describe('Data Artifacts', () => {
     it('should emit data-write events when writing data', async () => {
-      const events: AnyEvent[] = [];
+      const events: ContextAnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -124,7 +124,7 @@ describe('InternalEventArtifactStore', () => {
 
   describe('Dataset Artifacts', () => {
     it('should emit dataset-write events when appending batches', async () => {
-      const events: AnyEvent[] = [];
+      const events: ContextAnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };

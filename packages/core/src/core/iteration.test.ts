@@ -2,7 +2,7 @@ import pino from 'pino';
 import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
-import type { AnyEvent } from '../types/event';
+import type { AnyEvent, ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
@@ -219,7 +219,7 @@ describe('iteration', () => {
       );
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      const events = await lastValueFrom(events$.pipe(toArray()));
+      const events = await lastValueFrom<ContextAnyEvent[]>(events$.pipe(toArray()));
 
       expect(events[0]).toEqual(
         expect.objectContaining({
@@ -234,8 +234,6 @@ describe('iteration', () => {
     it('should execute tools when LLM emits tool-call events', async () => {
       const toolCallEvent = {
         kind: 'tool-call',
-        contextId: 'ctx-456',
-        taskId: 'task-789',
         toolCallId: 'call-123',
         toolName: 'test_tool',
         arguments: { param: 'value' },
@@ -250,14 +248,10 @@ describe('iteration', () => {
       expect(tools.runToolCall).toHaveBeenCalledWith(
         expect.objectContaining({
           agentId: 'agent-123',
-          contextId: 'ctx-456',
-          taskId: 'task-789',
           parentContext: expect.any(Object), // iteration context
         }),
         expect.objectContaining({
           kind: 'tool-call',
-          contextId: 'ctx-456',
-          taskId: 'task-789',
           toolCallId: 'call-123',
           toolName: 'test_tool',
         }),
@@ -307,7 +301,7 @@ describe('iteration', () => {
       );
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      const events = await lastValueFrom(events$.pipe(toArray()));
+      const events = await lastValueFrom<ContextAnyEvent[]>(events$.pipe(toArray()));
       // Debug output to verify event ordering during tool execution changes
       // console.log(events.map((e) => e.kind));
 
@@ -529,7 +523,7 @@ describe('iteration', () => {
       vi.mocked(mockLLMProvider.call).mockReturnValue(of(...(llmEvents as AnyEvent[])));
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      const allEvents = await lastValueFrom(events$.pipe(toArray()));
+      const allEvents = await lastValueFrom<ContextAnyEvent[]>(events$.pipe(toArray()));
 
       // Should emit all three LLM events
       expect(allEvents).toHaveLength(3);

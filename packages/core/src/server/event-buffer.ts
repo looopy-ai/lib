@@ -7,7 +7,7 @@
  * Design: design/internal-event-protocol.md (SSE Reconnection section)
  */
 
-import type { AnyEvent } from '../types/event';
+import type { ContextAnyEvent } from '../types/event';
 
 /**
  * Buffered event with metadata
@@ -17,7 +17,7 @@ export interface BufferedEvent {
   id: string;
 
   /** The actual event */
-  event: AnyEvent;
+  event: ContextAnyEvent;
 
   /** Timestamp when buffered (for TTL expiry) */
   timestamp: number;
@@ -74,7 +74,7 @@ export class EventBuffer {
    * @param event - Event to buffer
    * @returns Event ID for this buffered event
    */
-  add(contextId: string, event: AnyEvent): string {
+  add(contextId: string, event: ContextAnyEvent): string {
     // Generate monotonic event ID
     const counter = (this.eventCounters.get(contextId) ?? 0) + 1;
     this.eventCounters.set(contextId, counter);

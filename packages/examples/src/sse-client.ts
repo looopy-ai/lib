@@ -11,7 +11,7 @@
  * - Progress tracking
  */
 
-import type { AnyEvent } from '@looopy-ai/core/ts';
+import type { ContextAnyEvent } from '@looopy-ai/core/ts';
 import { EventSource } from 'eventsource';
 
 // Example 1: Basic SSE Client
@@ -26,7 +26,7 @@ async function basicSSEClient() {
 
   // Handle specific event types
   eventSource.addEventListener('task-created', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log('Task Created:', {
       taskId: data.taskId,
       contextId: data.contextId,
@@ -34,7 +34,7 @@ async function basicSSEClient() {
   });
 
   eventSource.addEventListener('task-status', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log('Status Update:', {
       taskId: data.taskId,
       status: data.kind === 'task-status' ? data.status : 'unknown',
@@ -42,7 +42,7 @@ async function basicSSEClient() {
   });
 
   eventSource.addEventListener('file-write', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log('File Write Event:', {
       taskId: data.taskId,
       artifactId: data.kind === 'file-write' ? data.artifactId : 'unknown',
@@ -82,7 +82,7 @@ async function filteredSSEClient() {
 
   // All events will be from the specified task
   eventSource.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log(`Event (${data.kind}):`, data);
   };
 
@@ -109,7 +109,7 @@ async function reconnectionExample() {
 
   eventSource1.onmessage = (event: MessageEvent) => {
     lastEventId = event.lastEventId;
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log(`Event ${event.lastEventId} (${data.kind})`);
   };
 
@@ -129,7 +129,7 @@ async function reconnectionExample() {
   console.log('Replaying missed events...\n');
 
   eventSource2.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     console.log(`Replayed event ${event.lastEventId} (${data.kind})`);
   };
 
@@ -158,7 +158,7 @@ async function progressTrackingExample() {
   const tasks = new Map<string, TaskProgress>();
 
   eventSource.addEventListener('task-created', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     if (data.kind === 'task-created') {
       tasks.set(data.taskId, {
         taskId: data.taskId,
@@ -171,7 +171,7 @@ async function progressTrackingExample() {
   });
 
   eventSource.addEventListener('task-status', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     if (data.kind === 'task-status') {
       const progress = tasks.get(data.taskId);
       if (progress) {
@@ -183,7 +183,7 @@ async function progressTrackingExample() {
   });
 
   eventSource.addEventListener('tool-complete', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
     if (data.kind === 'tool-complete') {
       const progress = tasks.get(data.taskId);
       if (progress) {
@@ -224,7 +224,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of taskEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as AnyEvent;
+      const data = JSON.parse(event.data) as ContextAnyEvent;
       console.log(`[TASK] ${data.kind}:`, data);
     });
   }
@@ -234,7 +234,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of artifactEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as AnyEvent;
+      const data = JSON.parse(event.data) as ContextAnyEvent;
       console.log(`[ARTIFACT] ${data.kind}:`, data);
     });
   }
@@ -244,7 +244,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of toolEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as AnyEvent;
+      const data = JSON.parse(event.data) as ContextAnyEvent;
       console.log(`[TOOL] ${data.kind}:`, data);
     });
   }
@@ -254,7 +254,7 @@ async function multipleEventTypesExample() {
 
   for (const eventType of internalEvents) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as AnyEvent;
+      const data = JSON.parse(event.data) as ContextAnyEvent;
       console.log(`[INTERNAL] ${data.kind}:`, data);
     });
   }
@@ -288,7 +288,7 @@ async function errorHandlingExample() {
     };
 
     eventSource.onmessage = (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as AnyEvent;
+      const data = JSON.parse(event.data) as ContextAnyEvent;
       console.log(`Event: ${data.kind}`);
     };
 
@@ -323,7 +323,7 @@ async function errorHandlingExample() {
 
 // Example 7: Filtering Internal Events (Client-Side)
 // ===================================================
-async function filterAnyEventsExample() {
+async function filterContextAnyEventsExample() {
   console.log('=== Example 7: Filtering Internal Events (Client-Side) ===\n');
 
   const contextId = 'ctx-user-123';
@@ -334,7 +334,7 @@ async function filterAnyEventsExample() {
   console.log('Receiving ALL events (including internal debug events)...\n');
 
   eventSource.onmessage = (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as AnyEvent;
+    const data = JSON.parse(event.data) as ContextAnyEvent;
 
     // Client-side filtering
     if (data.kind.startsWith('internal:')) {
@@ -370,7 +370,7 @@ async function main() {
     !progressTrackingExample ||
     !multipleEventTypesExample ||
     !errorHandlingExample ||
-    !filterAnyEventsExample
+    !filterContextAnyEventsExample
   ) {
     throw new Error('HACK to avoid unused function errors');
   }
@@ -383,7 +383,7 @@ async function main() {
   // await progressTrackingExample();
   // await multipleEventTypesExample();
   // await errorHandlingExample();
-  // await filterAnyEventsExample();
+  // await filterContextAnyEventsExample();
 
   console.log('\nDone! Uncomment an example in main() to run it.\n');
 }

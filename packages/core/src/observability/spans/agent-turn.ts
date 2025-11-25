@@ -6,7 +6,7 @@
 
 import { type Context, context, type Span, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { AnyEvent } from '../../types/event';
+import type { ContextAnyEvent } from '../../types/event';
 import { SpanAttributes } from '../tracing';
 
 export interface AgentTurnSpanParams {
@@ -41,7 +41,7 @@ export const startAgentTurnSpan = (params: AgentTurnSpanParams) => {
   return {
     span,
     traceContext,
-    tapFinish: tap<AnyEvent>({
+    tapFinish: tap<ContextAnyEvent>({
       next: (event) => {
         switch (event.kind) {
           case 'task-complete':

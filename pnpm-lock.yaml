@@ -111,6 +111,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@geee-be/sse-stream-parser':
+        specifier: ^1.0.1
+        version: 1.0.2
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.0
@@ -154,8 +157,8 @@ importers:
   packages/examples:
     dependencies:
       '@geee-be/sse-stream-parser':
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.0.2
+        version: 1.0.2
       '@hono/node-server':
         specifier: ^1.19.6
         version: 1.19.6(hono@4.10.5)
@@ -1086,6 +1089,9 @@ packages:
 
   '@geee-be/sse-stream-parser@1.0.1':
     resolution: {integrity: sha512-9cK0+AyQFO2lyUa9kUzXBem82XdHYPYkWjnnjshi2b33rjnahv1Ayew+u5A8njDbN7KptkuwhOC+Qhup7VU06g==}
+
+  '@geee-be/sse-stream-parser@1.0.2':
+    resolution: {integrity: sha512-1vTveOE5iyw3EvDKZv2C30Z1OSdZIZAaqgdKnPQaFljxRBjXK7fxxfdoIW+udREuD8pFjE3z2WeRD2zuqgG7Yw==}
 
   '@hono/node-server@1.19.6':
     resolution: {integrity: sha512-Shz/KjlIeAhfiuE93NDKVdZ7HdBVLQAfdbaXEaoAVO3ic9ibRSLGIQGkcBbFyuLr+7/1D5ZCINM8B+6IvXeMtw==}
@@ -5167,6 +5173,8 @@ snapshots:
     optional: true
 
   '@geee-be/sse-stream-parser@1.0.1': {}
+
+  '@geee-be/sse-stream-parser@1.0.2': {}
 
   '@hono/node-server@1.19.6(hono@4.10.5)':
     dependencies:

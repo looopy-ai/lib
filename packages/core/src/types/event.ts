@@ -91,8 +91,6 @@ export interface JSONSchema {
  */
 export interface TaskCreatedEvent {
   kind: 'task-created';
-  contextId: string;
-  taskId: string;
   parentTaskId?: string; // If this is a subtask
   initiator: TaskInitiator;
   timestamp: string; // ISO 8601
@@ -108,8 +106,6 @@ export interface TaskCreatedEvent {
  */
 export interface TaskStatusEvent {
   kind: 'task-status';
-  contextId: string;
-  taskId: string;
   status: TaskStatus;
   message?: string; // Human-readable status message
   timestamp: string;
@@ -125,8 +121,6 @@ export interface TaskStatusEvent {
  */
 export interface TaskCompleteEvent {
   kind: 'task-complete';
-  contextId: string;
-  taskId: string;
   content?: string; // Final text response
   artifacts?: string[]; // Created artifact IDs
   timestamp: string;
@@ -152,8 +146,6 @@ export type TaskLifecycleEvent = TaskCreatedEvent | TaskStatusEvent | TaskComple
  */
 export interface ContentDeltaEvent {
   kind: 'content-delta';
-  contextId: string;
-  taskId: string;
   delta: string; // Text chunk to append
   index: number; // Chunk sequence number (0-based)
   timestamp: string;
@@ -166,8 +158,6 @@ export type FinishReason = 'stop' | 'length' | 'tool_calls' | 'content_filter';
  */
 export interface ContentCompleteEvent {
   kind: 'content-complete';
-  contextId: string;
-  taskId: string;
   content: string; // Full assembled content
   finishReason: FinishReason; // Why generation ended
   toolCalls?: Array<{
@@ -192,8 +182,6 @@ export type ContentStreamingEvent = ContentDeltaEvent | ContentCompleteEvent;
  */
 export interface ToolCallEvent {
   kind: 'tool-call';
-  contextId: string;
-  taskId: string;
   toolCallId: string; // Unique ID for this tool invocation
   toolName: string;
   arguments: Record<string, unknown>;
@@ -208,8 +196,6 @@ export interface ToolCallEvent {
  */
 export interface ToolStartEvent {
   kind: 'tool-start';
-  contextId: string;
-  taskId: string;
   toolCallId: string; // Unique ID for this tool invocation
   icon?: string;
   toolName: string;
@@ -227,8 +213,6 @@ export interface ToolStartEvent {
  */
 export interface ToolProgressEvent {
   kind: 'tool-progress';
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   icon?: string;
   progress: number; // 0.0 to 1.0
@@ -247,8 +231,6 @@ export interface ToolProgressEvent {
  */
 export interface ToolCompleteEvent {
   kind: 'tool-complete';
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   icon?: string;
   toolName: string;
@@ -282,8 +264,6 @@ export type ToolExecutionEvent =
  */
 export interface InputRequiredEvent {
   kind: 'input-required';
-  contextId: string;
-  taskId: string;
   inputId: string; // Unique ID for this input request
   requireUser?: boolean; // If true, MUST go to user; if false/undefined, coordinator can handle
   inputType: InputType;
@@ -304,8 +284,6 @@ export interface InputRequiredEvent {
  */
 export interface InputReceivedEvent {
   kind: 'input-received';
-  contextId: string;
-  taskId: string;
   inputId: string; // Matches input-required.inputId
   providedBy: InputProvider;
   userId?: string; // If providedBy='user', which user
@@ -331,8 +309,6 @@ export type InputRequestEvent = InputRequiredEvent | InputReceivedEvent;
  */
 export interface AuthRequiredEvent {
   kind: 'auth-required';
-  contextId: string;
-  taskId: string;
   authId: string; // Unique ID for this auth request
   authType: AuthType;
   provider?: string; // e.g., 'google', 'github', 'stripe'
@@ -351,8 +327,6 @@ export interface AuthRequiredEvent {
  */
 export interface AuthCompletedEvent {
   kind: 'auth-completed';
-  contextId: string;
-  taskId: string;
   authId: string; // Matches auth-required.authId
   userId: string; // Which user completed authentication
   timestamp: string;
@@ -377,8 +351,6 @@ export type AuthenticationEvent = AuthRequiredEvent | AuthCompletedEvent;
  */
 export interface FileWriteEvent {
   kind: 'file-write';
-  contextId: string;
-  taskId: string;
   artifactId: string;
   data: string; // Text or base64-encoded binary chunk
   index: number; // Chunk sequence (0-based)
@@ -403,8 +375,6 @@ export interface FileWriteEvent {
  */
 export interface DataWriteEvent {
   kind: 'data-write';
-  contextId: string;
-  taskId: string;
   artifactId: string;
   name?: string; // Artifact name
   description?: string; // Description
@@ -423,8 +393,6 @@ export interface DataWriteEvent {
  */
 export interface DatasetWriteEvent {
   kind: 'dataset-write';
-  contextId: string;
-  taskId: string;
   artifactId: string;
   rows: Record<string, unknown>[]; // Batch of rows
   index: number; // Batch sequence (0-based)
@@ -458,8 +426,6 @@ export type ArtifactEvent = FileWriteEvent | DataWriteEvent | DatasetWriteEvent;
  */
 export interface SubtaskCreatedEvent {
   kind: 'subtask-created';
-  contextId: string;
-  taskId: string; // Parent task
   subtaskId: string; // New subtask ID
   agentId?: string; // Which sub-agent
   prompt: string; // What was requested
@@ -480,8 +446,6 @@ export type SubAgentEvent = SubtaskCreatedEvent;
  */
 export interface ThoughtStreamEvent {
   kind: 'thought-stream';
-  contextId: string;
-  taskId: string;
   thoughtId: string; // Unique ID for this thought
   thoughtType: ThoughtType;
   verbosity: ThoughtVerbosity; // Granularity level of this thought
@@ -502,8 +466,6 @@ export interface ThoughtStreamEvent {
  */
 export interface InternalThoughtProcessEvent {
   kind: 'internal:thought-process';
-  contextId: string;
-  taskId: string;
   iteration: number; // Which iteration in the loop
   stage: 'pre-llm' | 'post-llm' | 'pre-tool' | 'post-tool';
   reasoning: string; // Internal reasoning
@@ -520,8 +482,6 @@ export interface InternalThoughtProcessEvent {
  */
 export interface InternalLLMCallEvent {
   kind: 'internal:llm-call';
-  contextId: string;
-  taskId: string;
   iteration: number; // Which iteration in loop
   messageCount: number;
   toolCount: number;
@@ -533,8 +493,6 @@ export interface InternalLLMCallEvent {
  */
 export interface InternalToolMessageEvent {
   kind: 'internal:tool-message';
-  contextId: string;
-  taskId: string;
   message: SystemMessage;
   timestamp: string;
 }
@@ -544,8 +502,6 @@ export interface InternalToolMessageEvent {
  */
 export interface InternalCheckpointEvent {
   kind: 'internal:checkpoint';
-  contextId: string;
-  taskId: string;
   iteration: number;
   timestamp: string;
 }
@@ -555,8 +511,6 @@ export interface InternalCheckpointEvent {
  */
 export interface InternalToolStartEvent {
   kind: 'internal:tool-start';
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   toolName: string;
   timestamp: string;
@@ -567,8 +521,6 @@ export interface InternalToolStartEvent {
  */
 export interface InternalToolCompleteEvent {
   kind: 'internal:tool-complete';
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   toolName: string;
   success: boolean;
@@ -596,8 +548,6 @@ export type InternalDebugEvent =
  */
 export interface LLMUsageEvent {
   kind: 'llm-usage';
-  contextId: string;
-  taskId: string;
   model: string;
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -630,8 +580,6 @@ export type UsageEvent = LLMUsageEvent;
  */
 export interface MessageEvent {
   kind: 'message';
-  contextId: string;
-  taskId: string;
   message: Message;
   timestamp: string;
 }
@@ -649,7 +597,15 @@ export type AnyEvent =
   | UsageEvent
   | MessageEvent;
 
-export type LLMEvent<T> = Omit<T, 'contextId' | 'taskId'>;
+/**
+ * Adds context/task identifiers to an event shape.
+ */
+export type ContextEvent<T> = T & {
+  contextId: string;
+  taskId: string;
+};
+
+export type ContextAnyEvent = ContextEvent<AnyEvent>;
 
 /**
  * External events (sent to clients)

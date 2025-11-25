@@ -1,5 +1,5 @@
 import type { Observable } from 'rxjs';
-import type { AnyEvent, LLMEvent } from './event';
+import type { AnyEvent } from './event';
 import type { Message } from './message';
 import type { ToolCall, ToolDefinition } from './tools';
 
@@ -12,7 +12,7 @@ export interface LLMProvider {
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
-  }): Observable<LLMEvent<AnyEvent>>;
+  }): Observable<AnyEvent>;
 }
 
 /**

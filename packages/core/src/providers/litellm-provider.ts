@@ -21,7 +21,6 @@ import type {
   ContentCompleteEvent,
   ContentDeltaEvent,
   FinishReason,
-  LLMEvent,
   LLMUsageEvent,
   ThoughtStreamEvent,
   ThoughtType,
@@ -190,7 +189,7 @@ export class LiteLLMProvider implements LLMProvider {
     messages: Message[];
     tools?: ToolDefinition[];
     sessionId?: string;
-  }): Observable<LLMEvent<AnyEvent>> {
+  }): Observable<AnyEvent> {
     const rawStream$ = this.createSSEStream(request);
 
     // Log raw chunks if debug logging is enabled
@@ -212,7 +211,7 @@ export class LiteLLMProvider implements LLMProvider {
     let contentIndex = 0;
     const contentDeltas$ = content.pipe(
       map(
-        (delta): LLMEvent<ContentDeltaEvent> => ({
+        (delta): ContentDeltaEvent => ({
           kind: 'content-delta',
           delta,
           index: contentIndex++,
@@ -238,7 +237,7 @@ export class LiteLLMProvider implements LLMProvider {
           'strategizing',
         ].includes(tag.name),
       ),
-      map((tag): LLMEvent<ThoughtStreamEvent> => {
+      map((tag): ThoughtStreamEvent => {
         const thoughtType =
           (singleString(
             tag.attributes.thoughtType || tag.attributes.thought_type || tag.name,
@@ -267,7 +266,7 @@ export class LiteLLMProvider implements LLMProvider {
     // Aggregate final response with tool calls
     const contentComplete$ = choices$.pipe(
       aggregateChoice<Choice>(),
-      map((aggregated): LLMEvent<ContentCompleteEvent> => {
+      map((aggregated): ContentCompleteEvent => {
         // Assemble complete content
         const content = aggregated.delta?.content || '';
 
@@ -300,7 +299,7 @@ export class LiteLLMProvider implements LLMProvider {
     const usageComplete$ = usage$.pipe(
       aggregateLLMUsage(),
       map(
-        (usage): LLMEvent<LLMUsageEvent> => ({
+        (usage): LLMUsageEvent => ({
           kind: 'llm-usage' as const,
           model: this.config.model,
           ...usage,
@@ -314,7 +313,7 @@ export class LiteLLMProvider implements LLMProvider {
       filter((event) => event.finishReason === 'tool_calls'),
       mergeMap(
         (event) =>
-          event.toolCalls?.map<LLMEvent<ToolCallEvent>>((tc) => ({
+          event.toolCalls?.map<ToolCallEvent>((tc) => ({
             kind: 'tool-call',
             toolCallId: tc.id,
             toolName: tc.function.name,
@@ -372,7 +371,7 @@ export class LiteLLMProvider implements LLMProvider {
   /**
    * Debug logging operator - logs events to file if debugLogPath is configured
    */
-  private debugLog<T extends LLMEvent<AnyEvent>>(
+  private debugLog<T extends AnyEvent>(
     eventType: string,
   ): (source: Observable<T>) => Observable<T> {
     if (!this.config.debugLogPath) {

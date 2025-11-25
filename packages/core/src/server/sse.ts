@@ -7,7 +7,7 @@
  * Design: design/internal-event-protocol.md (SSE Server section)
  */
 
-import type { AnyEvent } from '../types/event';
+import type { ContextAnyEvent } from '../types/event';
 import { EventBuffer, type EventBufferConfig } from './event-buffer';
 import { EventRouter, type Subscriber, type SubscriptionConfig } from './event-router';
 
@@ -93,7 +93,7 @@ export class SSEConnection implements Subscriber {
    * @param event - Event to send
    * @param eventId - Event ID for reconnection
    */
-  send(event: AnyEvent, eventId: string): void {
+  send(event: ContextAnyEvent, eventId: string): void {
     if (this.closed) {
       return;
     }
@@ -289,7 +289,7 @@ export class SSEServer {
    * @param event - Event to emit
    * @returns Number of subscribers that received the event
    */
-  emit(contextId: string, event: AnyEvent): number {
+  emit(contextId: string, event: ContextAnyEvent): number {
     // Buffer event if enabled
     let eventId = '';
     if (this.buffer) {

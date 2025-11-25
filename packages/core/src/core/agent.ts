@@ -27,7 +27,7 @@ import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
 import type { AuthContext } from '../types/context';
-import type { AnyEvent } from '../types/event';
+import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
@@ -224,7 +224,7 @@ export class Agent {
       authContext?: AuthContext;
       taskId?: string;
     },
-  ): Promise<Observable<AnyEvent>> {
+  ): Promise<Observable<ContextAnyEvent>> {
     const turnNumber = this._state.turnCount + 1;
 
     // Generate taskId if not provided
@@ -358,12 +358,12 @@ export class Agent {
     turnSpan: import('@opentelemetry/api').Span,
     turnContext: import('@opentelemetry/api').Context,
     logger: pino.Logger,
-  ): Observable<AnyEvent> {
+  ): Observable<ContextAnyEvent> {
     const turnNumber = this._state.turnCount + 1;
 
     return concat(
       // Load messages, execute turn, save results
-      new Observable<AnyEvent>((observer) => {
+      new Observable<ContextAnyEvent>((observer) => {
         const execute = async () => {
           try {
             // 1. Load conversation history
@@ -461,7 +461,7 @@ export class Agent {
 
             // Subscribe to turn events
             turnEvents$.subscribe({
-              next: (event: AnyEvent) => {
+              next: (event: ContextAnyEvent) => {
                 // Forward events to observer
                 observer.next(event);
               },

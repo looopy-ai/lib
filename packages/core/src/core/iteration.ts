@@ -1,7 +1,7 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
 import type { SkillRegistry } from '../skills';
-import type { AnyEvent, ToolCallEvent } from '../types/event';
+import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
@@ -74,7 +74,7 @@ export const runIteration = (
   context: LoopContext,
   config: IterationConfig,
   history: Message[],
-): Observable<AnyEvent> => {
+): Observable<ContextAnyEvent> => {
   const logger = context.logger.child({
     component: 'iteration',
     iteration: config.iterationNumber,
@@ -105,15 +105,14 @@ export const runIteration = (
           sessionId: context.taskId,
         })
         .pipe(
-          map(
-            (event): AnyEvent =>
-              ({
-                contextId: context.contextId,
-                taskId: context.taskId,
-                ...event,
-              }) as AnyEvent,
-          ),
           finishLLMCallSpan,
+          map<AnyEvent, ContextAnyEvent>(
+            (event): ContextAnyEvent => ({
+              contextId: context.contextId,
+              taskId: context.taskId,
+              ...event,
+            }),
+          ),
         );
     }),
     shareReplay({ refCount: true }),
@@ -121,7 +120,7 @@ export const runIteration = (
 
   // If tool call, execute tools
   const toolEvents$ = llmEvents$.pipe(
-    filter((event): event is ToolCallEvent => event.kind === 'tool-call'),
+    filter((event): event is ContextEvent<ToolCallEvent> => event.kind === 'tool-call'),
     mergeMap((event) =>
       runToolCall(
         {

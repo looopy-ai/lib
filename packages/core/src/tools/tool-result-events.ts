@@ -1,13 +1,18 @@
 import { concat, EMPTY, from, type Observable, of } from 'rxjs';
 import type { ExecutionContext } from '../types/context';
-import type { AnyEvent, InternalToolMessageEvent, ToolCompleteEvent } from '../types/event';
+import type {
+  ContextAnyEvent,
+  ContextEvent,
+  InternalToolMessageEvent,
+  ToolCompleteEvent,
+} from '../types/event';
 import type { ToolCall, ToolResult } from '../types/tools';
 
 export const toolErrorEvent = (
   context: ExecutionContext,
   toolCall: ToolCall,
   errorMessage: string,
-): ToolCompleteEvent => ({
+): ContextEvent<ToolCompleteEvent> => ({
   kind: 'tool-complete',
   contextId: context.contextId,
   taskId: context.taskId,
@@ -23,8 +28,8 @@ export const toolResultToEvents = (
   context: ExecutionContext,
   _toolCall: ToolCall,
   result: ToolResult,
-): Observable<AnyEvent> => {
-  const toolCompleteEvent: ToolCompleteEvent = {
+): Observable<ContextAnyEvent> => {
+  const toolCompleteEvent: ContextEvent<ToolCompleteEvent> = {
     kind: 'tool-complete',
     contextId: context.contextId,
     taskId: context.taskId,
@@ -36,7 +41,7 @@ export const toolResultToEvents = (
     timestamp: new Date().toISOString(),
   };
 
-  const messageEvents: InternalToolMessageEvent[] =
+  const messageEvents: ContextEvent<InternalToolMessageEvent>[] =
     result.messages?.map((message) => ({
       kind: 'internal:tool-message',
       contextId: context.contextId,

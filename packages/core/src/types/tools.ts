@@ -9,7 +9,7 @@
 import type { Observable } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from './context';
-import type { AnyEvent } from './event';
+import type { ContextAnyEvent } from './event';
 import type { SystemMessage } from './message';
 
 /**
@@ -162,5 +162,5 @@ export type ToolProvider = {
   /**
    * Execute a tool call
    */
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<AnyEvent>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
 };

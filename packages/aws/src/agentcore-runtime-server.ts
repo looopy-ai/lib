@@ -4,7 +4,7 @@ import {
   getLogger,
   type ShutdownManager,
   SSEServer,
-} from '@looopy-ai/core';
+} from '@looopy-ai/core/ts';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';

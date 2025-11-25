@@ -9,7 +9,7 @@ import { createTaskCreatedEvent, createTaskStatusEvent } from '../src/events';
 import { EventBuffer } from '../src/server/event-buffer';
 import { EventRouter, type Subscriber } from '../src/server/event-router';
 import { SSEConnection, type SSEResponse, SSEServer } from '../src/server/sse';
-import type { AnyEvent } from '../src/types/event';
+import type { ContextAnyEvent } from '../src/types/event';
 
 // Mock SSE Response
 class MockSSEResponse implements SSEResponse {
@@ -60,8 +60,8 @@ class MockSSEResponse implements SSEResponse {
     }
   }
 
-  getEvents(): Array<{ kind: string; data: AnyEvent }> {
-    const events: Array<{ kind: string; data: AnyEvent }> = [];
+  getEvents(): Array<{ kind: string; data: ContextAnyEvent }> {
+    const events: Array<{ kind: string; data: ContextAnyEvent }> = [];
     let currentEvent: { kind?: string; data?: string } = {};
 
     for (const chunk of this.chunks) {
@@ -306,7 +306,7 @@ describe('EventRouter', () => {
   it('should filter internal events by default', () => {
     router.subscribe(mockSubscriber);
 
-    const internalEvent: AnyEvent = {
+    const internalEvent: ContextAnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',
@@ -332,7 +332,7 @@ describe('EventRouter', () => {
 
     router.subscribe(noFilterSubscriber);
 
-    const internalEvent: AnyEvent = {
+    const internalEvent: ContextAnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',
@@ -641,7 +641,7 @@ describe('SSEServer', () => {
       taskId: 'task-1',
       initiator: 'user',
     });
-    const internalEvent: AnyEvent = {
+    const internalEvent: ContextAnyEvent = {
       kind: 'internal:llm-call',
       contextId: 'ctx-1',
       taskId: 'task-1',

@@ -1,7 +1,12 @@
 import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
-import type { AnyEvent, ToolCallEvent, ToolExecutionEvent } from '../types/event';
+import type {
+  ContextAnyEvent,
+  ContextEvent,
+  ToolCallEvent,
+  ToolExecutionEvent,
+} from '../types/event';
 import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 import type { IterationContext } from './types';
 
@@ -56,8 +61,8 @@ import type { IterationContext } from './types';
  */
 export const runToolCall = (
   context: IterationContext,
-  toolCall: ToolCallEvent,
-): Observable<AnyEvent> => {
+  toolCall: ContextEvent<ToolCallEvent>,
+): Observable<ContextAnyEvent> => {
   const logger = context.logger.child({
     component: 'tool-call',
     toolCallId: toolCall.toolCallId,
@@ -87,7 +92,7 @@ export const runToolCall = (
     );
 
     // Create tool-start event
-    const toolStartEvent: ToolExecutionEvent = {
+    const toolStartEvent: ContextEvent<ToolExecutionEvent> = {
       kind: 'tool-start',
       contextId: context.contextId,
       taskId: context.taskId,
@@ -135,7 +140,7 @@ export const runToolCall = (
               },
               'Tool execution error',
             );
-            return of<AnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+            return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
           }),
         );
       } catch (error) {
@@ -148,10 +153,10 @@ export const runToolCall = (
           },
           'Tool execution error',
         );
-        return of<AnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+        return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
       }
     });
 
-    return concat(of<AnyEvent>(toolStartEvent), execution$);
+    return concat(of<ContextAnyEvent>(toolStartEvent), execution$);
   }).pipe(mergeMap((obs) => obs));
 };

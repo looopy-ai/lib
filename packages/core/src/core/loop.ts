@@ -1,7 +1,7 @@
 import { concat, EMPTY, mergeMap, of, reduce, shareReplay } from 'rxjs';
 import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
 import { startAgentLoopSpan } from '../observability/spans';
-import type { AnyEvent, ContentCompleteEvent } from '../types/event';
+import type { ContentCompleteEvent, ContextAnyEvent, ContextEvent } from '../types/event';
 import type { Message } from '../types/message';
 import { recursiveMerge } from '../utils/recursive-merge';
 import { runIteration } from './iteration';
@@ -123,7 +123,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
   // Build a final task-complete event from the last content-complete event
   const finalSummary$ = merged$.pipe(
     // Accumulate the last seen content-complete event (if any)
-    reduce<AnyEvent, ContentCompleteEvent | null>(
+    reduce<ContextAnyEvent, ContextEvent<ContentCompleteEvent> | null>(
       (last, e) => (e.kind === 'content-complete' ? e : last),
       null,
     ),
@@ -186,7 +186,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
  * - Tool complete creates tool message with stringified result or error
  * - Messages are in correct order for LLM consumption
  */
-const eventsToMessages = (events: AnyEvent[]): Message[] => {
+const eventsToMessages = (events: ContextAnyEvent[]): Message[] => {
   const messages: Message[] = [];
   for (const event of events) {
     switch (event.kind) {
