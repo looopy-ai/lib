@@ -6,6 +6,7 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
+import type { ToolDefinition } from '../..';
 import type { LoopContext } from '../../core/types';
 import type { AnyEvent } from '../../types/event';
 import type { Message } from '../../types/message';
@@ -26,6 +27,7 @@ export const startLLMCallSpan = (
   context: LoopContext,
   systemPrompt: SystemPrompt | undefined,
   messages: Message[],
+  tools: ToolDefinition[],
 ) => {
   const tracer = trace.getTracer('looopy');
 
@@ -39,6 +41,7 @@ export const startLLMCallSpan = (
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
         [SpanAttributes.LANGFUSE_PROMPT_NAME]: systemPrompt?.name,
         [SpanAttributes.LANGFUSE_PROMPT_VERSION]: systemPrompt?.version,
+        'tools.available': tools.map((t) => t.name),
       },
     },
     context.parentContext,

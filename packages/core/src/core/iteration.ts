@@ -1,12 +1,12 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
+import type { SkillRegistry } from '../skills';
 import type { AnyEvent, ToolCallEvent } from '../types/event';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
 import { runToolCall } from './tools';
 import type { IterationConfig, LoopContext } from './types';
-import { SkillRegistry } from '../skills';
 
 /**
  * Execute a single agent loop iteration with LLM call and tool execution
@@ -95,6 +95,7 @@ export const runIteration = (
         { ...context, parentContext: iterationContext },
         systemPrompt,
         messages,
+        tools,
       );
       return config.llmProvider
         .call({
