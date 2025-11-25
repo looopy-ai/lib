@@ -8,6 +8,7 @@
  * Design Reference: design/tool-integration.md#client-tool-provider
  */
 
+import { catchError, defer, mergeMap, of } from 'rxjs';
 import type { ExecutionContext } from '../types/context';
 import {
   type ToolCall,
@@ -16,6 +17,7 @@ import {
   type ToolResult,
   validateToolDefinitions,
 } from '../types/tools';
+import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
 export interface ClientToolConfig {
   /**
@@ -85,42 +87,54 @@ export class ClientToolProvider implements ToolProvider {
    * 3. Client sends the result back via tasks/resume or message/stream continuation
    * 4. Agent continues with the tool result
    */
-  async execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> {
-    const tool = await this.getTool(toolCall.function.name);
-    if (!tool) {
-      return {
-        toolCallId: toolCall.id,
-        toolName: toolCall.function.name,
-        success: false,
-        result: null,
-        error: `Tool ${toolCall.function.name} not found in client tools`,
-      };
-    }
-
-    try {
-      // Validate arguments are valid JSON
-      if (typeof toolCall.function.arguments !== 'object' || toolCall.function.arguments === null) {
+  execute(toolCall: ToolCall, context: ExecutionContext) {
+    return defer(async () => {
+      const tool = await this.getTool(toolCall.function.name);
+      if (!tool) {
         return {
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: false,
           result: null,
-          error: `Invalid tool arguments: must be an object.`,
-        };
+          error: `Tool ${toolCall.function.name} not found in client tools`,
+        } satisfies ToolResult;
       }
 
-      // Delegate to client via callback
-      const result = await this.onInputRequired(toolCall, context);
-      return result;
-    } catch (error) {
-      return {
-        toolCallId: toolCall.id,
-        toolName: toolCall.function.name,
-        success: false,
-        result: null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+      try {
+        // Validate arguments are valid JSON
+        if (
+          typeof toolCall.function.arguments !== 'object' ||
+          toolCall.function.arguments === null
+        ) {
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: false,
+            result: null,
+            error: `Invalid tool arguments: must be an object.`,
+          } satisfies ToolResult;
+        }
+
+        // Delegate to client via callback
+        const result = await this.onInputRequired(toolCall, context);
+        return result;
+      } catch (error) {
+        return {
+          toolCallId: toolCall.id,
+          toolName: toolCall.function.name,
+          success: false,
+          result: null,
+          error: error instanceof Error ? error.message : String(error),
+        } satisfies ToolResult;
+      }
+    }).pipe(
+      mergeMap((result) => toolResultToEvents(context, toolCall, result)),
+      catchError((error) =>
+        of(
+          toolErrorEvent(context, toolCall, error instanceof Error ? error.message : String(error)),
+        ),
+      ),
+    );
   }
 
   /**

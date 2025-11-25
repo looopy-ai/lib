@@ -5,6 +5,7 @@
  */
 
 import { context } from '@opentelemetry/api';
+import { lastValueFrom, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExecutionContext } from '../types/context';
 import type { ToolCall } from '../types/tools';
@@ -132,7 +133,12 @@ describe('McpToolProvider', () => {
       },
     };
 
-    const result = await provider.execute(toolCall, mockContext);
+    const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    const result = events[0];
+
+    expect(result).toBeDefined();
+    expect(result.kind).toBe('tool-complete');
+    if (result.kind !== 'tool-complete') return;
 
     expect(result.success).toBe(true);
     expect(result.result).toBe('file content');
@@ -167,7 +173,12 @@ describe('McpToolProvider', () => {
       },
     };
 
-    const result = await provider.execute(toolCall, mockContext);
+    const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    const result = events[0];
+
+    expect(result).toBeDefined();
+    expect(result.kind).toBe('tool-complete');
+    if (result.kind !== 'tool-complete') return;
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('File not found');
@@ -254,7 +265,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    await provider.execute(toolCall, mockContext);
+    await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
 
     const fetchOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(fetchOptions.headers).toEqual({
@@ -289,7 +300,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    await provider.execute(toolCall, mockContext);
+    await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
 
     const fetchOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(fetchOptions.headers).toEqual({

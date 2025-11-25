@@ -6,9 +6,11 @@
  * Design Reference: design/tool-integration.md#local-tool-provider
  */
 
+import { catchError, defer, mergeMap, of } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from '../types/context';
 import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
+import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
 type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
 
@@ -140,56 +142,68 @@ export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvi
       };
     },
 
-    execute: async (toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> => {
-      const toolDef = toolMap.get(toolCall.function.name);
+    execute: (toolCall: ToolCall, context: ExecutionContext) =>
+      defer(async () => {
+        const toolDef = toolMap.get(toolCall.function.name);
 
-      if (!toolDef) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: false,
-          result: null,
-          error: `Tool ${toolCall.function.name} not found`,
-        };
-      }
-
-      try {
-        // Arguments should be an object, not a string. If a provider delivers a string, it should parse it before calling this.
-        const validatedParams = toolDef.schema.parse(toolCall.function.arguments);
-
-        // Execute handler with validated params
-        const result = await toolDef.handler(validatedParams, context);
-
-        return {
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: result.success,
-          error: result.error,
-          result: result.result,
-          messages: result.messages,
-        };
-      } catch (error) {
-        // Handle Zod validation errors
-        if (error instanceof z.ZodError) {
+        if (!toolDef) {
           return {
             toolCallId: toolCall.id,
             toolName: toolCall.function.name,
             success: false,
             result: null,
-            error: `Invalid arguments: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
-          };
+            error: `Tool ${toolCall.function.name} not found`,
+          } satisfies ToolResult;
         }
 
-        // Handle execution errors
-        const err = error instanceof Error ? error : new Error(String(error));
-        return {
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: false,
-          result: null,
-          error: err.message,
-        };
-      }
-    },
+        try {
+          // Arguments should be an object, not a string. If a provider delivers a string, it should parse it before calling this.
+          const validatedParams = toolDef.schema.parse(toolCall.function.arguments);
+
+          // Execute handler with validated params
+          const result = await toolDef.handler(validatedParams, context);
+
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: result.success,
+            error: result.error,
+            result: result.result,
+            messages: result.messages,
+          } satisfies ToolResult;
+        } catch (error) {
+          // Handle Zod validation errors
+          if (error instanceof z.ZodError) {
+            return {
+              toolCallId: toolCall.id,
+              toolName: toolCall.function.name,
+              success: false,
+              result: null,
+              error: `Invalid arguments: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
+            } satisfies ToolResult;
+          }
+
+          // Handle execution errors
+          const err = error instanceof Error ? error : new Error(String(error));
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: false,
+            result: null,
+            error: err.message,
+          } satisfies ToolResult;
+        }
+      }).pipe(
+        mergeMap((result) => toolResultToEvents(context, toolCall, result)),
+        catchError((error) =>
+          of(
+            toolErrorEvent(
+              context,
+              toolCall,
+              error instanceof Error ? error.message : String(error),
+            ),
+          ),
+        ),
+      ),
   };
 }

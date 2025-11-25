@@ -101,7 +101,8 @@ export type ToolProvider = {
   readonly name: string;
   getTool(toolName: string): Promise<ToolDefinition | undefined>;
   getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
-  executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Observable<AnyEvent>;
 };
 ```
+
+`execute` should emit an RxJS `Observable` of `AnyEvent` values (typically `tool-complete` and any related tool message events).

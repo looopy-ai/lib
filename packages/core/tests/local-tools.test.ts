@@ -1,5 +1,6 @@
 import { context } from '@opentelemetry/api';
 import { evaluate } from 'mathjs';
+import { lastValueFrom, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { localTools, tool } from '../src/tools/local-tools';
@@ -329,6 +330,12 @@ describe('local-tools', () => {
         agentId: 'test-agent',
         parentContext: context.active(),
       };
+      type LocalProvider = ReturnType<typeof localTools>;
+      type LocalToolCall = Parameters<LocalProvider['execute']>[0];
+      const getFirstEvent = async (provider: LocalProvider, toolCall: LocalToolCall) => {
+        const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+        return events[0];
+      };
 
       it('should execute tool with valid arguments', async () => {
         const addTool = tool({
@@ -342,17 +349,18 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([addTool]);
-        const result = await provider.execute(
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'add',
-              arguments: { a: 5, b: 3 },
-            },
+        const result = await getFirstEvent(provider, {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'add',
+            arguments: { a: 5, b: 3 },
           },
-          mockContext,
-        );
+        });
+
+        expect(result).toBeDefined();
+        expect(result.kind).toBe('tool-complete');
+        if (result.kind !== 'tool-complete') return;
 
         expect(result.success).toBe(true);
         expect(result.result).toBe(8);
@@ -372,48 +380,54 @@ describe('local-tools', () => {
         const provider = localTools([strictTool]);
 
         // Valid arguments
-        const validResult = await provider.execute(
-          {
-            id: 'call-2',
-            type: 'function',
-            function: {
-              name: 'strict',
-              arguments: { email: 'test@example.com', age: 25 },
-            },
+        const validResult = await getFirstEvent(provider, {
+          id: 'call-2',
+          type: 'function',
+          function: {
+            name: 'strict',
+            arguments: { email: 'test@example.com', age: 25 },
           },
-          mockContext,
-        );
+        });
+
+        expect(validResult).toBeDefined();
+        expect(validResult.kind).toBe('tool-complete');
+        if (validResult.kind !== 'tool-complete') return;
+
         expect(validResult.success).toBe(true);
 
         // Invalid email
-        const invalidEmailResult = await provider.execute(
-          {
-            id: 'call-3',
-            type: 'function',
-            function: {
-              name: 'strict',
-              arguments: { email: 'not-an-email', age: 25 },
-            },
+        const invalidEmailResult = await getFirstEvent(provider, {
+          id: 'call-3',
+          type: 'function',
+          function: {
+            name: 'strict',
+            arguments: { email: 'not-an-email', age: 25 },
           },
-          mockContext,
-        );
+        });
+
+        expect(invalidEmailResult).toBeDefined();
+        expect(invalidEmailResult.kind).toBe('tool-complete');
+        if (invalidEmailResult.kind !== 'tool-complete') return;
+
         expect(invalidEmailResult.success).toBe(false);
         expect(invalidEmailResult.error).toContain('Invalid arguments');
 
         // Invalid age (negative)
-        const invalidAgeResult = await provider.execute(
-          {
-            id: 'call-4',
-            type: 'function',
-            function: {
-              name: 'strict',
-              arguments: { email: 'test@example.com', age: -1 },
-            },
+        const invalidAgeResult = await getFirstEvent(provider, {
+          id: 'call-4',
+          type: 'function',
+          function: {
+            name: 'strict',
+            arguments: { email: 'test@example.com', age: -1 },
           },
-          mockContext,
-        );
-        expect(invalidAgeResult.success).toBe(false);
-        expect(invalidAgeResult.error).toContain('Too small');
+        });
+
+        expect(invalidAgeResult).toBeDefined();
+        expect(invalidAgeResult.kind).toBe('tool-complete');
+        if (invalidAgeResult.kind !== 'tool-complete') return;
+
+        expect(invalidAgeResult?.success).toBe(false);
+        expect(invalidAgeResult?.error).toContain('Too small');
       });
 
       it('should handle JSON parse errors', async () => {
@@ -425,18 +439,19 @@ describe('local-tools', () => {
         });
         const provider = localTools([testTool]);
 
-        const result = await provider.execute(
-          {
-            id: 'call-5',
-            type: 'function',
-            function: {
-              name: 'test',
-              // biome-ignore lint/suspicious/noExplicitAny: simulate invalid for testing
-              arguments: null as any, // simulate invalid
-            },
+        const result = await getFirstEvent(provider, {
+          id: 'call-5',
+          type: 'function',
+          function: {
+            name: 'test',
+            // biome-ignore lint/suspicious/noExplicitAny: simulate invalid for testing
+            arguments: null as any, // simulate invalid
           },
-          mockContext,
-        );
+        });
+
+        expect(result).toBeDefined();
+        expect(result.kind).toBe('tool-complete');
+        if (result.kind !== 'tool-complete') return;
 
         expect(result.success).toBe(false);
         expect(result.error).toContain('Invalid arguments');
@@ -453,17 +468,18 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([errorTool]);
-        const result = await provider.execute(
-          {
-            id: 'call-6',
-            type: 'function',
-            function: {
-              name: 'error',
-              arguments: {},
-            },
+        const result = await getFirstEvent(provider, {
+          id: 'call-6',
+          type: 'function',
+          function: {
+            name: 'error',
+            arguments: {},
           },
-          mockContext,
-        );
+        });
+
+        expect(result).toBeDefined();
+        expect(result.kind).toBe('tool-complete');
+        if (result.kind !== 'tool-complete') return;
 
         expect(result.success).toBe(false);
         expect(result.error).toContain('Test error');
@@ -478,17 +494,18 @@ describe('local-tools', () => {
         });
         const provider = localTools([testTool]);
 
-        const result = await provider.execute(
-          {
-            id: 'call-7',
-            type: 'function',
-            function: {
-              name: 'unknown',
-              arguments: {},
-            },
+        const result = await getFirstEvent(provider, {
+          id: 'call-7',
+          type: 'function',
+          function: {
+            name: 'unknown',
+            arguments: {},
           },
-          mockContext,
-        );
+        });
+
+        expect(result).toBeDefined();
+        expect(result.kind).toBe('tool-complete');
+        if (result.kind !== 'tool-complete') return;
 
         expect(result.success).toBe(false);
         expect(result.error).toContain('Tool unknown not found');
@@ -508,17 +525,14 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([contextTool]);
-        await provider.execute(
-          {
-            id: 'call-8',
-            type: 'function',
-            function: {
-              name: 'context-test',
-              arguments: {},
-            },
+        await getFirstEvent(provider, {
+          id: 'call-8',
+          type: 'function',
+          function: {
+            name: 'context-test',
+            arguments: {},
           },
-          mockContext,
-        );
+        });
 
         expect(receivedContext).toEqual(mockContext);
       });
@@ -539,17 +553,18 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([complexTool]);
-        const result = await provider.execute(
-          {
-            id: 'call-9',
-            type: 'function',
-            function: {
-              name: 'complex',
-              arguments: {},
-            },
+        const result = await getFirstEvent(provider, {
+          id: 'call-9',
+          type: 'function',
+          function: {
+            name: 'complex',
+            arguments: {},
           },
-          mockContext,
-        );
+        });
+
+        expect(result).toBeDefined();
+        expect(result.kind).toBe('tool-complete');
+        if (result.kind !== 'tool-complete') return;
 
         expect(result.success).toBe(true);
         expect(result.result).toEqual({

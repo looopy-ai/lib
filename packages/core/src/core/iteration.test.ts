@@ -151,7 +151,7 @@ describe('iteration', () => {
 
       const mockToolProvider: ToolProvider = {
         name: 'mock-provider',
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [mockTool]),
       };
@@ -278,12 +278,7 @@ describe('iteration', () => {
         name: 'mock-provider',
         getTool: vi.fn(async (name: string) => (name === 'test_tool' ? toolDefinition : undefined)),
         getTools: vi.fn(async () => [toolDefinition]),
-        execute: vi.fn(async () => ({
-          toolCallId: 'call-123',
-          toolName: 'test_tool',
-          success: true,
-          result: 'tool result',
-        })),
+        execute: vi.fn(() => of()),
       };
       mockContext.toolProviders = [mockProvider];
 
@@ -379,14 +374,14 @@ describe('iteration', () => {
 
       const provider1: ToolProvider = {
         name: 'provider-1',
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [tool1]),
       };
 
       const provider2: ToolProvider = {
         name: 'provider-2',
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [tool2]),
       };
@@ -546,7 +541,7 @@ describe('iteration', () => {
     it('should handle tool provider that returns empty tools', async () => {
       const emptyProvider: ToolProvider = {
         name: 'empty-provider',
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => []),
       };

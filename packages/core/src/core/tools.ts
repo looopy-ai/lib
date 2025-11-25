@@ -1,22 +1,8 @@
-import {
-  catchError,
-  concat,
-  defer,
-  EMPTY,
-  from,
-  mergeMap,
-  type Observable,
-  of,
-  shareReplay,
-} from 'rxjs';
+import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'rxjs';
 import { startToolExecuteSpan } from '../observability/spans';
-import type {
-  InternalToolMessageEvent,
-  ToolCallEvent,
-  ToolCompleteEvent,
-  ToolExecutionEvent,
-} from '../types/event';
-import type { ToolDefinition, ToolProvider } from '../types/tools';
+import { toolErrorEvent } from '../tools/tool-result-events';
+import type { AnyEvent, ToolCallEvent, ToolExecutionEvent } from '../types/event';
+import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 import type { IterationContext } from './types';
 
 /**
@@ -62,8 +48,8 @@ import type { IterationContext } from './types';
  * ```
  *
  * @remarks
- * - The function searches for a provider by checking `provider.canHandle(toolName)`
- * - If no provider is found, emits a `tool-complete` event with `success: false`
+ * - Tool providers emit their own tool execution events; this function prepends the `tool-start`.
+ * - If no provider is found, the original `tool-call` event is returned unchanged.
  * - Creates OpenTelemetry spans for distributed tracing
  * - Logs all execution steps at trace level
  * - Handles errors gracefully and returns error events instead of throwing
@@ -71,7 +57,7 @@ import type { IterationContext } from './types';
 export const runToolCall = (
   context: IterationContext,
   toolCall: ToolCallEvent,
-): Observable<ToolExecutionEvent | InternalToolMessageEvent> => {
+): Observable<AnyEvent> => {
   const logger = context.logger.child({
     component: 'tool-call',
     toolCallId: toolCall.toolCallId,
@@ -112,37 +98,47 @@ export const runToolCall = (
       timestamp: new Date().toISOString(),
     };
 
+    const toolCallInput: ToolCall = {
+      id: toolCall.toolCallId,
+      type: 'function',
+      function: {
+        name: toolCall.toolName,
+        arguments: toolCall.arguments,
+      },
+    };
+
     // Start tool execution span
     const { tapFinish } = startToolExecuteSpan(context, toolCall);
 
-    const toolResults$ = defer(async () => {
-      logger.trace({ providerName: provider.name }, 'Executing tool');
+    const execution$ = defer(() => {
+      try {
+        logger.trace({ providerName: provider.name }, 'Executing tool');
 
-      return await provider.execute(
-        {
-          id: toolCall.toolCallId,
-          type: 'function',
-          function: {
-            name: toolCall.toolName,
-            arguments: toolCall.arguments,
-          },
-        },
-        context,
-      );
-    }).pipe(tapFinish, shareReplay({ refCount: true }));
-
-    // Convert tool results into tool-complete events
-    const toolCompleteEvents$ = toolResults$.pipe(
-      mergeMap((result) => {
-        if (result.success) {
-          logger.trace({ providerName: provider.name, success: true }, 'Tool execution complete');
-          return of(createToolCompleteEvent(context, toolCall, result.result));
-        } else {
-          logger.trace({ providerName: provider.name, success: false }, 'Tool execution failed');
-          return of(createToolErrorEvent(context, toolCall, result.error || 'Unknown error'));
-        }
-      }),
-      catchError((error) => {
+        return provider.execute(toolCallInput, context).pipe(
+          tap((event) => {
+            if (event.kind !== 'tool-complete') {
+              return;
+            }
+            logger.trace(
+              { providerName: provider.name, success: event.success },
+              'Tool execution complete',
+            );
+          }),
+          tapFinish,
+          catchError((error) => {
+            const err = error instanceof Error ? error : new Error(String(error));
+            logger.error(
+              {
+                providerName: provider.name,
+                error: err.message,
+                stack: err.stack,
+              },
+              'Tool execution error',
+            );
+            return of<AnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+          }),
+        );
+      } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
           {
@@ -152,72 +148,10 @@ export const runToolCall = (
           },
           'Tool execution error',
         );
-        return of(createToolErrorEvent(context, toolCall, err.message));
-      }),
-    );
+        return of<AnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+      }
+    });
 
-    const toolMessageEvents$ = toolResults$.pipe(
-      mergeMap((result) =>
-        result.success && result.messages
-          ? from(
-              result.messages?.map(
-                (message) =>
-                  ({
-                    kind: 'internal:tool-message',
-                    message,
-                    timestamp: new Date().toISOString(),
-                  }) as InternalToolMessageEvent,
-              ),
-            )
-          : EMPTY,
-      ),
-      catchError(() => {
-        return EMPTY;
-      }),
-    );
-
-    return concat(of(toolStartEvent), toolCompleteEvents$, toolMessageEvents$);
+    return concat(of<AnyEvent>(toolStartEvent), execution$);
   }).pipe(mergeMap((obs) => obs));
 };
-
-const createToolCompleteEvent = (
-  context: IterationContext,
-  toolCall: ToolCallEvent,
-  result: unknown,
-): ToolCompleteEvent =>
-  ({
-    kind: 'tool-complete',
-    contextId: context.contextId,
-    taskId: context.taskId,
-    toolCallId: toolCall.toolCallId,
-    toolName: toolCall.toolName,
-    success: true,
-    result: result,
-    timestamp: new Date().toISOString(),
-  }) satisfies ToolCompleteEvent;
-
-/**
- * Create a failed tool completion event
- *
- * @internal
- * @param context - The iteration context
- * @param toolCall - The original tool call event
- * @param errorMessage - The error message describing why the tool failed
- * @returns A `tool-complete` event with `success: false`, `result: null`, and an error message
- */
-const createToolErrorEvent = (
-  context: IterationContext,
-  toolCall: ToolCallEvent,
-  errorMessage: string,
-): ToolCompleteEvent =>
-  ({
-    kind: 'tool-complete',
-    contextId: context.contextId,
-    taskId: context.taskId,
-    toolCallId: toolCall.toolCallId,
-    toolName: toolCall.toolName,
-    success: false,
-    result: null,
-    error: errorMessage,
-    timestamp: new Date().toISOString(),
-  }) satisfies ToolCompleteEvent;

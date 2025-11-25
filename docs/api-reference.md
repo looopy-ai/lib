@@ -57,15 +57,13 @@ export type ToolProvider = {
   readonly name: string;
   getTool(toolName: string): Promise<ToolDefinition | undefined>;
   getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
-  executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Observable<AnyEvent>;
 };
 ```
 
 - `getTool`: Fetch a single tool definition by name (used for routing).
 - `getTools`: List all tool definitions exposed by the provider.
-- `execute`: Run a tool call with the current `ExecutionContext`.
-- `executeBatch`: Optional bulk execution helper.
+- `execute`: Stream tool execution events with the current `ExecutionContext`.
 
 The core package ships with `localTools` for in-process tools, `ClientToolProvider` for client-executed tools, and `McpToolProvider` for MCP-compliant servers.
 

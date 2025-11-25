@@ -3,6 +3,7 @@
  */
 
 import { context } from '@opentelemetry/api';
+import { lastValueFrom, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { ClientToolProvider } from '../src/tools/client-tool-provider';
 import type { ExecutionContext } from '../src/types/context';
@@ -204,7 +205,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = await provider.execute(toolCall, mockContext);
+      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const result = events[0];
+
+      expect(result).toBeDefined();
+      expect(result.kind).toBe('tool-complete');
+      if (result.kind !== 'tool-complete') return;
 
       expect(result.success).toBe(true);
       expect(result.toolCallId).toBe('call-1');
@@ -226,7 +232,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = await provider.execute(toolCall, mockContext);
+      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const result = events[0];
+
+      expect(result).toBeDefined();
+      expect(result.kind).toBe('tool-complete');
+      if (result.kind !== 'tool-complete') return;
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
@@ -248,7 +259,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = await provider.execute(toolCall, mockContext);
+      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const result = events[0];
+
+      expect(result).toBeDefined();
+      expect(result.kind).toBe('tool-complete');
+      if (result.kind !== 'tool-complete') return;
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid tool arguments: must be an object.');
@@ -273,7 +289,12 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const result = await provider.execute(toolCall, mockContext);
+      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const result = events[0];
+
+      expect(result).toBeDefined();
+      expect(result.kind).toBe('tool-complete');
+      if (result.kind !== 'tool-complete') return;
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Client execution failed');

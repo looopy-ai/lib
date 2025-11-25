@@ -1,8 +1,9 @@
 import { context } from '@opentelemetry/api';
 import pino from 'pino';
-import { lastValueFrom, toArray } from 'rxjs';
+import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
+import { toolResultToEvents } from '../tools/tool-result-events';
 import type { ToolCallEvent } from '../types/event';
 import type { ToolCall, ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
@@ -83,17 +84,22 @@ describe('tools', () => {
       icon: 'mock-icon',
     };
 
+    const createSuccessExecute = (result: unknown) =>
+      vi.fn((toolCall: ToolCall, execContext: IterationContext) =>
+        toolResultToEvents(execContext, toolCall, {
+          toolCallId: toolCall.id,
+          toolName: toolCall.function.name,
+          success: true,
+          result,
+        }),
+      );
+
     it('should emit tool-start and tool-complete when a provider supports the tool', async () => {
       const mockProvider: ToolProvider = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'test result',
-        })),
+        execute: createSuccessExecute('test result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -127,12 +133,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -164,26 +165,21 @@ describe('tools', () => {
         name: 'provider-1',
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => []),
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
       };
 
       const provider2: ToolProvider = {
         name: 'provider-2',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'correct',
-        })),
+        execute: createSuccessExecute('correct'),
       };
 
       const provider3: ToolProvider = {
         name: 'provider-3',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(),
+        execute: vi.fn(() => of()),
       };
 
       mockContext.toolProviders = [provider1, provider2, provider3];
@@ -220,9 +216,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async () => {
-          throw testError;
-        }),
+        execute: vi.fn(() => throwError(() => testError)),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -252,9 +246,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async () => {
-          throw 'String error';
-        }),
+        execute: vi.fn(() => throwError(() => 'String error')),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -276,12 +268,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -309,12 +296,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -337,12 +319,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -366,12 +343,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: complexResult,
-        })),
+        execute: createSuccessExecute(complexResult),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -390,12 +362,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -414,12 +381,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];
@@ -450,12 +412,7 @@ describe('tools', () => {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
-        execute: vi.fn(async (toolCall: ToolCall) => ({
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          success: true,
-          result: 'result',
-        })),
+        execute: createSuccessExecute('result'),
       };
 
       mockContext.toolProviders = [mockProvider];

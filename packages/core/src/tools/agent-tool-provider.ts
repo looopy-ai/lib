@@ -1,6 +1,7 @@
+import { defer } from 'rxjs';
 import z from 'zod';
 import type { ExecutionContext } from '../types';
-import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
+import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 
 const cardSchema = z.object({
   name: z.string(),
@@ -75,12 +76,14 @@ export class AgentToolProvider implements ToolProvider {
     return Promise.resolve(this.tools);
   }
 
-  execute(toolCall: ToolCall, _context: ExecutionContext): Promise<ToolResult> {
-    const tool = this.getTool(toolCall.function.name);
-    if (!tool) {
-      return Promise.reject(new Error(`Tool not found: ${toolCall.function.name}`));
-    }
-    // TODO implement agent invocation and streaming response
-    throw new Error('Method not implemented.');
+  execute(toolCall: ToolCall, _context: ExecutionContext) {
+    return defer(async () => {
+      const tool = await this.getTool(toolCall.function.name);
+      if (!tool) {
+        throw new Error(`Tool not found: ${toolCall.function.name}`);
+      }
+      // TODO implement agent invocation and streaming response
+      throw new Error('Method not implemented.');
+    });
   }
 }

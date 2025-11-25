@@ -6,9 +6,11 @@
  * Design Reference: design/tool-integration.md#mcp-tool-provider
  */
 
+import { catchError, defer, mergeMap, of } from 'rxjs';
 import type { AuthContext, ExecutionContext } from '../types/context';
 import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
 import { MCPClient, type MCPTool } from './mcp-client';
+import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
 export interface MCPProviderConfig {
   serverId: string;
@@ -72,43 +74,52 @@ export class McpToolProvider implements ToolProvider {
     return this.ongoingRequest;
   }
 
-  async execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult> {
-    const { name, arguments: args } = toolCall.function;
+  execute(toolCall: ToolCall, context: ExecutionContext) {
+    return defer(async () => {
+      const { name, arguments: args } = toolCall.function;
 
-    if (typeof args !== 'object' || args === null) {
-      return {
-        toolCallId: toolCall.id,
-        toolName: name,
-        success: false,
-        error: 'Tool arguments must be an object',
-        result: null,
-      };
-    }
+      if (typeof args !== 'object' || args === null) {
+        return {
+          toolCallId: toolCall.id,
+          toolName: name,
+          success: false,
+          error: 'Tool arguments must be an object',
+          result: null,
+        } satisfies ToolResult;
+      }
 
-    try {
-      const response = await this.client.callTool(
-        {
-          name,
-          arguments: args,
-        },
-        context.authContext,
-      );
+      try {
+        const response = await this.client.callTool(
+          {
+            name,
+            arguments: args,
+          },
+          context.authContext,
+        );
 
-      return {
-        toolCallId: toolCall.id,
-        toolName: name,
-        success: true,
-        result: response.result,
-      };
-    } catch (error) {
-      return {
-        toolCallId: toolCall.id,
-        toolName: name,
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        result: null,
-      };
-    }
+        return {
+          toolCallId: toolCall.id,
+          toolName: name,
+          success: true,
+          result: response.result,
+        } satisfies ToolResult;
+      } catch (error) {
+        return {
+          toolCallId: toolCall.id,
+          toolName: name,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          result: null,
+        } satisfies ToolResult;
+      }
+    }).pipe(
+      mergeMap((result) => toolResultToEvents(context, toolCall, result)),
+      catchError((error) =>
+        of(
+          toolErrorEvent(context, toolCall, error instanceof Error ? error.message : String(error)),
+        ),
+      ),
+    );
   }
 
   private convertMCPTool = (mcpTool: MCPTool): ToolDefinition => {
