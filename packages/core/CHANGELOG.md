@@ -1,5 +1,13 @@
 # @looopy-ai/core
 
+## 1.2.1
+
+### Patch Changes
+
+- dc033a0: replace skillPrompts with skillRegistry in iteration logic
+- 07de4c9: Add skills tool icon
+- 1d66f86: add tools parameter to LLM call span and iteration logic
+
 ## 1.2.0
 
 ### Minor Changes
