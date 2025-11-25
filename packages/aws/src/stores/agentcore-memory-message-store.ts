@@ -4,9 +4,16 @@ import {
   DeleteEventCommand,
   type Event,
   ListEventsCommand,
+  type PayloadType,
   RetrieveMemoryRecordsCommand,
 } from '@aws-sdk/client-bedrock-agentcore';
-import type { CompactionOptions, CompactionResult, Message, MessageStore } from '@looopy-ai/core';
+import type {
+  AssistantMessage,
+  CompactionOptions,
+  CompactionResult,
+  Message,
+  MessageStore,
+} from '@looopy-ai/core';
 import { trimToTokenBudget } from '@looopy-ai/core';
 import type { DocumentType } from '@smithy/types';
 
@@ -58,12 +65,19 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
               content: { text: message.content },
             },
           },
-          {
-            blob: {
-              toolCallId: message.toolCallId,
-              toolCalls: message.toolCalls as unknown,
-            } as DocumentType,
-          },
+          message.role === 'assistant'
+            ? {
+                blob: {
+                  toolCalls: message.toolCalls as unknown,
+                } as DocumentType,
+              }
+            : message.role === 'tool'
+              ? {
+                  blob: {
+                    toolCallId: message.toolCallId,
+                  } as DocumentType,
+                }
+              : ({} as PayloadType),
         ],
       });
 
@@ -161,18 +175,18 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     });
 
     for (const event of events) {
-      const message: Message = { role: 'assistant', content: '' };
+      const message = { role: 'assistant', content: '' } as Message;
       for (const payload of event.payload ?? []) {
         if (payload.conversational) {
-          message.role = this.fromAgentCoreRole(payload.conversational.role);
+          message.role = this.fromAgentCoreRole(payload.conversational.role) as Message['role'];
           message.content = payload.conversational.content?.text ?? '';
         }
         const blob = payload.blob as { toolCallId?: string; toolCalls?: unknown[] } | undefined;
-        if (blob?.toolCallId) {
+        if (blob?.toolCallId && message.role === 'tool') {
           message.toolCallId = blob.toolCallId;
         }
-        if (blob?.toolCalls) {
-          message.toolCalls = blob.toolCalls as unknown as Message['toolCalls'];
+        if (blob?.toolCalls && message.role === 'assistant') {
+          message.toolCalls = blob.toolCalls as unknown as AssistantMessage['toolCalls'];
         }
       }
       messages.push(message);

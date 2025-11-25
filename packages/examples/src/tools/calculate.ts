@@ -24,7 +24,7 @@ export const calculateTool = tool({
       const result = evaluate(expression);
       logger.info({ result }, 'Success');
 
-      return { expression, result };
+      return { success: true, result: { expression, result } };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error({ error: err.message }, 'Error');

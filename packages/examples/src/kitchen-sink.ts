@@ -51,14 +51,15 @@ import {
   LiteLLM,
   localTools,
   ShutdownManager,
+  SkillRegistry,
   setDefaultLogger,
   shutdownTracing,
-  SkillRegistry,
 } from '@looopy-ai/core/ts';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
-import { calculateTool, randomNumberTool, weatherTool, diagramTool } from './tools';
+import { diagrammerSkill } from './skills/diagrammer';
+import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
 dotenv.config();
 
@@ -78,6 +79,9 @@ const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
 
+// Create skill registry
+const skillRegistry = new SkillRegistry([diagrammerSkill]);
+
 const langfuse = new LangfuseClient();
 
 const getSystemPrompt = async () => {
@@ -88,7 +92,18 @@ const getSystemPrompt = async () => {
     { name: prompt.name, version: prompt.version },
     'Fetched system prompt from Langfuse',
   );
-  const compiledPrompt = prompt.compile({});
+  const sections: string[] = [];
+  const skills = skillRegistry.list();
+  if (skills.length) {
+    sections.push(`## Learning new skills`);
+    sections.push(`You are a student of skills. There are a number of skills available that you can learn to better perform the tasks that are asked of you.
+To learn a skill, call the \`learn_skill("skill_name")\` tool. To learn many skills, call the tool multiple times.`);
+    sections.push(`### Available Skills`);
+    sections.push(`${skills.map((s) => `- **${s.name}**: ${s.description}`).join('\n')}`);
+  }
+  const compiledPrompt = prompt.compile({
+    dynamic: sections.join('\n\n'),
+  });
   return { prompt: compiledPrompt, name: prompt.name, version: prompt.version };
 };
 
@@ -174,19 +189,15 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool, diagramTool]);
+  const localToolProvider = localTools([
+    calculateTool,
+    randomNumberTool,
+    weatherTool,
+    skillRegistry.tool(),
+  ]);
 
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
-
-  // Create skill registry
-  const skillRegistry = new SkillRegistry([
-    {
-      name: 'diagrammer',
-      description: 'learn how to draw diagrams by using Mermaid markdown',
-      instruction: 'To draw a diagram, use the `diagram` tool with the `diagram` parameter containing the Mermaid markdown.',
-    },
-  ]);
 
   // Create agent
   console.log('🎯 Creating agent...\n');

@@ -97,12 +97,15 @@ export function createArtifactTools(
         await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
-          artifactId: params.artifactId,
-          type: 'file',
-          status: 'building',
-          message: params.override
-            ? 'File artifact reset. Use append_file_chunk to add content.'
-            : 'File artifact created. Use append_file_chunk to add content.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            type: 'file',
+            status: 'building',
+            message: params.override
+              ? 'File artifact reset. Use append_file_chunk to add content.'
+              : 'File artifact created. Use append_file_chunk to add content.',
+          },
         };
       },
     }),
@@ -131,12 +134,15 @@ export function createArtifactTools(
         );
 
         return {
-          artifactId: params.artifactId,
-          chunkAdded: true,
-          complete: params.isLastChunk,
-          message: params.isLastChunk
-            ? 'Final chunk appended. Artifact is complete.'
-            : 'Chunk appended successfully.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            chunkAdded: true,
+            complete: params.isLastChunk,
+            message: params.isLastChunk
+              ? 'Final chunk appended. Artifact is complete.'
+              : 'Chunk appended successfully.',
+          },
         };
       },
     }),
@@ -150,8 +156,11 @@ export function createArtifactTools(
       handler: async (params, context) => {
         const content = await scheduledStore.getFileContent(context.contextId, params.artifactId);
         return {
-          artifactId: params.artifactId,
-          content,
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            content,
+          },
         };
       },
     }),
@@ -193,12 +202,15 @@ export function createArtifactTools(
         await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
-          artifactId: params.artifactId,
-          type: 'data',
-          status: 'complete',
-          message: params.override
-            ? 'Data artifact reset successfully.'
-            : 'Data artifact created successfully.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            type: 'data',
+            status: 'complete',
+            message: params.override
+              ? 'Data artifact reset successfully.'
+              : 'Data artifact created successfully.',
+          },
         };
       },
     }),
@@ -214,10 +226,13 @@ export function createArtifactTools(
         await scheduledStore.writeData(context.contextId, params.artifactId, params.data);
 
         return {
-          artifactId: params.artifactId,
-          type: 'data',
-          status: 'complete',
-          message: 'Data artifact updated successfully.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            type: 'data',
+            status: 'complete',
+            message: 'Data artifact updated successfully.',
+          },
         };
       },
     }),
@@ -231,8 +246,11 @@ export function createArtifactTools(
       handler: async (params, context) => {
         const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
-          artifactId: params.artifactId,
-          data,
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            data,
+          },
         };
       },
     }),
@@ -246,8 +264,11 @@ export function createArtifactTools(
       handler: async (params, context) => {
         const data = await scheduledStore.getDataContent(context.contextId, params.artifactId);
         return {
-          artifactId: params.artifactId,
-          data,
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            data,
+          },
         };
       },
     }),
@@ -294,12 +315,15 @@ export function createArtifactTools(
         await trackArtifactInState(context.taskId, params.artifactId, taskStateStore);
 
         return {
-          artifactId: params.artifactId,
-          type: 'dataset',
-          status: 'building',
-          message: params.override
-            ? 'Dataset artifact reset. Use append_dataset_row(s) to add data.'
-            : 'Dataset artifact created. Use append_dataset_row(s) to add data.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            type: 'dataset',
+            status: 'building',
+            message: params.override
+              ? 'Dataset artifact reset. Use append_dataset_row(s) to add data.'
+              : 'Dataset artifact created. Use append_dataset_row(s) to add data.',
+          },
         };
       },
     }),
@@ -316,9 +340,12 @@ export function createArtifactTools(
         await scheduledStore.appendDatasetBatch(context.contextId, params.artifactId, [params.row]);
 
         return {
-          artifactId: params.artifactId,
-          rowAdded: true,
-          message: 'Row appended to dataset.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            rowAdded: true,
+            message: 'Row appended to dataset.',
+          },
         };
       },
     }),
@@ -337,9 +364,12 @@ export function createArtifactTools(
         });
 
         return {
-          artifactId: params.artifactId,
-          rowsAdded: params.rows.length,
-          message: `${params.rows.length} rows appended to dataset.`,
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            rowsAdded: params.rows.length,
+            message: `${params.rows.length} rows appended to dataset.`,
+          },
         };
       },
     }),
@@ -353,9 +383,12 @@ export function createArtifactTools(
       handler: async (params, context) => {
         const rows = await scheduledStore.getDatasetRows(context.contextId, params.artifactId);
         return {
-          artifactId: params.artifactId,
-          rows,
-          totalRows: rows.length,
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            rows,
+            totalRows: rows.length,
+          },
         };
       },
     }),
@@ -380,15 +413,18 @@ export function createArtifactTools(
         const validArtifacts = artifacts.filter((a): a is StoredArtifact => a !== null);
 
         return {
-          artifacts: validArtifacts.map((a) => ({
-            artifactId: a.artifactId,
-            type: a.type,
-            name: a.name,
-            taskId: a.taskId,
-            contextId: a.contextId,
-            createdAt: a.createdAt,
-          })),
-          totalCount: validArtifacts.length,
+          success: true,
+          result: {
+            artifacts: validArtifacts.map((a) => ({
+              artifactId: a.artifactId,
+              type: a.type,
+              name: a.name,
+              taskId: a.taskId,
+              contextId: a.contextId,
+              createdAt: a.createdAt,
+            })),
+            totalCount: validArtifacts.length,
+          },
         };
       },
     }),
@@ -407,25 +443,28 @@ export function createArtifactTools(
         }
 
         return {
-          artifactId: artifact.artifactId,
-          type: artifact.type,
-          taskId: artifact.taskId,
-          contextId: artifact.contextId,
-          name: artifact.name,
-          description: artifact.description,
-          status: artifact.status,
-          createdAt: artifact.createdAt,
-          updatedAt: artifact.updatedAt,
-          ...(artifact.type === 'file' && {
-            mimeType: artifact.mimeType,
-            encoding: artifact.encoding,
-            totalChunks: artifact.totalChunks,
-            totalSize: artifact.totalSize,
-          }),
-          ...(artifact.type === 'dataset' && {
-            totalRows: artifact.totalSize,
-            schema: artifact.schema,
-          }),
+          success: true,
+          result: {
+            artifactId: artifact.artifactId,
+            type: artifact.type,
+            taskId: artifact.taskId,
+            contextId: artifact.contextId,
+            name: artifact.name,
+            description: artifact.description,
+            status: artifact.status,
+            createdAt: artifact.createdAt,
+            updatedAt: artifact.updatedAt,
+            ...(artifact.type === 'file' && {
+              mimeType: artifact.mimeType,
+              encoding: artifact.encoding,
+              totalChunks: artifact.totalChunks,
+              totalSize: artifact.totalSize,
+            }),
+            ...(artifact.type === 'dataset' && {
+              totalRows: artifact.totalSize,
+              schema: artifact.schema,
+            }),
+          },
         };
       },
     }),
@@ -440,9 +479,12 @@ export function createArtifactTools(
         await scheduledStore.deleteArtifact(context.contextId, params.artifactId);
 
         return {
-          artifactId: params.artifactId,
-          deleted: true,
-          message: 'Artifact deleted successfully.',
+          success: true,
+          result: {
+            artifactId: params.artifactId,
+            deleted: true,
+            message: 'Artifact deleted successfully.',
+          },
         };
       },
     }),

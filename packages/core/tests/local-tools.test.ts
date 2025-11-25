@@ -14,7 +14,7 @@ describe('local-tools', () => {
         schema: z.object({
           input: z.string().describe('Test input'),
         }),
-        handler: async ({ input }) => `Processed: ${input}`,
+        handler: async ({ input }) => ({ success: true, result: `Processed: ${input}` }),
       });
 
       expect(testTool.name).toBe('test-tool');
@@ -38,7 +38,7 @@ describe('local-tools', () => {
             score: z.number().optional(),
           }),
         }),
-        handler: async (params) => params,
+        handler: async (params) => ({ success: true, result: params }),
       });
 
       expect(complexTool.name).toBe('complex');
@@ -55,7 +55,7 @@ describe('local-tools', () => {
           a: z.number(),
           b: z.number(),
         }),
-        handler: async ({ a, b }) => a + b,
+        handler: async ({ a, b }) => ({ success: true, result: a + b }),
       });
 
       const tool2 = tool({
@@ -65,7 +65,7 @@ describe('local-tools', () => {
           x: z.number(),
           y: z.number(),
         }),
-        handler: async ({ x, y }) => x * y,
+        handler: async ({ x, y }) => ({ success: true, result: x * y }),
       });
 
       const provider = localTools([tool1, tool2]);
@@ -81,13 +81,13 @@ describe('local-tools', () => {
         name: 'duplicate',
         description: 'First',
         schema: z.object({}),
-        handler: async () => 'first',
+        handler: async () => ({ success: true, result: 'first' }),
       });
       const tool2 = tool({
         name: 'duplicate',
         description: 'Second',
         schema: z.object({}),
-        handler: async () => 'second',
+        handler: async () => ({ success: true, result: 'second' }),
       });
 
       expect(() => {
@@ -140,7 +140,7 @@ describe('local-tools', () => {
             email: z.string().email(),
             url: z.string().url(),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([stringTool]);
@@ -171,7 +171,7 @@ describe('local-tools', () => {
             score: z.number().min(0).max(100),
             multiple: z.number().multipleOf(5),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([numberTool]);
@@ -201,7 +201,7 @@ describe('local-tools', () => {
             tags: z.array(z.string()).min(1).max(10),
             numbers: z.array(z.number()),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([arrayTool]);
@@ -226,7 +226,7 @@ describe('local-tools', () => {
           schema: z.object({
             role: z.enum(['admin', 'user', 'guest']),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([enumTool]);
@@ -251,7 +251,7 @@ describe('local-tools', () => {
               }),
             }),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([nestedTool]);
@@ -284,7 +284,7 @@ describe('local-tools', () => {
             required: z.string(),
             optional: z.string().optional(),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([optionalTool]);
@@ -300,7 +300,7 @@ describe('local-tools', () => {
           name: 'test',
           description: 'Test',
           schema: z.object({}),
-          handler: async () => 'result',
+          handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
 
@@ -313,7 +313,7 @@ describe('local-tools', () => {
           name: 'test',
           description: 'Test',
           schema: z.object({}),
-          handler: async () => 'result',
+          handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
 
@@ -338,7 +338,7 @@ describe('local-tools', () => {
             a: z.number(),
             b: z.number(),
           }),
-          handler: async ({ a, b }) => a + b,
+          handler: async ({ a, b }) => ({ success: true, result: a + b }),
         });
 
         const provider = localTools([addTool]);
@@ -366,7 +366,7 @@ describe('local-tools', () => {
             email: z.string().email(),
             age: z.number().int().min(0),
           }),
-          handler: async (params) => params,
+          handler: async (params) => ({ success: true, result: params }),
         });
 
         const provider = localTools([strictTool]);
@@ -421,7 +421,7 @@ describe('local-tools', () => {
           name: 'test',
           description: 'Test',
           schema: z.object({}),
-          handler: async () => 'result',
+          handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
 
@@ -474,7 +474,7 @@ describe('local-tools', () => {
           name: 'test',
           description: 'Test',
           schema: z.object({}),
-          handler: async () => 'result',
+          handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
 
@@ -503,7 +503,7 @@ describe('local-tools', () => {
           schema: z.object({}),
           handler: async (_params, context) => {
             receivedContext = context;
-            return 'success';
+            return { success: true, result: 'success' };
           },
         });
 
@@ -529,9 +529,12 @@ describe('local-tools', () => {
           description: 'Complex return',
           schema: z.object({}),
           handler: async () => ({
-            status: 'success',
-            data: [1, 2, 3],
-            nested: { key: 'value' },
+            success: true,
+            result: {
+              status: 'success',
+              data: [1, 2, 3],
+              nested: { key: 'value' },
+            },
           }),
         });
 

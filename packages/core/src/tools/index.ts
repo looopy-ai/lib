@@ -10,6 +10,5 @@
 
 export * from './artifact-tools';
 export * from './client-tool-provider';
-export * from './learn_skill';
 export * from './local-tools';
 export * from './mcp-tool-provider';

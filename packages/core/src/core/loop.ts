@@ -231,7 +231,7 @@ const eventsToMessages = (events: AnyEvent[]): Message[] => {
           toolCallId: event.toolCallId,
         });
         break;
-      case 'message':
+      case 'internal:tool-message':
         messages.push(event.message);
         break;
       default:

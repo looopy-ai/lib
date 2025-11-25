@@ -17,9 +17,12 @@ export const randomNumberTool = tool({
   handler: async ({ min, max }) => {
     const result = Math.floor(Math.random() * (max - min + 1)) + min;
     return {
-      min,
-      max,
-      result,
+      success: true,
+      result: {
+        min,
+        max,
+        result,
+      },
     };
   },
 });

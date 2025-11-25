@@ -10,13 +10,15 @@ import { z } from 'zod';
 import type { ExecutionContext } from '../types/context';
 import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
 
+type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
+
 /**
  * Tool handler function with typed parameters
  */
 export type ToolHandler<TParams> = (
   params: TParams,
   context: ExecutionContext,
-) => Promise<unknown> | unknown;
+) => Promise<InternalToolResult> | InternalToolResult;
 
 /**
  * Tool definition with Zod schema and handler
@@ -161,8 +163,10 @@ export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvi
         return {
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          success: true,
-          result,
+          success: result.success,
+          error: result.error,
+          result: result.result,
+          messages: result.messages,
         };
       } catch (error) {
         // Handle Zod validation errors
