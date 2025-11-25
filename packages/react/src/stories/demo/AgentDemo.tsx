@@ -1,10 +1,11 @@
 import { consumeSSEStream } from '@geee-be/sse-stream-parser';
-import { type FC, useId, useReducer } from 'react';
+import { type FC, type ReactNode, useId, useReducer } from 'react';
 import { type SubmitHandler, useForm } from 'react-hook-form';
 import { Streamdown } from 'streamdown';
+import { LucideIcon, type LucideIconName } from '../../components/lucide-icon';
 import { ScrollContainer } from '../../components/scroll-container';
 import { conversationReducer } from '../../conversation/reducer';
-import type { TaskState } from '../../conversation/types';
+import type { TaskEvent, TaskState } from '../../conversation/types';
 
 type Inputs = {
   region: string;
@@ -13,6 +14,49 @@ type Inputs = {
   accessToken: string;
   contextId: string;
   prompt: string;
+};
+
+const Icon: FC<{ name: string | undefined; fallback: ReactNode }> = ({ name, fallback }) => {
+  if (!name) return fallback;
+  const [type, icon] = name.split(':');
+  if (!type) return fallback;
+  switch (type) {
+    case 'lucide':
+      return <LucideIcon name={icon as LucideIconName} fallback={fallback} size="1em" />;
+    default:
+      return fallback;
+  }
+};
+
+const thoughtIcons: Record<string, string> = {
+  planning: 'lucide:route',
+  reasoning: 'lucide:brain',
+  reflection: 'lucide:book-check',
+  decision: 'lucide:handshake',
+  observation: 'lucide:telescope',
+  strategy: 'lucide:chess-pawn',
+};
+
+const EventComponent: FC<{ event: TaskEvent }> = ({ event }) => {
+  switch (event.type) {
+    case 'tool-call':
+      return (
+        <div className="flex items-center gap-1">
+          <Icon name={event.icon || 'lucide:drill'} fallback={<span>Tool Call</span>} />{' '}
+          {event.toolName}
+        </div>
+      );
+    case 'thought':
+      return (
+        <div className="flex items-center gap-1">
+          <Icon
+            name={thoughtIcons[event.thoughtType] || 'lucide:brain'}
+            fallback={<span>Tool Call</span>}
+          />
+          {event.content}
+        </div>
+      );
+  }
 };
 
 const initialData = localStorage.getItem('agentDemoData');
@@ -212,8 +256,7 @@ export const AgentDemo: FC = () => {
                           <ul className="mt-1 space-y-1">
                             {task.events.map((event) => (
                               <li key={event.id} className="text-sm text-slate-600">
-                                <span className="font-medium">{event.type}:</span>{' '}
-                                {JSON.stringify(event)}
+                                <EventComponent event={event} />
                               </li>
                             ))}
                           </ul>
