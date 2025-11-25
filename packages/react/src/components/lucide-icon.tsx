@@ -12,7 +12,11 @@ export type LucideIconProps = LucideProps & {
 };
 
 export const LucideIcon = ({ name, fallback = null, ...rest }: LucideIconProps): ReactNode => {
-  const IconComponent = icons[name];
+  const IconComponent =
+    icons[name] ??
+    icons[
+      Object.keys(icons).find((key) => key.toLowerCase() === name.toLowerCase()) as LucideIconName
+    ];
 
   if (!IconComponent) {
     return fallback;

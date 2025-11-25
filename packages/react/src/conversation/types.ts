@@ -18,13 +18,13 @@ export type ToolCall = {
   timestamp: string;
 };
 
-type Event = Thought | ToolCall;
+export type TaskEvent = Thought | ToolCall;
 
 export type TaskState = {
   id: string;
   status: string;
   content: string;
-  events: Event[];
+  events: TaskEvent[];
 };
 
 export type ConversationState = {
