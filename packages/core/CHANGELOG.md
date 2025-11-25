@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 1.2.0
+
+### Minor Changes
+
+- 838b2e7: This commit introduces a new skill-learning feature for agents. It allows agents to learn new skills from a registry and use them in conversation.
+
 ## 1.1.6
 
 ### Patch Changes
