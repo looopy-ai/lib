@@ -92,18 +92,7 @@ const getSystemPrompt = async () => {
     { name: prompt.name, version: prompt.version },
     'Fetched system prompt from Langfuse',
   );
-  const sections: string[] = [];
-  const skills = skillRegistry.list();
-  if (skills.length) {
-    sections.push(`## Learning new skills`);
-    sections.push(`You are a student of skills. There are a number of skills available that you can learn to better perform the tasks that are asked of you.
-To learn a skill, call the \`learn_skill("skill_name")\` tool. To learn many skills, call the tool multiple times.`);
-    sections.push(`### Available Skills`);
-    sections.push(`${skills.map((s) => `- **${s.name}**: ${s.description}`).join('\n')}`);
-  }
-  const compiledPrompt = prompt.compile({
-    dynamic: sections.join('\n\n'),
-  });
+  const compiledPrompt = prompt.compile({});
   return { prompt: compiledPrompt, name: prompt.name, version: prompt.version };
 };
 
