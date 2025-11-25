@@ -4,7 +4,7 @@ export const reduceContentDelta = (
   state: ConversationState,
   data: {
     taskId: string;
-    contentDelta: string;
+    delta: string;
     timestamp: string;
   },
 ): ConversationState => {
@@ -14,7 +14,7 @@ export const reduceContentDelta = (
   if (task) {
     updatedTasks.set(data.taskId, {
       ...task,
-      content: task.content + data.contentDelta,
+      content: task.content + (data.delta || ''),
     });
   }
 
