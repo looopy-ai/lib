@@ -45,10 +45,6 @@ export class McpToolProvider implements ToolProvider {
     return tools.find((tool) => tool.name === toolName);
   }
 
-  async executeBatch(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]> {
-    return Promise.all(toolCalls.map((call) => this.execute(call, context)));
-  }
-
   async getTools(): Promise<ToolDefinition[]> {
     if (this.toolCache.size > 0 && this.cacheExpiry && Date.now() < this.cacheExpiry) {
       return Array.from(this.toolCache.values());

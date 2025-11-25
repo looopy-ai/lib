@@ -161,9 +161,4 @@ export type ToolProvider = {
    * Execute a tool call
    */
   execute(toolCall: ToolCall, context: ExecutionContext): Promise<ToolResult>;
-
-  /**
-   * Optional: Execute multiple tools in batch
-   */
-  executeBatch?(toolCalls: ToolCall[], context: ExecutionContext): Promise<ToolResult[]>;
 };
