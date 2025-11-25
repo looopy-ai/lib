@@ -6,6 +6,7 @@ import type { ToolProvider } from '../types/tools';
 import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
 import { runToolCall } from './tools';
 import type { IterationConfig, LoopContext } from './types';
+import { SkillRegistry } from '../skills';
 
 /**
  * Execute a single agent loop iteration with LLM call and tool execution
@@ -85,7 +86,7 @@ export const runIteration = (
 
   const llmEvents$ = defer(async () => {
     const systemPrompt = await getSystemPrompt(context.systemPrompt);
-    const messages = await prepareMessages(systemPrompt, context.skillPrompts, history);
+    const messages = await prepareMessages(systemPrompt, context.skillRegistry, history);
     const tools = await prepareTools(context.toolProviders);
     return { messages, tools, systemPrompt };
   }).pipe(
@@ -143,7 +144,7 @@ export const runIteration = (
 
 const prepareMessages = async (
   systemPrompt: SystemPrompt | undefined,
-  skillPrompts: Record<string, string> | undefined,
+  skillRegistry: SkillRegistry | undefined,
   history: Message[],
 ): Promise<Message[]> => {
   const messages: Message[] = [];
@@ -153,18 +154,18 @@ const prepareMessages = async (
     messages.push({
       role: 'system',
       content: systemPrompt.prompt,
-      name: systemPrompt.name || 'system-prompt',
     });
   }
 
-  // Add skill prompts if available
-  if (skillPrompts) {
-    for (const [name, content] of Object.entries(skillPrompts)) {
-      messages.push({
+  if (skillRegistry) {
+    const skills = skillRegistry.list();
+    if (skills.length > 0) {
+      const skillList = skills.map((s) => `- **${s.name}**: ${s.description}`).join('\n');
+      const skillMessage: Message = {
         role: 'system',
-        content,
-        name,
-      });
+        content: `You can learn new skills by using the 'learn_skill' tool. Available skills:\n\n${skillList}`,
+      };
+      messages.push(skillMessage);
     }
   }
 

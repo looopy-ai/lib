@@ -14,7 +14,6 @@ export type AgentContext = {
   logger: pino.Logger;
   systemPrompt?: SystemPromptProp;
   skillRegistry?: SkillRegistry;
-  skillPrompts?: Record<string, string>;
   metadata?: Record<string, unknown>;
 };
 

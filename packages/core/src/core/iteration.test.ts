@@ -167,7 +167,6 @@ describe('iteration', () => {
             {
               role: 'system',
               content: 'You are a test assistant',
-              name: 'system-prompt',
             },
             { role: 'user', content: 'Hello, how are you?' },
           ],
@@ -190,34 +189,6 @@ describe('iteration', () => {
             {
               role: 'system',
               content: 'Custom system prompt',
-              name: 'system-prompt',
-            },
-          ]),
-        }),
-      );
-    });
-
-    it('should add skill prompts to messages when present', async () => {
-      mockContext.skillPrompts = {
-        'code-generation': 'You can write Python code',
-        'data-analysis': 'You can analyze data',
-      };
-
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      expect(mockLLMProvider.call).toHaveBeenCalledWith(
-        expect.objectContaining({
-          messages: expect.arrayContaining([
-            {
-              role: 'system',
-              content: 'You can write Python code',
-              name: 'code-generation',
-            },
-            {
-              role: 'system',
-              content: 'You can analyze data',
-              name: 'data-analysis',
             },
           ]),
         }),
@@ -236,19 +207,6 @@ describe('iteration', () => {
           name: 'system-prompt',
         }),
       );
-    });
-
-    it('should work without skill prompts', async () => {
-      delete mockContext.skillPrompts;
-
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      const callArgs = vi.mocked(mockLLMProvider.call).mock.calls[0][0];
-      const skillPromptMessages = callArgs.messages.filter(
-        (m: Message) => m.role === 'system' && m.name !== 'system-prompt',
-      );
-      expect(skillPromptMessages).toHaveLength(0);
     });
 
     it('should emit LLM events with contextId and taskId stamped', async () => {
@@ -487,7 +445,6 @@ describe('iteration', () => {
       ];
 
       mockContext.systemPrompt = 'System';
-      mockContext.skillPrompts = { skill1: 'Skill 1' };
 
       const events$ = runIteration(mockContext, mockConfig, complexHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -499,19 +456,13 @@ describe('iteration', () => {
       expect(messages[0]).toEqual({
         role: 'system',
         content: 'System',
-        name: 'system-prompt',
-      });
-      expect(messages[1]).toEqual({
-        role: 'system',
-        content: 'Skill 1',
-        name: 'skill1',
       });
 
       // Then history in order
-      expect(messages[2]).toEqual({ role: 'user', content: 'First message' });
-      expect(messages[3]).toEqual({ role: 'assistant', content: 'First response' });
-      expect(messages[4]).toEqual({ role: 'user', content: 'Second message' });
-      expect(messages[5]).toEqual({ role: 'assistant', content: 'Second response' });
+      expect(messages[1]).toEqual({ role: 'user', content: 'First message' });
+      expect(messages[2]).toEqual({ role: 'assistant', content: 'First response' });
+      expect(messages[3]).toEqual({ role: 'user', content: 'Second message' });
+      expect(messages[4]).toEqual({ role: 'assistant', content: 'Second response' });
     });
 
     it('should pass iteration number correctly', async () => {
@@ -556,7 +507,6 @@ describe('iteration', () => {
         {
           role: 'system',
           content: 'You are a test assistant',
-          name: 'system-prompt',
         },
       ]);
     });
@@ -634,27 +584,6 @@ describe('iteration', () => {
         }),
         expect.any(Object),
       );
-    });
-
-    it('should handle multiple skill prompts in insertion order', async () => {
-      mockContext.skillPrompts = {
-        first: 'First skill',
-        second: 'Second skill',
-        third: 'Third skill',
-      };
-
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
-      await lastValueFrom(events$.pipe(toArray()));
-
-      const callArgs = vi.mocked(mockLLMProvider.call).mock.calls[0][0];
-      const skillMessages = callArgs.messages.filter(
-        (m: Message) => m.role === 'system' && m.name !== 'system-prompt',
-      );
-
-      expect(skillMessages).toHaveLength(3);
-      expect(skillMessages[0].role === 'system' && skillMessages[0].name).toBe('first');
-      expect(skillMessages[1].role === 'system' && skillMessages[1].name).toBe('second');
-      expect(skillMessages[2].role === 'system' && skillMessages[2].name).toBe('third');
     });
   });
 });
