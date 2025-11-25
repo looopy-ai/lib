@@ -39,6 +39,7 @@ export class SkillRegistry {
   tool() {
     return tool({
       name: learnSkillToolName,
+      icon: 'lucide:graduation-cap',
       description: 'Learns a new skill from the available skill registry.',
       schema: z.object({
         name: z.string().describe('The name of the skill to learn.'),
