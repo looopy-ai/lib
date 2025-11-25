@@ -98,9 +98,22 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
     metadata: {},
   });
 
+  const initialMessages = [...history];
+  if (context.skillRegistry) {
+    const skills = context.skillRegistry.list();
+    if (skills.length > 0) {
+      const skillList = skills.map((s) => `- **${s.name}**: ${s.description}`).join('\n');
+      const skillMessage: Message = {
+        role: 'system',
+        content: `You can learn new skills by using the 'learn_skill' tool. Available skills:\n\n${skillList}`,
+      };
+      initialMessages.unshift(skillMessage);
+    }
+  }
+
   const merged$ = recursiveMerge(
     {
-      messages: history,
+      messages: initialMessages,
       completed: false,
       iteration: 0,
     },
@@ -118,7 +131,7 @@ export const runLoop = (context: TurnContext, config: LoopConfig, history: Messa
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
     (e) => e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
-  ).pipe(shareReplay());
+  ).pipe(shareReplay({ refCount: true }));
 
   // Build a final task-complete event from the last content-complete event
   const finalSummary$ = merged$.pipe(
@@ -217,6 +230,9 @@ const eventsToMessages = (events: AnyEvent[]): Message[] => {
             : event.error || 'Error executing tool',
           toolCallId: event.toolCallId,
         });
+        break;
+      case 'internal:tool-message':
+        messages.push(event.message);
         break;
       default:
         break;

@@ -652,9 +652,9 @@ describe('iteration', () => {
       );
 
       expect(skillMessages).toHaveLength(3);
-      expect(skillMessages[0].name).toBe('first');
-      expect(skillMessages[1].name).toBe('second');
-      expect(skillMessages[2].name).toBe('third');
+      expect(skillMessages[0].role === 'system' && skillMessages[0].name).toBe('first');
+      expect(skillMessages[1].role === 'system' && skillMessages[1].name).toBe('second');
+      expect(skillMessages[2].role === 'system' && skillMessages[2].name).toBe('third');
     });
   });
 });

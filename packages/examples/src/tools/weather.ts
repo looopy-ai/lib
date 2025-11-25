@@ -54,6 +54,6 @@ export const weatherTool = tool({
 
     logger.info({ weather: weatherResult }, 'Success');
 
-    return weatherResult;
+    return { success: true, result: weatherResult };
   },
 });

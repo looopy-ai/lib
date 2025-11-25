@@ -3,11 +3,30 @@ import type { ToolCall } from './tools';
 /**
  * Message in the conversation
  */
-export interface Message {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+export type SystemMessage = {
+  role: 'system';
   content: string;
   name?: string;
-  toolCallId?: string;
-  toolCalls?: ToolCall[]; // For assistant messages that make tool calls
-  contentDelta?: string; // For streaming: the new content chunk (not accumulated)
-}
+};
+
+export type UserMessage = {
+  role: 'user';
+  content: string;
+  name?: string;
+};
+
+export type AssistantMessage = {
+  role: 'assistant';
+  content: string;
+  name?: string;
+  toolCalls?: ToolCall[];
+};
+
+export type ToolMessage = {
+  role: 'tool';
+  content: string;
+  name?: string;
+  toolCallId: string;
+};
+
+export type Message = SystemMessage | UserMessage | AssistantMessage | ToolMessage;

@@ -200,7 +200,7 @@ export class LiteLLMProvider implements LLMProvider {
       this.config.debugLogPath
         ? rawStream$.pipe(tap((chunk) => this.debugLogRawChunk(chunk)))
         : rawStream$
-    ).pipe(shareReplay());
+    ).pipe(shareReplay({ refCount: true }));
 
     const choices$ = stream$.pipe(choices());
     const usage$ = stream$.pipe(usage());
@@ -438,10 +438,10 @@ export class LiteLLMProvider implements LLMProvider {
             content: msg.content,
           };
 
-          if (msg.name) baseMsg.name = msg.name;
-          if (msg.toolCallId) baseMsg.tool_call_id = msg.toolCallId;
+          if ('name' in msg && msg.name) baseMsg.name = msg.name;
+          if (msg.role === 'tool' && msg.toolCallId) baseMsg.tool_call_id = msg.toolCallId;
 
-          if (msg.toolCalls && msg.toolCalls.length > 0) {
+          if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
             baseMsg.tool_calls = msg.toolCalls.map((tc) => ({
               id: tc.id,
               type: tc.type,

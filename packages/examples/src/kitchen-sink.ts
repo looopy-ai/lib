@@ -51,12 +51,14 @@ import {
   LiteLLM,
   localTools,
   ShutdownManager,
+  SkillRegistry,
   setDefaultLogger,
   shutdownTracing,
 } from '@looopy-ai/core/ts';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
+import { diagrammerSkill } from './skills/diagrammer';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
 dotenv.config();
@@ -76,6 +78,9 @@ if (process.env.OTEL_ENABLED === 'true') {
 const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
+
+// Create skill registry
+const skillRegistry = new SkillRegistry([diagrammerSkill]);
 
 const langfuse = new LangfuseClient();
 
@@ -173,7 +178,12 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
+  const localToolProvider = localTools([
+    calculateTool,
+    randomNumberTool,
+    weatherTool,
+    skillRegistry.tool(),
+  ]);
 
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
@@ -187,6 +197,7 @@ async function main() {
     toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
     systemPrompt: getSystemPrompt,
+    skillRegistry,
     logger,
   });
 

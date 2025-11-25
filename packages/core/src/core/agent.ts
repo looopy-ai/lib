@@ -9,7 +9,7 @@
 
 import type { Context } from '@opentelemetry/api';
 import type pino from 'pino';
-import { catchError, concat, Observable, of, tap } from 'rxjs';
+import { catchError, concat, filter, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
 import {
   addMessagesCompactedEvent,
@@ -23,6 +23,7 @@ import {
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
+import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
 import type { AuthContext } from '../types/context';
@@ -65,6 +66,9 @@ export interface AgentConfig {
 
   /** System prompt */
   systemPrompt?: SystemPromptProp;
+
+  /** Skill registry */
+  skillRegistry?: SkillRegistry;
 
   /** Logger */
   logger?: import('pino').Logger;
@@ -273,7 +277,7 @@ export class Agent {
         const error = new Error(
           `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`,
         );
-        logger.error(error.message);
+        logger.error(this._state.error, 'Cannot execute turn due to agent error state');
 
         failAgentTurnSpan(rootSpan, error);
 
@@ -396,6 +400,7 @@ export class Agent {
                 parentContext: turnContext,
                 systemPrompt: this.config.systemPrompt,
                 toolProviders: this.config.toolProviders,
+                skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
                 turnNumber,
               },
@@ -440,10 +445,18 @@ export class Agent {
                     await this.config.messageStore.append(this.config.contextId, [message]);
                     break;
                   }
+                  case 'internal:tool-message':
+                    logger.debug(
+                      { message: event.message },
+                      'Saving internal tool message to message store',
+                    );
+                    await this.config.messageStore.append(this.config.contextId, [event.message]);
+                    break;
                   default:
                     break;
                 }
               }),
+              filter((event) => event.kind !== 'internal:tool-message'),
             );
 
             // Subscribe to turn events

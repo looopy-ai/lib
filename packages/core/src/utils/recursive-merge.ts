@@ -86,7 +86,7 @@ export function recursiveMerge<S, E>(
   const seed: Iter<S, E> = {
     state: initial,
     iteration: 0,
-    events$: eventsFor({ ...initial, iteration: 0 }).pipe(shareReplay()),
+    events$: eventsFor({ ...initial, iteration: 0 }).pipe(shareReplay({ refCount: true })),
   };
 
   const iterations$: Observable<Iter<S, E>> = of(seed).pipe(

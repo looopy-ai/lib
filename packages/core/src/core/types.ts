@@ -1,4 +1,5 @@
 import type pino from 'pino';
+import type { SkillRegistry } from '../skills';
 import type { AuthContext } from '../types/context';
 import type { LLMProvider } from '../types/llm';
 import type { ToolProvider } from '../types/tools';
@@ -12,6 +13,7 @@ export type AgentContext = {
   toolProviders: ToolProvider[];
   logger: pino.Logger;
   systemPrompt?: SystemPromptProp;
+  skillRegistry?: SkillRegistry;
   skillPrompts?: Record<string, string>;
   metadata?: Record<string, unknown>;
 };

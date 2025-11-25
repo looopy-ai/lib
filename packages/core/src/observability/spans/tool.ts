@@ -7,8 +7,8 @@
 import { context as otelContext, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
 import type { IterationContext } from '../../core/types';
-import type { ToolCallEvent, ToolExecutionEvent } from '../../types/event';
-import type { ToolCall } from '../../types/tools';
+import type { ToolCallEvent } from '../../types/event';
+import type { ToolCall, ToolResult } from '../../types/tools';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface ToolExecutionSpanParams {
@@ -44,20 +44,10 @@ export const startToolExecuteSpan = (context: IterationContext, toolStart: ToolC
   return {
     span,
     traceContext,
-    tapFinish: tap<ToolExecutionEvent>({
+    tapFinish: tap<ToolResult>({
       next: (event) => {
-        if (event.kind === 'tool-complete') {
-          if (event.success) {
-            span.setAttribute('output', JSON.stringify(event.result));
-            span.setStatus({ code: SpanStatusCode.OK });
-          } else {
-            span.setAttribute('output', event.error || 'Tool execution failed');
-            span.setStatus({ code: SpanStatusCode.ERROR });
-            if (event.error) {
-              span.setAttribute('error.message', event.error);
-            }
-          }
-        }
+        span.setAttribute('output', JSON.stringify(event.result));
+        span.setStatus({ code: SpanStatusCode.OK });
       },
       complete: () => span.end(),
       error: (err) => {

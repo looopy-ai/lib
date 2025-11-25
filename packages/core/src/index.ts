@@ -3,6 +3,7 @@ export * from './events';
 export * from './observability';
 export * from './providers';
 export * from './server';
+export * from './skills';
 export * from './stores';
 export * from './tools';
 export * from './types';

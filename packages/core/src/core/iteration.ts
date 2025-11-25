@@ -1,6 +1,6 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { AnyEvent } from '../types/event';
+import type { AnyEvent, ToolCallEvent } from '../types/event';
 import type { Message } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
@@ -114,12 +114,12 @@ export const runIteration = (
           finishLLMCallSpan,
         );
     }),
-    shareReplay(),
+    shareReplay({ refCount: true }),
   );
 
   // If tool call, execute tools
   const toolEvents$ = llmEvents$.pipe(
-    filter((event) => event.kind === 'tool-call'),
+    filter((event): event is ToolCallEvent => event.kind === 'tool-call'),
     mergeMap((event) =>
       runToolCall(
         {
