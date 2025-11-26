@@ -1,5 +1,19 @@
 # @looopy-ai/core
 
+## 2.0.0
+
+### Major Changes
+
+- 01ca093: Make base AnyEvent definitions contextless and add ContextEvent for stamping contextId and taskId onto emitted events.
+
+### Minor Changes
+
+- c17f059: Make tool execution emit `AnyEvent` observables by updating `ToolProvider.execute` and provider implementations to stream tool-complete events.
+
+### Patch Changes
+
+- 166b667: Fix AgentToolProvider.execute to return a single observable that streams SSE events correctly.
+
 ## 1.2.1
 
 ### Patch Changes
