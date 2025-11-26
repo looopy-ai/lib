@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.5
+
+### Patch Changes
+
+- 7c8d53d: publish
+
 ## 1.0.4
 
 ### Patch Changes
