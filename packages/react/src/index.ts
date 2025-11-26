@@ -10,3 +10,5 @@ export {
   type ScrollContainerRenderProps,
   useScrollContainer,
 } from './components/scroll-container';
+export * from './conversation/reducer';
+export * from './conversation/types';

@@ -42,6 +42,7 @@
     "check:types": "tsc --noEmit",
     "lint": "biome check src",
     "lint:fix": "biome check --write src",
+    "prepare": "pnpm build",
     "storybook": "storybook dev -p 6006",
     "test": "CI=true vitest --passWithNoTests",
     "test:coverage": "vitest --coverage",
