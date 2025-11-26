@@ -88,6 +88,13 @@ export const runIteration = (
     const systemPrompt = await getSystemPrompt(context.systemPrompt);
     const messages = await prepareMessages(systemPrompt, context.skillRegistry, history);
     const tools = await prepareTools(context.toolProviders);
+    logger.debug(
+      {
+        messages: messages.length,
+        tools: tools.map((t) => t.name).join(', '),
+      },
+      'Prepared messages and tools for LLM call',
+    );
     return { messages, tools, systemPrompt };
   }).pipe(
     mergeMap(({ messages, tools, systemPrompt }) => {

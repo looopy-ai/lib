@@ -41,6 +41,7 @@ import { LangfuseClient } from '@langfuse/client';
 import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
 import {
   Agent,
+  AgentToolProvider,
   createArtifactTools,
   FileSystemArtifactStore,
   FileSystemContextStore,
@@ -188,13 +189,20 @@ async function main() {
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
 
+  const remoteAgent = AgentToolProvider.from({
+    name: 'RemoteAgent',
+    description: 'Calls another agent as a tool',
+    url: process.env.REMOTE_AGENT_TOOL_PROVIDER_URL || 'http://localhost:5000',
+    icon: 'lucide:cloud-upload',
+  });
+
   // Create agent
   console.log('🎯 Creating agent...\n');
   const agent = new Agent({
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider],
+    toolProviders: [localToolProvider, artifactToolProvider, remoteAgent],
     messageStore,
     systemPrompt: getSystemPrompt,
     skillRegistry,

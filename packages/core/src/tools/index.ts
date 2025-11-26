@@ -8,6 +8,7 @@
  * Tool Providers and Utilities
  */
 
+export * from './agent-tool-provider';
 export * from './artifact-tools';
 export * from './client-tool-provider';
 export * from './local-tools';
