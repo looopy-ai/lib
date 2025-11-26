@@ -52,17 +52,21 @@ export interface LLMProvider {
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
-  }): Observable<LLMEvent<AnyEvent>>;
+  }): Observable<AnyEvent>;
 }
 ```
 
+LLM providers should emit contextless `AnyEvent` values (content deltas, tool calls, usage metrics, etc.).
+The agent loop wraps them as `ContextAnyEvent` so downstream consumers always receive `contextId` and `taskId`.
+
 ## Tool Providers
 
-Tool providers are responsible for executing tools. The `@looopy-ai/core` package includes three tool providers:
+Tool providers are responsible for executing tools. The `@looopy-ai/core` package includes these tool providers:
 
 - `LocalToolProvider`: Executes tools as local functions.
 - `ClientToolProvider`: Delegates the execution of tools to the client.
 - `McpToolProvider`: Connects to an MCP server and proxies the server's tools over JSON-RPC.
+- `AgentToolProvider`: Calls another agent via its published card and streams SSE events as tool results.
 
 ```typescript
 import { mcp } from '@looopy-ai/core';
@@ -101,8 +105,32 @@ export type ToolProvider = {
   readonly name: string;
   getTool(toolName: string): Promise<ToolDefinition | undefined>;
   getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<AnyEvent>;
+  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
 };
 ```
 
-`execute` should emit an RxJS `Observable` of `AnyEvent` values (typically `tool-complete` and any related tool message events).
+`execute` should emit an RxJS `Observable` of `ContextAnyEvent` values.
+Providers typically stream `tool-start`, any intermediate progress, and a final `tool-complete` event.
+The `ExecutionContext` includes `contextId`/`taskId` so providers can forward those IDs to downstream systems (e.g., MCP headers or remote agent calls).
+
+### Remote agents with `AgentToolProvider`
+
+Use the `AgentToolProvider` to invoke another agent that exposes a card endpoint:
+
+```typescript
+import { AgentToolProvider } from '@looopy-ai/core';
+
+const remoteAgent = AgentToolProvider.from({
+  name: 'Research Copilot',
+  description: 'Multi-tool research assistant',
+  url: 'https://agent.example.com',
+  skills: [{ name: 'search', description: 'Web search' }],
+});
+
+const agent = new Agent({
+  // ...
+  toolProviders: [remoteAgent],
+});
+```
+
+The provider posts to `{card.url}/invocations?qualifier=DEFAULT` and consumes the Server-Sent Events stream, emitting each SSE as a `ContextAnyEvent` so it can be multiplexed with local tool activity.

@@ -57,7 +57,7 @@ This guide will walk you through the process of setting up your development envi
      systemPrompt: { prompt: 'You are a helpful assistant.' },
    });
    ```
-4. Start a conversation. The `startTurn` method returns an `Observable<AnyEvent>` stream.
+4. Start a conversation. The `startTurn` method returns an `Observable<ContextAnyEvent>` stream stamped with `contextId` and `taskId`.
    ```typescript
    const events$ = await agent.startTurn('Hello, world!');
    ```

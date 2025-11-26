@@ -91,6 +91,17 @@ Agent Server → Client (SSE Stream)
 - Client can multiplex multiple tasks in same context
 - Events are ordered within a task but may interleave across tasks
 
+## Context Stamping in Code
+
+In TypeScript, base payloads are defined as **contextless** `AnyEvent` objects. The runtime stamps identifiers via:
+
+```typescript
+type ContextEvent<T> = T & { contextId: string; taskId: string };
+type ContextAnyEvent = ContextEvent<AnyEvent>;
+```
+
+LLM and tool providers emit contextless events; the agent loop wraps them with `contextId` and `taskId` before streaming to clients. The interface examples below illustrate the external shape (with context fields) that consumers receive.
+
 ## Event Types
 
 ### 1. Task Lifecycle Events
