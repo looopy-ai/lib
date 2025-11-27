@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.0.14
+
+### Patch Changes
+
+- 78d61e1: change log level
+
 ## 2.0.13
 
 ### Patch Changes
