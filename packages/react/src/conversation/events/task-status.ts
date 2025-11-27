@@ -5,7 +5,6 @@ export const reduceTaskStatus = (
   data: {
     taskId: string;
     status: string;
-    content: string;
     timestamp: string;
   },
 ): ConversationState => {
@@ -16,7 +15,6 @@ export const reduceTaskStatus = (
     updatedTasks.set(data.taskId, {
       ...task,
       status: data.status,
-      content: data.content || task.content,
     });
   }
 

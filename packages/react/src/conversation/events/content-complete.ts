@@ -14,7 +14,8 @@ export const reduceContentComplete = (
   if (task) {
     updatedTasks.set(data.taskId, {
       ...task,
-      content: data.content,
+      content: [...task.content, data.content],
+      stream: '',
     });
   }
 

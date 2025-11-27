@@ -23,7 +23,8 @@ export type TaskEvent = Thought | ToolCall;
 export type TaskState = {
   id: string;
   status: string;
-  content: string;
+  content: string[];
+  stream: string;
   events: TaskEvent[];
 };
 

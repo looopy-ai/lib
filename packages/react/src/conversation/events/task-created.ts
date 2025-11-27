@@ -14,7 +14,8 @@ export const reduceTaskCreated = (
     tasks: new Map(state.tasks).set(data.taskId, {
       id: data.taskId,
       status: 'created',
-      content: '',
+      content: [],
+      stream: '',
       events: [],
     }),
     taskOrder: [...state.taskOrder, data.taskId],

@@ -264,7 +264,7 @@ export const AgentDemo: FC = () => {
                       )}
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <span className="text-sm text-slate-700">
-                          <Streamdown>{task?.content}</Streamdown>
+                          <Streamdown>{task?.stream}</Streamdown>
                         </span>
                         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
                           {task?.status}

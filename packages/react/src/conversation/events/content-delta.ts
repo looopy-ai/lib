@@ -14,7 +14,7 @@ export const reduceContentDelta = (
   if (task) {
     updatedTasks.set(data.taskId, {
       ...task,
-      content: task.content + (data.delta || ''),
+      stream: task.stream + (data.delta || ''),
     });
   }
 
