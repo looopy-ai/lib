@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.1.1
+
+### Patch Changes
+
+- 605cb40: update decodeAuthorization and getAuthContext to use undefined instead of null
+
 ## 2.1.0
 
 ### Minor Changes
