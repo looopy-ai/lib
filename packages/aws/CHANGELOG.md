@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.0.13
+
+### Patch Changes
+
+- ba83828: Fix core import
+
 ## 2.0.12
 
 ### Patch Changes
