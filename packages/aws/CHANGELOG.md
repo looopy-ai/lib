@@ -1,5 +1,16 @@
 # @looopy-ai/aws
 
+## 2.1.0
+
+### Minor Changes
+
+- a8b8a1a: Change AuthContext to a type param
+
+### Patch Changes
+
+- Updated dependencies [a8b8a1a]
+  - @looopy-ai/core@2.1.0
+
 ## 2.0.15
 
 ### Patch Changes
