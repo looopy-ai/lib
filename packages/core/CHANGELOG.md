@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.0
+
+### Minor Changes
+
+- a8b8a1a: Change AuthContext to a type param
+
 ## 2.0.1
 
 ### Patch Changes
