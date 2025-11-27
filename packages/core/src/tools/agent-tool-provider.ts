@@ -7,7 +7,7 @@ import type { ContextAnyEvent, ContextEvent, ExecutionContext, ToolCompleteEvent
 import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 import { toolErrorEvent } from './tool-result-events';
 
-export type HeaderFactory = (context?: ExecutionContext) => Promise<Record<string, string | undefined>>;
+export type HeaderFactory = (context: ExecutionContext, card: AgentCard) => Promise<Record<string, string | undefined>>;
 
 const cardSchema = z.object({
   name: z.string(),
@@ -132,7 +132,7 @@ export class AgentToolProvider implements ToolProvider {
           headers: {
             Accept: 'text/event-stream',
             'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': context.contextId,
-            ...(await this.getHeaders?.(context)),
+            ...(await this.getHeaders?.(context, this.card)),
           },
           body: JSON.stringify({ prompt }),
           signal: abortController.signal,
