@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.0.1
+
+### Patch Changes
+
+- 6c69075: Pass card to getHeaders()
+- aca1813: Allow undefined value in headers
+
 ## 2.0.0
 
 ### Major Changes
