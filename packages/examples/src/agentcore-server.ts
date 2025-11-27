@@ -106,9 +106,11 @@ type MyContext = {
   accessToken: string;
 };
 
-export const decodeAuthorization = async (authorization: string): Promise<MyContext | null> => {
+export const decodeAuthorization = async (
+  authorization: string,
+): Promise<MyContext | undefined> => {
   if (!authorization.startsWith('Bearer ')) {
-    return null;
+    return undefined;
   }
 
   return {
