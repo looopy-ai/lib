@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises';
-import { serve } from '@looopy-ai/aws/ts';
+import { serve } from '@looopy-ai/aws';
 import {
   Agent,
   FileSystemAgentStore,
@@ -7,7 +7,7 @@ import {
   LiteLLM,
   ShutdownManager,
   setDefaultLogger,
-} from '@looopy-ai/core/ts';
+} from '@looopy-ai/core';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
 import {
