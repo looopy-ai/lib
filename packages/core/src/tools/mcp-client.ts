@@ -6,7 +6,6 @@
  * Design Reference: design/tool-integration.md#mcp-client
  */
 
-import type { AuthContext } from '../types/context';
 import type { FunctionParameters } from '../types/tools';
 
 /**
@@ -45,7 +44,7 @@ interface MCPJSONRPCResponse<T> {
   error?: MCPError;
 }
 
-export interface MCPClientConfig {
+export interface MCPClientConfig<AuthContext> {
   baseUrl: string;
   getHeaders: (authContext?: AuthContext) => Record<string, string>;
   timeout?: number;
@@ -54,12 +53,12 @@ export interface MCPClientConfig {
 // Simple ID generator for JSON-RPC
 const generateId = () => Math.random().toString(36).substring(2);
 
-export class MCPClient {
+export class MCPClient<AuthContext> {
   private readonly baseUrl: string;
   private readonly timeout: number;
   private readonly getHeaders: (authContext?: AuthContext) => Record<string, string>;
 
-  constructor(config: MCPClientConfig) {
+  constructor(config: MCPClientConfig<AuthContext>) {
     this.baseUrl = config.baseUrl;
     this.timeout = config.timeout || 30000;
     this.getHeaders = config.getHeaders;

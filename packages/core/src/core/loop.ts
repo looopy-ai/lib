@@ -71,7 +71,11 @@ import type { LoopConfig, TurnContext } from './types';
  * - Tool calls result in new iterations with tool results added to message history
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
  */
-export const runLoop = (context: TurnContext, config: LoopConfig, history: Message[]) => {
+export const runLoop = <AuthContext>(
+  context: TurnContext<AuthContext>,
+  config: LoopConfig,
+  history: Message[],
+) => {
   const logger = context.logger.child({ component: 'loop' });
   const { traceContext: loopContext, tapFinish } = startAgentLoopSpan({
     agentId: context.agentId,

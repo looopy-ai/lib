@@ -146,7 +146,7 @@ export const ToolCallSchema = z.object({
  * - MCPToolProvider: Execute MCP server tools
  * - ClientToolProvider: Delegate to client via input-required
  */
-export type ToolProvider = {
+export type ToolProvider<AuthContext> = {
   get name(): string;
 
   /**
@@ -162,5 +162,5 @@ export type ToolProvider = {
   /**
    * Execute a tool call
    */
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
+  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>): Observable<ContextAnyEvent>;
 };

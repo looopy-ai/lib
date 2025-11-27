@@ -59,8 +59,8 @@ import type { IterationContext } from './types';
  * - Logs all execution steps at trace level
  * - Handles errors gracefully and returns error events instead of throwing
  */
-export const runToolCall = (
-  context: IterationContext,
+export const runToolCall = <AuthContext>(
+  context: IterationContext<AuthContext>,
   toolCall: ContextEvent<ToolCallEvent>,
 ): Observable<ContextAnyEvent> => {
   const logger = context.logger.child({
@@ -78,7 +78,8 @@ export const runToolCall = (
     );
 
     const matchingProvider = matchingProviders.find(
-      (p): p is { provider: ToolProvider; tool: ToolDefinition } => p.tool !== undefined,
+      (p): p is { provider: ToolProvider<AuthContext>; tool: ToolDefinition } =>
+        p.tool !== undefined,
     );
     if (!matchingProvider) {
       logger.warn('No tool provider found for tool');

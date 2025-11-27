@@ -26,7 +26,6 @@ import {
 import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
-import type { AuthContext } from '../types/context';
 import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { Message } from '../types/message';
@@ -39,7 +38,7 @@ import { runLoop } from './loop';
 /**
  * Agent configuration
  */
-export interface AgentConfig {
+export interface AgentConfig<AuthContext> {
   /** Agent ID for tracing */
   agentId: string;
 
@@ -50,7 +49,7 @@ export interface AgentConfig {
   llmProvider: LLMProvider;
 
   /** Tool providers for tool execution */
-  toolProviders: ToolProvider[];
+  toolProviders: ToolProvider<AuthContext>[];
 
   /** Message store for conversation history */
   messageStore: MessageStore;
@@ -85,8 +84,8 @@ export interface GetMessagesOptions {
   maxTokens?: number;
 }
 
-type AgentConfigRequired = AgentConfig &
-  Required<Pick<AgentConfig, 'logger' | 'autoCompact' | 'maxMessages'>>;
+type AgentConfigRequired<AuthContext> = AgentConfig<AuthContext> &
+  Required<Pick<AgentConfig<AuthContext>, 'logger' | 'autoCompact' | 'maxMessages'>>;
 
 /**
  * Agent - Stateful Multi-turn Manager
@@ -97,14 +96,14 @@ type AgentConfigRequired = AgentConfig &
  * - Handles pause/resume/shutdown
  * - Manages artifacts
  */
-export class Agent {
-  private readonly config: AgentConfigRequired;
+export class Agent<AuthContext> {
+  private readonly config: AgentConfigRequired<AuthContext>;
   private _state: AgentState;
   private logger: pino.Logger;
   private shuttingDown = false;
   private shutdownComplete = false;
 
-  constructor(config: AgentConfig) {
+  constructor(config: AgentConfig<AuthContext>) {
     this.config = {
       autoCompact: false,
       maxMessages: 100,

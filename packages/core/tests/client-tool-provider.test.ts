@@ -10,7 +10,7 @@ import type { ExecutionContext } from '../src/types/context';
 import type { ToolCall, ToolResult } from '../src/types/tools';
 
 describe('ClientToolProvider', () => {
-  const mockContext: ExecutionContext = {
+  const mockContext: ExecutionContext<never> = {
     taskId: 'task-123',
     contextId: 'ctx-456',
     agentId: 'agent-1',
@@ -61,7 +61,7 @@ describe('ClientToolProvider', () => {
 
   const mockOnInputRequired = async (
     toolCall: ToolCall,
-    _context: ExecutionContext,
+    _context: ExecutionContext<never>,
   ): Promise<ToolResult> => {
     return {
       toolCallId: toolCall.id,

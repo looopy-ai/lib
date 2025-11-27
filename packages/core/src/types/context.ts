@@ -1,16 +1,7 @@
 /**
- * Authentication context
- */
-export interface AuthContext {
-  userId?: string;
-  credentials?: Record<string, unknown>;
-  scopes?: string[];
-}
-
-/**
  * Execution context passed to tools
  */
-export interface ExecutionContext {
+export interface ExecutionContext<AuthContext> {
   taskId: string;
   contextId: string;
   agentId: string;

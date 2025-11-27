@@ -1,17 +1,11 @@
-import {
-  type Agent,
-  type AuthContext,
-  getLogger,
-  type ShutdownManager,
-  SSEServer,
-} from '@looopy-ai/core';
+import { type Agent, getLogger, type ShutdownManager, SSEServer } from '@looopy-ai/core';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';
 import { z } from 'zod';
 
-export type ServeConfig = {
-  agent: (contextId: string) => Promise<Agent>;
+export type ServeConfig<AuthContext> = {
+  agent: (contextId: string) => Promise<Agent<AuthContext>>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
   shutdown?: ShutdownManager;
   logger?: pino.Logger;
@@ -26,7 +20,9 @@ const promptValidator = z.object({
   prompt: z.string().min(1),
 });
 
-export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> => {
+export const hono = <AuthContext>(
+  config: ServeConfig<AuthContext>,
+): Hono<{ Variables: HonoVariables }> => {
   const app = new Hono<{ Variables: HonoVariables }>();
 
   app.use(requestId());
@@ -52,7 +48,7 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
     }
   });
 
-  const state = { busy: false, agent: undefined as Agent | undefined };
+  const state = { busy: false, agent: undefined as Agent<AuthContext> | undefined };
 
   app.get('/ping', async (c) => {
     return c.text(
@@ -161,7 +157,7 @@ export const hono = (config: ServeConfig): Hono<{ Variables: HonoVariables }> =>
   return app;
 };
 
-const getAuthContext = async (
+const getAuthContext = async <AuthContext>(
   authorization?: string,
   decoder?: (authorization: string) => Promise<AuthContext | null>,
 ): Promise<AuthContext | null> => {

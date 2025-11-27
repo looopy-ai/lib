@@ -70,8 +70,8 @@ import type { IterationConfig, LoopContext } from './types';
  * - Creates an OpenTelemetry span for the entire iteration
  * - Logs iteration start at info level with full context
  */
-export const runIteration = (
-  context: LoopContext,
+export const runIteration = <AuthContext>(
+  context: LoopContext<AuthContext>,
   config: IterationConfig,
   history: Message[],
 ): Observable<ContextAnyEvent> => {
@@ -207,7 +207,7 @@ const prepareMessages = async (
  * - If a provider fails to return tools, the promise will reject
  * - Duplicate tool names from different providers are not filtered
  */
-const prepareTools = async (toolProviders: ToolProvider[]) => {
+const prepareTools = async <AuthContext>(toolProviders: ToolProvider<AuthContext>[]) => {
   const toolPromises = toolProviders.map((p) => p.getTools());
   const toolArrays = await Promise.all(toolPromises);
   return toolArrays.flat();

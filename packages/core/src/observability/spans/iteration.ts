@@ -21,7 +21,10 @@ export interface LoopIterationSpanParams {
 /**
  * Start loop iteration span
  */
-export const startLoopIterationSpan = (context: LoopContext, iteration: number) => {
+export const startLoopIterationSpan = <AuthContext>(
+  context: LoopContext<AuthContext>,
+  iteration: number,
+) => {
   const logger = context.logger;
   logger.info('Starting iteration');
   const tracer = trace.getTracer('looopy');

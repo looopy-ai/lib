@@ -59,8 +59,8 @@ const createErrorResponse = (status: number, message: string) =>
   );
 
 describe('McpToolProvider', () => {
-  let provider: McpToolProvider;
-  const mockContext: ExecutionContext = {
+  let provider: McpToolProvider<{ userId: string; credentials: { accessToken: string } }>;
+  const mockContext: ExecutionContext<{ userId: string; credentials: { accessToken: string } }> = {
     agentId: 'test-agent',
     contextId: 'test-context',
     taskId: 'test-task',

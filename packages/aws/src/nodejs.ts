@@ -1,7 +1,7 @@
 import { serve as serveNodeJs } from '@hono/node-server';
 import { hono, type ServeConfig } from './agentcore-runtime-server';
 
-export const serve = (config: ServeConfig): void => {
+export const serve = <AuthContext>(config: ServeConfig<AuthContext>): void => {
   const app = hono(config);
   const server = serveNodeJs({
     fetch: app.fetch,

@@ -42,7 +42,7 @@ vi.mock('./iteration', () => ({
 }));
 
 describe('loop', () => {
-  let mockContext: TurnContext;
+  let mockContext: TurnContext<unknown>;
   let mockConfig: LoopConfig;
   let mockMessages: Message[];
   let mockLLMProvider: LLMProvider;

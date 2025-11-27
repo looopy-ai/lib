@@ -45,10 +45,10 @@ async function trackArtifactInState(
  *   // ...
  * });
  */
-export function createArtifactTools(
+export function createArtifactTools<AuthContext>(
   artifactStore: ArtifactStore,
   taskStateStore: TaskStateStore,
-): ToolProvider {
+): ToolProvider<AuthContext> {
   const scheduledStore = new ArtifactScheduler(artifactStore);
   return localTools([
     // ============================================================================

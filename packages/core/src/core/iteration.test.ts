@@ -30,7 +30,7 @@ vi.mock('pino');
 
 // Mock the span functions
 vi.mock('../observability/spans', () => ({
-  startLoopIterationSpan: vi.fn((context: LoopContext) => {
+  startLoopIterationSpan: vi.fn((context: LoopContext<unknown>) => {
     context.logger.info('Starting iteration');
     return {
       span: {
@@ -74,7 +74,7 @@ vi.mock('./tools', () => ({
 }));
 
 describe('iteration', () => {
-  let mockContext: LoopContext;
+  let mockContext: LoopContext<unknown>;
   let mockConfig: IterationConfig;
   let mockHistory: Message[];
   let mockLLMProvider: LLMProvider;
@@ -149,7 +149,7 @@ describe('iteration', () => {
         },
       };
 
-      const mockToolProvider: ToolProvider = {
+      const mockToolProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
@@ -268,7 +268,7 @@ describe('iteration', () => {
         },
       };
 
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async (name: string) => (name === 'test_tool' ? toolDefinition : undefined)),
         getTools: vi.fn(async () => [toolDefinition]),
@@ -366,14 +366,14 @@ describe('iteration', () => {
         },
       };
 
-      const provider1: ToolProvider = {
+      const provider1: ToolProvider<unknown> = {
         name: 'provider-1',
         execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => [tool1]),
       };
 
-      const provider2: ToolProvider = {
+      const provider2: ToolProvider<unknown> = {
         name: 'provider-2',
         execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
@@ -533,7 +533,7 @@ describe('iteration', () => {
     });
 
     it('should handle tool provider that returns empty tools', async () => {
-      const emptyProvider: ToolProvider = {
+      const emptyProvider: ToolProvider<unknown> = {
         name: 'empty-provider',
         execute: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),

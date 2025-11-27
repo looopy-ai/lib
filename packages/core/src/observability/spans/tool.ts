@@ -26,7 +26,10 @@ export interface ToolExecutionSpanParams {
 /**
  * Start tool execution span
  */
-export const startToolExecuteSpan = (context: IterationContext, toolStart: ToolCallEvent) => {
+export const startToolExecuteSpan = <AuthContext>(
+  context: IterationContext<AuthContext>,
+  toolStart: ToolCallEvent,
+) => {
   const tracer = trace.getTracer('looopy');
 
   const span = tracer.startSpan(

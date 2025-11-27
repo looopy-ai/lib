@@ -7,8 +7,8 @@ import type { ContextAnyEvent, ContextEvent, ExecutionContext, ToolCompleteEvent
 import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 import { toolErrorEvent } from './tool-result-events';
 
-export type HeaderFactory = (
-  context: ExecutionContext,
+export type HeaderFactory<AuthContext> = (
+  context: ExecutionContext<AuthContext>,
   card: AgentCard,
 ) => Promise<Record<string, string | undefined>>;
 
@@ -38,8 +38,11 @@ type AgentCard = z.infer<typeof cardSchema>;
 
 const safeName = (name: string): string => name.replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase();
 
-export class AgentToolProvider implements ToolProvider {
-  static fromUrl = (cardUrl: string, getHeaders?: HeaderFactory): Promise<AgentToolProvider> => {
+export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext> {
+  static fromUrl = <AuthContext>(
+    cardUrl: string,
+    getHeaders?: HeaderFactory<AuthContext>,
+  ): Promise<AgentToolProvider<AuthContext>> => {
     return fetch(cardUrl)
       .then((response) => response.json())
       .then((card) => {
@@ -47,7 +50,10 @@ export class AgentToolProvider implements ToolProvider {
       });
   };
 
-  static from = (card: AgentCard, getHeaders?: HeaderFactory): AgentToolProvider => {
+  static from = <AuthContext>(
+    card: AgentCard,
+    getHeaders?: HeaderFactory<AuthContext>,
+  ): AgentToolProvider<AuthContext> => {
     const parsed = cardSchema.parse(card);
     return new AgentToolProvider(parsed, getHeaders);
   };
@@ -59,7 +65,7 @@ export class AgentToolProvider implements ToolProvider {
 
   constructor(
     readonly card: AgentCard,
-    readonly getHeaders?: HeaderFactory,
+    readonly getHeaders?: HeaderFactory<AuthContext>,
   ) {
     this.agentName = safeName(card.name);
     this.name = `agent__${this.agentName}`;
@@ -96,7 +102,7 @@ export class AgentToolProvider implements ToolProvider {
     return Promise.resolve(this.tools);
   }
 
-  execute(toolCall: ToolCall, context: ExecutionContext) {
+  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     this.logger.debug(
       { toolCallId: toolCall.id, toolName: toolCall.function.name },
       'Executing agent tool call',

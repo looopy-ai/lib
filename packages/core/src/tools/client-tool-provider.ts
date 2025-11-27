@@ -19,7 +19,7 @@ import {
 } from '../types/tools';
 import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
-export interface ClientToolConfig {
+export interface ClientToolConfig<AuthContext> {
   /**
    * Tools provided by the client (validated on construction)
    */
@@ -29,7 +29,10 @@ export interface ClientToolConfig {
    * Callback to request input from client
    * Returns a promise that resolves when client provides the tool result
    */
-  onInputRequired: (toolCall: ToolCall, context: ExecutionContext) => Promise<ToolResult>;
+  onInputRequired: (
+    toolCall: ToolCall,
+    context: ExecutionContext<AuthContext>,
+  ) => Promise<ToolResult>;
 }
 
 /**
@@ -38,16 +41,16 @@ export interface ClientToolConfig {
  * Validates and manages tools provided by the client.
  * Tool execution delegates to the client via the "input-required" mechanism.
  */
-export class ClientToolProvider implements ToolProvider {
+export class ClientToolProvider<AuthContext> implements ToolProvider<AuthContext> {
   name = 'client-tool-provider';
   private readonly tools: ToolDefinition[];
   private readonly toolNames: Set<string>;
   private readonly onInputRequired: (
     toolCall: ToolCall,
-    context: ExecutionContext,
+    context: ExecutionContext<AuthContext>,
   ) => Promise<ToolResult>;
 
-  constructor(config: ClientToolConfig) {
+  constructor(config: ClientToolConfig<AuthContext>) {
     // Validate client-provided tools
     try {
       this.tools = validateToolDefinitions(config.tools);
@@ -87,7 +90,7 @@ export class ClientToolProvider implements ToolProvider {
    * 3. Client sends the result back via tasks/resume or message/stream continuation
    * 4. Agent continues with the tool result
    */
-  execute(toolCall: ToolCall, context: ExecutionContext) {
+  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     return defer(async () => {
       const tool = await this.getTool(toolCall.function.name);
       if (!tool) {

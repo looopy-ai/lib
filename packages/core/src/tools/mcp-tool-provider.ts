@@ -7,33 +7,35 @@
  */
 
 import { catchError, defer, mergeMap, of } from 'rxjs';
-import type { AuthContext, ExecutionContext } from '../types/context';
+import type { ExecutionContext } from '../types/context';
 import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
 import { MCPClient, type MCPTool } from './mcp-client';
 import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
-export interface MCPProviderConfig {
+export interface MCPProviderConfig<AuthContext> {
   serverId: string;
   serverUrl: string;
   timeout?: number;
   getHeaders: (authContext?: AuthContext) => Record<string, string>;
 }
 
-export const mcp = (config: MCPProviderConfig): McpToolProvider => {
+export const mcp = <AuthContext>(
+  config: MCPProviderConfig<AuthContext>,
+): McpToolProvider<AuthContext> => {
   return new McpToolProvider(config);
 };
 
-export class McpToolProvider implements ToolProvider {
+export class McpToolProvider<AuthContext> implements ToolProvider<AuthContext> {
   name = 'mcp-tool-provider';
 
   readonly id: string;
-  private readonly client: MCPClient;
+  private readonly client: MCPClient<AuthContext>;
   private toolCache = new Map<string, ToolDefinition>();
   private cacheExpiry: number | null = null;
   private readonly cacheTTL: number = 300_000; // 5 minutes
   private ongoingRequest: Promise<ToolDefinition[]> | null = null;
 
-  constructor(config: MCPProviderConfig) {
+  constructor(config: MCPProviderConfig<AuthContext>) {
     this.id = `mcp:${config.serverId}`;
     this.client = new MCPClient({
       baseUrl: config.serverUrl,
@@ -74,7 +76,7 @@ export class McpToolProvider implements ToolProvider {
     return this.ongoingRequest;
   }
 
-  execute(toolCall: ToolCall, context: ExecutionContext) {
+  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     return defer(async () => {
       const { name, arguments: args } = toolCall.function;
 

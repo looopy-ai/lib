@@ -324,7 +324,7 @@ describe('local-tools', () => {
     });
 
     describe('execute()', () => {
-      const mockContext: ExecutionContext = {
+      const mockContext: ExecutionContext<unknown> = {
         taskId: 'test-task',
         contextId: 'test-context',
         agentId: 'test-agent',
@@ -512,7 +512,7 @@ describe('local-tools', () => {
       });
 
       it('should provide execution context to handler', async () => {
-        let receivedContext: ExecutionContext | null = null;
+        let receivedContext: ExecutionContext<unknown> | null = null;
 
         const contextTool = tool({
           name: 'context-test',

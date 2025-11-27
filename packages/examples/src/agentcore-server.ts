@@ -8,6 +8,7 @@ import {
   ShutdownManager,
   setDefaultLogger,
 } from '@looopy-ai/core';
+import { AgentToolProvider } from '@looopy-ai/core/ts';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
 import {
@@ -62,6 +63,21 @@ setDefaultLogger(logger);
 
 const llmProvider = LiteLLM.novaLite(LITELLM_URL, LITELLM_API_KEY);
 
+const remoteAgent = AgentToolProvider.from<MyContext>(
+  {
+    name: 'RemoteAgent',
+    description: 'Calls another agent as a tool',
+    url: 'https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock%2Dagentcore%3Aus%2Dwest%2D2%3A455014111722%3Aruntime%2Fdev%5Flooopy%5Fsample%2DtPpkM52leV',
+    icon: 'lucide:headset',
+  },
+  async ({ authContext }) => {
+    console.log('Auth context (getHeaders):', authContext);
+    return {
+      Authorization: authContext?.accessToken ? `Bearer ${authContext.accessToken}` : undefined,
+    };
+  },
+);
+
 const createAgent = async (contextId: string) => {
   const contextPath = `${agentPath}/context=${contextId}`;
   // Ensure directory exists for SSE log
@@ -77,7 +93,7 @@ const createAgent = async (contextId: string) => {
     agentId,
     llmProvider,
     agentStore,
-    toolProviders: [localToolProvider, artifactToolProvider(agentId)],
+    toolProviders: [localToolProvider, artifactToolProvider(agentId), remoteAgent],
     messageStore: messageStore(agentId),
     systemPrompt,
     logger,
@@ -86,8 +102,23 @@ const createAgent = async (contextId: string) => {
 
 const shutdown = new ShutdownManager();
 
-serve({
+type MyContext = {
+  accessToken: string;
+};
+
+export const decodeAuthorization = async (authorization: string): Promise<MyContext | null> => {
+  if (!authorization.startsWith('Bearer ')) {
+    return null;
+  }
+
+  return {
+    accessToken: authorization.substring('Bearer '.length),
+  };
+};
+
+serve<MyContext>({
   agent: createAgent,
+  decodeAuthorization,
   logger,
   shutdown,
 });

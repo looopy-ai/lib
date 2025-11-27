@@ -43,7 +43,7 @@ vi.mock('../observability/spans/tool', () => ({
 }));
 
 describe('tools', () => {
-  let mockContext: IterationContext;
+  let mockContext: IterationContext<unknown>;
   let mockToolCall: ContextEvent<ToolCallEvent>;
 
   beforeEach(() => {
@@ -85,7 +85,7 @@ describe('tools', () => {
     };
 
     const createSuccessExecute = (result: unknown) =>
-      vi.fn((toolCall: ToolCall, execContext: IterationContext) =>
+      vi.fn((toolCall: ToolCall, execContext: IterationContext<unknown>) =>
         toolResultToEvents(execContext, toolCall, {
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
@@ -95,7 +95,7 @@ describe('tools', () => {
       );
 
     it('should emit tool-start and tool-complete when a provider supports the tool', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -129,7 +129,7 @@ describe('tools', () => {
     });
 
     it('should call provider.execute with correct parameters', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -161,21 +161,21 @@ describe('tools', () => {
     });
 
     it('should execute the first provider that returns a matching tool', async () => {
-      const provider1: ToolProvider = {
+      const provider1: ToolProvider<unknown> = {
         name: 'provider-1',
         getTool: vi.fn(async () => undefined),
         getTools: vi.fn(async () => []),
         execute: vi.fn(() => of()),
       };
 
-      const provider2: ToolProvider = {
+      const provider2: ToolProvider<unknown> = {
         name: 'provider-2',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
         execute: createSuccessExecute('correct'),
       };
 
-      const provider3: ToolProvider = {
+      const provider3: ToolProvider<unknown> = {
         name: 'provider-3',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -212,7 +212,7 @@ describe('tools', () => {
 
     it('should handle provider throwing an error', async () => {
       const testError = new Error('Provider crashed');
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -242,7 +242,7 @@ describe('tools', () => {
     });
 
     it('should handle provider throwing non-Error object', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -264,7 +264,7 @@ describe('tools', () => {
     });
 
     it('should log trace messages during execution', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -292,7 +292,7 @@ describe('tools', () => {
     });
 
     it('should create OpenTelemetry span with correct parameters', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -315,7 +315,7 @@ describe('tools', () => {
     });
 
     it('should use tapFinish operator for span management', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -339,7 +339,7 @@ describe('tools', () => {
         status: 'ok',
       };
 
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -358,7 +358,7 @@ describe('tools', () => {
     });
 
     it('should handle empty arguments object', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),
@@ -389,7 +389,7 @@ describe('tools', () => {
     });
 
     it('should include timestamps in all events', async () => {
-      const mockProvider: ToolProvider = {
+      const mockProvider: ToolProvider<unknown> = {
         name: 'mock-provider',
         getTool: vi.fn(async () => mockToolDef),
         getTools: vi.fn(async () => [mockToolDef]),

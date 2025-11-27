@@ -17,20 +17,20 @@ type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
 /**
  * Tool handler function with typed parameters
  */
-export type ToolHandler<TParams> = (
+export type ToolHandler<TParams, AuthContext> = (
   params: TParams,
-  context: ExecutionContext,
+  context: ExecutionContext<AuthContext>,
 ) => Promise<InternalToolResult> | InternalToolResult;
 
 /**
  * Tool definition with Zod schema and handler
  */
-export interface LocalToolDefinition<TSchema extends z.ZodObject> {
+export interface LocalToolDefinition<TSchema extends z.ZodObject, AuthContext> {
   name: string;
   description: string;
   icon?: string;
   schema: TSchema;
-  handler: ToolHandler<z.infer<TSchema>>;
+  handler: ToolHandler<z.infer<TSchema>, AuthContext>;
 }
 
 /**
@@ -48,9 +48,9 @@ export interface LocalToolDefinition<TSchema extends z.ZodObject> {
  *   }
  * );
  */
-export function tool<TSchema extends z.ZodObject>(
-  definition: LocalToolDefinition<TSchema>,
-): LocalToolDefinition<TSchema> {
+export function tool<TSchema extends z.ZodObject, AuthContext>(
+  definition: LocalToolDefinition<TSchema, AuthContext>,
+): LocalToolDefinition<TSchema, AuthContext> {
   return { ...definition };
 }
 
@@ -109,8 +109,10 @@ const zodToJsonSchema = (
  *   ),
  * ]);
  */
-export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvider {
-  const toolMap = new Map<string, LocalToolDefinition<z.ZodObject>>();
+export function localTools<AuthContext>(
+  tools: LocalToolDefinition<z.ZodObject, AuthContext>[],
+): ToolProvider<AuthContext> {
+  const toolMap = new Map<string, LocalToolDefinition<z.ZodObject, AuthContext>>();
 
   for (const tool of tools) {
     if (toolMap.has(tool.name)) {
@@ -142,7 +144,7 @@ export function localTools(tools: LocalToolDefinition<z.ZodObject>[]): ToolProvi
       };
     },
 
-    execute: (toolCall: ToolCall, context: ExecutionContext) =>
+    execute: (toolCall: ToolCall, context: ExecutionContext<AuthContext>) =>
       defer(async () => {
         const toolDef = toolMap.get(toolCall.function.name);
 

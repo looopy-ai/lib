@@ -6,10 +6,10 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { ToolDefinition } from '../..';
 import type { LoopContext } from '../../core/types';
 import type { AnyEvent } from '../../types/event';
 import type { Message } from '../../types/message';
+import type { ToolDefinition } from '../../types/tools';
 import type { SystemPrompt } from '../../utils/prompt';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -23,8 +23,8 @@ export interface LLMCallSpanParams {
 /**
  * Start LLM call span
  */
-export const startLLMCallSpan = (
-  context: LoopContext,
+export const startLLMCallSpan = <AuthContext>(
+  context: LoopContext<AuthContext>,
   systemPrompt: SystemPrompt | undefined,
   messages: Message[],
   tools: ToolDefinition[],

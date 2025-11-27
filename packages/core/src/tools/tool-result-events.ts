@@ -8,8 +8,8 @@ import type {
 } from '../types/event';
 import type { ToolCall, ToolResult } from '../types/tools';
 
-export const toolErrorEvent = (
-  context: ExecutionContext,
+export const toolErrorEvent = <AuthContext>(
+  context: ExecutionContext<AuthContext>,
   toolCall: ToolCall,
   errorMessage: string,
 ): ContextEvent<ToolCompleteEvent> => ({
@@ -24,8 +24,8 @@ export const toolErrorEvent = (
   timestamp: new Date().toISOString(),
 });
 
-export const toolResultToEvents = (
-  context: ExecutionContext,
+export const toolResultToEvents = <AuthContext>(
+  context: ExecutionContext<AuthContext>,
   _toolCall: ToolCall,
   result: ToolResult,
 ): Observable<ContextAnyEvent> => {
