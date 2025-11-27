@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export type ServeConfig<AuthContext> = {
   agent: (contextId: string) => Promise<Agent<AuthContext>>;
-  decodeAuthorization?: (authorization: string) => Promise<AuthContext | null>;
+  decodeAuthorization?: (authorization: string) => Promise<AuthContext | undefined>;
   shutdown?: ShutdownManager;
   logger?: pino.Logger;
   port?: number;
@@ -108,7 +108,7 @@ export const hono = <AuthContext>(
     const { prompt } = promptValidation.data;
 
     const sseServer = new SSEServer();
-    const turn = await agent.startTurn(prompt);
+    const turn = await agent.startTurn(prompt, { authContext });
     turn.subscribe({
       next: (evt) => {
         sseServer.emit(contextId, evt);
@@ -159,10 +159,10 @@ export const hono = <AuthContext>(
 
 const getAuthContext = async <AuthContext>(
   authorization?: string,
-  decoder?: (authorization: string) => Promise<AuthContext | null>,
-): Promise<AuthContext | null> => {
+  decoder?: (authorization: string) => Promise<AuthContext | undefined>,
+): Promise<AuthContext | undefined> => {
   if (!authorization || !decoder) {
-    return null;
+    return undefined;
   }
 
   return await decoder(authorization);
