@@ -83,7 +83,7 @@ export async function loadSecrets(options: LoadSecretsOptions): Promise<void> {
         logger.debug(`Loaded secret key: ${envKey}`);
       }
 
-      logger.info(`Successfully loaded secret: ${secretId}`);
+      logger.debug(`Successfully loaded secret: ${secretId}`);
     } catch (error) {
       if (error instanceof SecretsManagerServiceException) {
         if (error.name === 'ResourceNotFoundException') {
