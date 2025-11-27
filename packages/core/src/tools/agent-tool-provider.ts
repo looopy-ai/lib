@@ -7,7 +7,7 @@ import type { ContextAnyEvent, ContextEvent, ExecutionContext, ToolCompleteEvent
 import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
 import { toolErrorEvent } from './tool-result-events';
 
-export type HeaderFactory = (context?: ExecutionContext) => Promise<Record<string, string>>;
+export type HeaderFactory = (context?: ExecutionContext) => Promise<Record<string, string | undefined>>;
 
 const cardSchema = z.object({
   name: z.string(),
