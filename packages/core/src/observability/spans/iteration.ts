@@ -7,6 +7,7 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
 import type { LoopContext } from '../../core/types';
+import { isChildTaskEvent } from '../../events/utils';
 import type { ContextAnyEvent } from '../../types/event';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -50,6 +51,7 @@ export const startLoopIterationSpan = <AuthContext>(
     traceContext,
     tapFinish: tap<ContextAnyEvent>({
       next: (event) => {
+        if (isChildTaskEvent(event)) return;
         if (event.kind === 'content-complete') {
           if (event.content) {
             span.setAttribute(SpanAttributes.OUTPUT, event.content);

@@ -7,6 +7,7 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
 import type { LoopContext } from '../../core/types';
+import { isChildTaskEvent } from '../../events/utils';
 import type { AnyEvent } from '../../types/event';
 import type { Message } from '../../types/message';
 import type { ToolDefinition } from '../../types/tools';
@@ -54,6 +55,7 @@ export const startLLMCallSpan = <AuthContext>(
     traceContext,
     tapFinish: tap<AnyEvent>({
       next: (event) => {
+        if (isChildTaskEvent(event)) return;
         switch (event.kind) {
           case 'content-complete':
             if (event.content) {

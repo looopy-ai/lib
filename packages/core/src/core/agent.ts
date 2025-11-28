@@ -11,6 +11,7 @@ import type { Context } from '@opentelemetry/api';
 import type pino from 'pino';
 import { catchError, concat, filter, Observable, of, tap } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
+import { isChildTaskEvent } from '../events/utils';
 import {
   addMessagesCompactedEvent,
   addMessagesLoadedEvent,
@@ -411,6 +412,7 @@ export class Agent<AuthContext> {
               messages,
             ).pipe(
               tap(async (event) => {
+                if (isChildTaskEvent(event)) return;
                 switch (event.kind) {
                   case 'content-complete':
                     if (event.content || event.toolCalls) {

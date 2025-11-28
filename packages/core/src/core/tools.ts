@@ -1,4 +1,5 @@
 import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'rxjs';
+import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
 import type {
@@ -122,6 +123,7 @@ export const runToolCall = <AuthContext>(
 
         return provider.execute(toolCallInput, context).pipe(
           tap((event) => {
+            if (isChildTaskEvent(event)) return;
             if (event.kind !== 'tool-complete') {
               return;
             }

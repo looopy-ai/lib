@@ -605,6 +605,13 @@ export type ContextEvent<T> = T & {
   taskId: string;
 };
 
+/**
+ * Adds context/task identifiers to an event shape.
+ */
+export type ChildTaskEvent<T> = T & {
+  parentTaskId: string;
+};
+
 export type ContextAnyEvent = ContextEvent<AnyEvent>;
 
 /**

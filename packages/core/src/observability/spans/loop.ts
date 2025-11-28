@@ -6,6 +6,7 @@
 
 import { type Context, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
+import { isChildTaskEvent } from '../../events/utils';
 import type { ContextAnyEvent } from '../../types/event';
 import { SpanAttributes, SpanNames } from '../tracing';
 
@@ -44,6 +45,7 @@ export const startAgentLoopSpan = (params: AgentLoopSpanParams) => {
     traceContext,
     tapFinish: tap<ContextAnyEvent>({
       next: (event) => {
+        if (isChildTaskEvent(event)) return;
         switch (event.kind) {
           case 'content-complete':
             if (event.content) {

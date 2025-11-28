@@ -1,5 +1,6 @@
 import { concat, EMPTY, mergeMap, of, reduce, shareReplay } from 'rxjs';
 import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
+import { isChildTaskEvent } from '../events/utils';
 import { startAgentLoopSpan } from '../observability/spans';
 import type { ContentCompleteEvent, ContextAnyEvent, ContextEvent } from '../types/event';
 import type { Message } from '../types/message';
@@ -121,14 +122,14 @@ export const runLoop = <AuthContext>(
       ...state,
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
-    (e) => e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
+    (e) => !isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
   ).pipe(shareReplay({ refCount: true }));
 
   // Build a final task-complete event from the last content-complete event
   const finalSummary$ = merged$.pipe(
     // Accumulate the last seen content-complete event (if any)
     reduce<ContextAnyEvent, ContextEvent<ContentCompleteEvent> | null>(
-      (last, e) => (e.kind === 'content-complete' ? e : last),
+      (last, e) => (!isChildTaskEvent(e) && e.kind === 'content-complete' ? e : last),
       null,
     ),
     mergeMap((last) => {

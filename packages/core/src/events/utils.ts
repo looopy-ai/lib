@@ -7,9 +7,11 @@
  */
 
 import type {
+  AnyEvent,
   AuthCompletedEvent,
   AuthRequiredEvent,
   AuthType,
+  ChildTaskEvent,
   ContentCompleteEvent,
   ContentDeltaEvent,
   ContextAnyEvent,
@@ -671,3 +673,11 @@ export function filterByKind<K extends ContextAnyEvent['kind']>(
 ): Extract<ContextAnyEvent, { kind: K }>[] {
   return events.filter((event) => event.kind === kind) as Extract<ContextAnyEvent, { kind: K }>[];
 }
+
+// ============================================================================
+// Child Task Event Detection
+// ============================================================================
+
+export const isChildTaskEvent = (event: AnyEvent) => {
+  return !!(event as ChildTaskEvent<ContextAnyEvent>).parentTaskId;
+};
