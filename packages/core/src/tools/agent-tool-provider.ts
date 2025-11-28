@@ -145,7 +145,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
           method: 'POST',
           headers: {
             Accept: 'text/event-stream',
-            'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': context.contextId,
+            'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': `${context.contextId}-${this.agentName}`,
             ...(await this.getHeaders?.(context, this.card)),
           },
           body: JSON.stringify({ prompt }),
