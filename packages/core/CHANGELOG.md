@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.4
+
+### Patch Changes
+
+- 550de13: Add unit tests for AgentToolProvider to cover parent task propagation and message store skipping for child agent content.
+- d6f0be6: Alter nesting contextId
+
 ## 2.1.3
 
 ### Patch Changes
