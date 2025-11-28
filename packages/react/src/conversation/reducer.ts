@@ -7,12 +7,9 @@ import { reduceTaskStatus } from './events/task-status';
 import { reduceThoughtStream } from './events/thought-stream';
 import { reduceToolComplete } from './events/tool-complete';
 import { reduceToolStart } from './events/tool-start';
-import type { ConversationState } from './types';
+import type { Tasks } from './types';
 
-export const conversationReducer = (
-  state: ConversationState,
-  event: SSEEvent,
-): ConversationState => {
+export const conversationReducer = (state: Tasks, event: SSEEvent): Tasks => {
   const data = event.data ? JSON.parse(event.data) : null;
   if (!data) return state;
 

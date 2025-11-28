@@ -1,7 +1,7 @@
-import type { ConversationState } from '../types';
+import type { Tasks } from '../types';
 
 export const reduceToolStart = (
-  state: ConversationState,
+  state: Tasks,
   data: {
     taskId: string;
     toolCallId: string;
@@ -10,7 +10,7 @@ export const reduceToolStart = (
     arguments: Record<string, unknown>;
     timestamp: string;
   },
-): ConversationState => {
+): Tasks => {
   const updatedTasks = new Map(state.tasks);
   const task = updatedTasks.get(data.taskId);
   if (task) {

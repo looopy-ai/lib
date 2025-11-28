@@ -75,7 +75,6 @@ export const AgentDemo: FC = () => {
   const [conversationState, dispatch] = useReducer(conversationReducer, {
     tasks: new Map<string, TaskState>(),
     taskOrder: [],
-    count: 0,
   });
   const regionInputId = useId();
   const accountInputId = useId();

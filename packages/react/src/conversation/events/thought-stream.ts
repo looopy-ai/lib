@@ -1,7 +1,7 @@
-import type { ConversationState } from '../types';
+import type { Tasks } from '../types';
 
 export const reduceThoughtStream = (
-  state: ConversationState,
+  state: Tasks,
   data: {
     taskId: string;
     thoughtId: string;
@@ -9,7 +9,7 @@ export const reduceThoughtStream = (
     content: string;
     timestamp: string;
   },
-): ConversationState => {
+): Tasks => {
   const updatedTasks = new Map(state.tasks);
   const task = updatedTasks.get(data.taskId);
   if (task) {

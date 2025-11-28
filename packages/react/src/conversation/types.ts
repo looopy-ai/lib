@@ -18,7 +18,20 @@ export type ToolCall = {
   timestamp: string;
 };
 
-export type TaskEvent = Thought | ToolCall;
+export type Content = {
+  type: 'content';
+  id: string;
+  content: string;
+  timestamp: string;
+};
+
+export type SubTask = {
+  type: 'sub-task';
+  id: string;
+  timestamp: string;
+};
+
+export type TaskEvent = Thought | ToolCall | Content | SubTask;
 
 export type TaskState = {
   id: string;
@@ -28,8 +41,7 @@ export type TaskState = {
   events: TaskEvent[];
 };
 
-export type ConversationState = {
+export type Tasks = {
   tasks: Map<string, TaskState>;
   taskOrder: string[];
-  count: number;
 };
