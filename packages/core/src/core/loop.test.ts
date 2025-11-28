@@ -351,6 +351,93 @@ describe('loop', () => {
       });
     });
 
+    it('should not add child task content to messages for next iteration', async () => {
+      let callCount = 0;
+      vi.mocked(iteration.runIteration).mockImplementation(() => {
+        callCount++;
+
+        if (callCount === 1) {
+          return of(
+            {
+              kind: 'content-complete',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              content: '',
+              finishReason: 'tool_calls',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'delegate',
+                    arguments: {},
+                  },
+                },
+              ],
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+            {
+              kind: 'tool-complete',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              toolCallId: 'call-1',
+              toolName: 'delegate',
+              success: true,
+              result: 'delegated result',
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+            {
+              kind: 'content-complete',
+              contextId: 'child-ctx',
+              taskId: 'child-task',
+              parentTaskId: 'task-789',
+              content: 'child agent output',
+              finishReason: 'stop',
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+          );
+        }
+
+        return of({
+          kind: 'content-complete',
+          contextId: 'ctx-456',
+          taskId: 'task-789',
+          content: 'Final response',
+          finishReason: 'stop',
+          timestamp: new Date().toISOString(),
+        } as ContextAnyEvent);
+      });
+
+      const events$ = runLoop(mockContext, mockConfig, mockMessages);
+      await lastValueFrom(events$.pipe(toArray()));
+
+      const secondCallMessages = vi.mocked(iteration.runIteration).mock.calls[1][2];
+
+      expect(secondCallMessages).toHaveLength(3);
+      expect(secondCallMessages[0]).toEqual(mockMessages[0]);
+      expect(secondCallMessages[1]).toEqual({
+        role: 'assistant',
+        content: '',
+        toolCalls: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'call-1',
+            function: expect.objectContaining({ name: 'delegate' }),
+          }),
+        ]),
+      });
+      expect(secondCallMessages[2]).toEqual({
+        role: 'tool',
+        name: 'delegate',
+        content: '"delegated result"',
+        toolCallId: 'call-1',
+      });
+      expect(
+        secondCallMessages.some(
+          (message) => message.role === 'assistant' && message.content === 'child agent output',
+        ),
+      ).toBe(false);
+    });
+
     it('should emit all iteration events in output stream', async () => {
       vi.mocked(iteration.runIteration).mockReturnValue(
         of(

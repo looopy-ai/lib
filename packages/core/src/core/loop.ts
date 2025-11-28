@@ -194,6 +194,8 @@ export const runLoop = <AuthContext>(
 const eventsToMessages = (events: ContextAnyEvent[]): Message[] => {
   const messages: Message[] = [];
   for (const event of events) {
+    if (isChildTaskEvent(event)) continue;
+
     switch (event.kind) {
       case 'content-complete':
         if (event.content) {
