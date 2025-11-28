@@ -1,4 +1,5 @@
 import { consumeSSEStream } from '@geee-be/sse-stream-parser';
+import { trace } from '@opentelemetry/api';
 import type pino from 'pino';
 import { Observable } from 'rxjs';
 import z from 'zod';
@@ -136,6 +137,9 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
           subscriber.complete();
           return;
         }
+
+        const span = trace.getSpan(context.parentContext);
+        span?.updateName(`agent.invoke[${toolCall.function.name}]`);
 
         const res = await fetch(`${this.card.url}/invocations?qualifier=DEFAULT`, {
           method: 'POST',
