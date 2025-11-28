@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.3
+
+### Patch Changes
+
+- 0425814: debug logging
+- ec4598a: add OpenTelemetry tracing for agent invocation updates
+
 ## 2.1.2
 
 ### Patch Changes
