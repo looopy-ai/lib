@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.5
+
+### Patch Changes
+
+- 7768fa4: Prevent child agent events from being added to parent loop message history when invoking agent tools.
+
 ## 2.1.4
 
 ### Patch Changes
