@@ -175,35 +175,39 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
           return;
         }
 
+        let content = '';
         await consumeSSEStream(
           body,
           (e) => {
             if (subscriber.closed) return;
+            const data = JSON.parse(e.data);
             subscriber.next({
               kind: e.event,
               parentTaskId: context.taskId,
-              ...JSON.parse(e.data),
+              ...data,
             });
+            if (e.event === 'task-complete') {
+              content = data.content;
+            }
             logger.debug({ event: e.event }, 'Received SSE event');
           },
-          () => {
-            if (!subscriber.closed) {
-              const toolCompleteEvent: ContextEvent<ToolCompleteEvent> = {
-                kind: 'tool-complete',
-                contextId: context.contextId,
-                taskId: context.taskId,
-                toolCallId: toolCall.id,
-                toolName: toolCall.function.name,
-                success: true, // TODO
-                result: 'Complete',
-                timestamp: new Date().toISOString(),
-              };
-              subscriber.next(toolCompleteEvent);
-              subscriber.complete();
-              logger.debug('Tool execution complete');
-            }
-          },
         );
+
+        if (!subscriber.closed) {
+          const toolCompleteEvent: ContextEvent<ToolCompleteEvent> = {
+            kind: 'tool-complete',
+            contextId: context.contextId,
+            taskId: context.taskId,
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: true, // TODO
+            result: content || 'Complete',
+            timestamp: new Date().toISOString(),
+          };
+          subscriber.next(toolCompleteEvent);
+          subscriber.complete();
+          logger.debug('Tool execution complete');
+        }
       };
 
       run().catch((err) => {
