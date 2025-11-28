@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.7
+
+### Patch Changes
+
+- bbc0052: Nested tasks
+
 ## 1.0.6
 
 ### Patch Changes
