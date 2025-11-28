@@ -107,10 +107,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
       taskId: context.taskId,
       toolCallId: toolCall.id,
     });
-    logger.debug(
-      { toolCallId: toolCall.id },
-      'Executing agent tool call',
-    );
+    logger.debug({ toolCallId: toolCall.id }, 'Executing agent tool call');
 
     return new Observable<ContextAnyEvent>((subscriber) => {
       const abortController = new AbortController();
@@ -152,10 +149,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
         });
 
         if (!res.ok) {
-          logger.error(
-            { status: res.status, statusText: res.statusText },
-            'Agent call failed',
-          );
+          logger.error({ status: res.status, statusText: res.statusText }, 'Agent call failed');
           subscriber.next(
             toolErrorEvent(
               context,
@@ -176,22 +170,19 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
         }
 
         let content = '';
-        await consumeSSEStream(
-          body,
-          (e) => {
-            if (subscriber.closed) return;
-            const data = JSON.parse(e.data);
-            subscriber.next({
-              kind: e.event,
-              parentTaskId: context.taskId,
-              ...data,
-            });
-            if (e.event === 'task-complete') {
-              content = data.content;
-            }
-            logger.debug({ event: e.event }, 'Received SSE event');
-          },
-        );
+        await consumeSSEStream(body, (e) => {
+          if (subscriber.closed) return;
+          const data = JSON.parse(e.data);
+          subscriber.next({
+            kind: e.event,
+            parentTaskId: context.taskId,
+            ...data,
+          });
+          if (e.event === 'task-complete') {
+            content = data.content;
+          }
+          logger.debug({ event: e.event }, 'Received SSE event');
+        });
 
         if (!subscriber.closed) {
           const toolCompleteEvent: ContextEvent<ToolCompleteEvent> = {
