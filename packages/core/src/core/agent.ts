@@ -416,6 +416,8 @@ export class Agent<AuthContext> {
                 switch (event.kind) {
                   case 'content-complete':
                     if (event.content || event.toolCalls) {
+                      logger.debug({ event }, 'Saving content-complete to message store');
+
                       await this.config.messageStore.append(this.config.contextId, [
                         {
                           role: 'assistant',
@@ -433,6 +435,7 @@ export class Agent<AuthContext> {
                     }
                     break;
                   case 'tool-complete': {
+                    logger.debug({ event }, 'Saving tool-complete to message store');
                     const message: Message = {
                       role: 'tool',
                       content: JSON.stringify({
@@ -442,15 +445,11 @@ export class Agent<AuthContext> {
                       }),
                       toolCallId: event.toolCallId,
                     };
-                    logger.debug({ message }, 'Saving tool message to message store');
                     await this.config.messageStore.append(this.config.contextId, [message]);
                     break;
                   }
                   case 'internal:tool-message':
-                    logger.debug(
-                      { message: event.message },
-                      'Saving internal tool message to message store',
-                    );
+                    logger.debug({ event }, 'Saving internal:tool-message to message store');
                     await this.config.messageStore.append(this.config.contextId, [event.message]);
                     break;
                   default:
