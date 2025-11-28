@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.1
+
+### Patch Changes
+
+- f48e29a: enhance logging in AgentToolProvider for better context and error handling
+- 5682e29: Update packages
+
 ## 2.1.0
 
 ### Minor Changes
