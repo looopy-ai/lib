@@ -1,6 +1,6 @@
 {
   "name": "@looopy-ai/core",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "RxJS-based AI agent framework",
   "keywords": [
     "agent",
