@@ -1,6 +1,6 @@
 {
   "name": "@looopy-ai/aws",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "AWS storage and providers for Looopy AI",
   "type": "module",
   "main": "dist/index.js",
