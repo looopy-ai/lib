@@ -103,8 +103,12 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
   }
 
   execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
-    this.logger.debug(
-      { toolCallId: toolCall.id, toolName: toolCall.function.name },
+    const logger = this.logger.child({
+      taskId: context.taskId,
+      toolCallId: toolCall.id,
+    });
+    logger.debug(
+      { toolCallId: toolCall.id },
       'Executing agent tool call',
     );
 
@@ -114,7 +118,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
       const run = async () => {
         const tool = await this.getTool(toolCall.function.name);
         if (!tool) {
-          this.logger.error({ toolName: toolCall.function.name }, 'Tool not found');
+          logger.error({ toolName: toolCall.function.name }, 'Tool not found');
           subscriber.next(
             toolErrorEvent(context, toolCall, `Tool not found: ${toolCall.function.name}`),
           );
@@ -124,7 +128,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
 
         const prompt = toolCall.function.arguments.prompt;
         if (!prompt || typeof prompt !== 'string') {
-          this.logger.error('Invalid tool call arguments');
+          logger.error('Invalid tool call arguments');
           subscriber.next(
             toolErrorEvent(
               context,
@@ -148,7 +152,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
         });
 
         if (!res.ok) {
-          this.logger.error(
+          logger.error(
             { status: res.status, statusText: res.statusText },
             'Agent call failed',
           );
@@ -165,7 +169,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
 
         const body = res.body;
         if (!body) {
-          this.logger.error('Agent response has no body');
+          logger.error('Agent response has no body');
           subscriber.next(toolErrorEvent(context, toolCall, 'Agent returned no response body'));
           subscriber.complete();
           return;
@@ -180,7 +184,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
               parentTaskId: context.taskId,
               ...JSON.parse(e.data),
             });
-            this.logger.debug({ event: e.event }, 'Received SSE event');
+            logger.debug({ event: e.event }, 'Received SSE event');
           },
           () => {
             if (!subscriber.closed) {
@@ -196,14 +200,14 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
               };
               subscriber.next(toolCompleteEvent);
               subscriber.complete();
-              this.logger.debug('Tool execution complete');
+              logger.debug('Tool execution complete');
             }
           },
         );
       };
 
       run().catch((err) => {
-        this.logger.error({ err }, 'Tool execution error');
+        logger.error({ err }, 'Tool execution error');
         if (!subscriber.closed) {
           subscriber.error(err);
         }
