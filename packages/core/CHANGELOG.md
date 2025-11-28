@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.2
+
+### Patch Changes
+
+- 72917ec: add child task event detection and update event handling across components
+
 ## 2.1.1
 
 ### Patch Changes
