@@ -16,7 +16,7 @@ export type HonoVariables = {
   logger: pino.Logger;
 };
 
-const promptValidator = z.object({
+const promptValidator = z.looseObject({
   prompt: z.string().min(1),
 });
 
@@ -105,10 +105,10 @@ export const hono = <AuthContext>(
       state.busy = false;
       return c.json({ error: 'Invalid prompt', details: promptValidation.error.issues }, 400);
     }
-    const { prompt } = promptValidation.data;
+    const { prompt, ...metadata } = promptValidation.data;
 
     const sseServer = new SSEServer();
-    const turn = await agent.startTurn(prompt, { authContext });
+    const turn = await agent.startTurn(prompt, { authContext, metadata });
     turn.subscribe({
       next: (evt) => {
         sseServer.emit(contextId, evt);

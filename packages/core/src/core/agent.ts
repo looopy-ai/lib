@@ -223,6 +223,7 @@ export class Agent<AuthContext> {
     options?: {
       authContext?: AuthContext;
       taskId?: string;
+      metadata?: Record<string, unknown>;
     },
   ): Promise<Observable<ContextAnyEvent>> {
     const turnNumber = this._state.turnCount + 1;
@@ -320,6 +321,7 @@ export class Agent<AuthContext> {
         userMessage,
         taskId,
         options?.authContext,
+        options?.metadata,
         rootSpan,
         rootContext,
         this.logger.child({ taskId, turnNumber }),
@@ -355,6 +357,7 @@ export class Agent<AuthContext> {
     userMessage: string | null,
     taskId: string,
     authContext: AuthContext | undefined,
+    metadata: Record<string, unknown> | undefined,
     turnSpan: import('@opentelemetry/api').Span,
     turnContext: import('@opentelemetry/api').Context,
     logger: pino.Logger,
@@ -403,6 +406,7 @@ export class Agent<AuthContext> {
                 skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
                 turnNumber,
+                metadata,
               },
               {
                 llmProvider: this.config.llmProvider,
