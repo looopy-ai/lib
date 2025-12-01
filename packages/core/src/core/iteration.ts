@@ -85,7 +85,7 @@ export const runIteration = <AuthContext>(
   );
 
   const llmEvents$ = defer(async () => {
-    const systemPrompt = await getSystemPrompt(context.systemPrompt);
+    const systemPrompt = await getSystemPrompt(context.systemPrompt, context);
     const messages = await prepareMessages(systemPrompt, context.skillRegistry, history);
     const tools = await prepareTools(context.toolProviders);
     logger.debug(

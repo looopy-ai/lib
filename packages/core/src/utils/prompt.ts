@@ -1,13 +1,19 @@
+import type { LoopContext } from '../core/types';
+
 export type SystemPrompt = {
   prompt: string;
   name?: string;
   version?: number;
 };
 
-export type SystemPromptProp = string | SystemPrompt | (() => Promise<SystemPrompt> | SystemPrompt);
+export type SystemPromptProp =
+  | string
+  | SystemPrompt
+  | (<AuthContext>(loopContext: LoopContext<AuthContext>) => Promise<SystemPrompt> | SystemPrompt);
 
-export const getSystemPrompt = async (
-  systemPrompt?: SystemPromptProp,
+export const getSystemPrompt = async <AuthContext>(
+  systemPrompt: SystemPromptProp | undefined,
+  loopContext: LoopContext<AuthContext>,
 ): Promise<SystemPrompt | undefined> => {
   if (!systemPrompt) {
     return undefined;
@@ -16,7 +22,7 @@ export const getSystemPrompt = async (
     return { prompt: systemPrompt };
   }
   if (typeof systemPrompt === 'function') {
-    return await systemPrompt();
+    return await systemPrompt(loopContext);
   }
   return systemPrompt;
 };
