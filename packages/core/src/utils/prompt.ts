@@ -6,13 +6,13 @@ export type SystemPrompt = {
   version?: number;
 };
 
-export type SystemPromptProp =
+export type SystemPromptProp<AuthContext> =
   | string
   | SystemPrompt
-  | (<AuthContext>(loopContext: LoopContext<AuthContext>) => Promise<SystemPrompt> | SystemPrompt);
+  | ((loopContext: LoopContext<AuthContext>) => Promise<SystemPrompt> | SystemPrompt);
 
 export const getSystemPrompt = async <AuthContext>(
-  systemPrompt: SystemPromptProp | undefined,
+  systemPrompt: SystemPromptProp<AuthContext> | undefined,
   loopContext: LoopContext<AuthContext>,
 ): Promise<SystemPrompt | undefined> => {
   if (!systemPrompt) {

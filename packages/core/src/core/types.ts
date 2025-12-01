@@ -11,7 +11,7 @@ export type AgentContext<AuthContext> = {
   authContext?: AuthContext;
   toolProviders: ToolProvider<AuthContext>[];
   logger: pino.Logger;
-  systemPrompt?: SystemPromptProp;
+  systemPrompt?: SystemPromptProp<AuthContext>;
   skillRegistry?: SkillRegistry;
   metadata?: Record<string, unknown>;
 };

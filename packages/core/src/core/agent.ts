@@ -65,7 +65,7 @@ export interface AgentConfig<AuthContext> {
   maxMessages?: number;
 
   /** System prompt */
-  systemPrompt?: SystemPromptProp;
+  systemPrompt?: SystemPromptProp<AuthContext>;
 
   /** Skill registry */
   skillRegistry?: SkillRegistry;
