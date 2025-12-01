@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.8
+
+### Patch Changes
+
+- 1ed6956: export types
+
 ## 2.1.7
 
 ### Patch Changes
