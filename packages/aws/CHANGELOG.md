@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.1.7
+
+### Patch Changes
+
+- e22dc87: Change format of secret keys
+- Updated dependencies [bf90de4]
+  - @looopy-ai/core@2.1.6
+
 ## 2.1.6
 
 ### Patch Changes
