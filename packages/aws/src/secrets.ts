@@ -65,7 +65,7 @@ export async function loadSecrets(options: LoadSecretsOptions): Promise<void> {
   }
 
   for (const key of secretKeys) {
-    const secretId = `${secretPrefix}-${environment}${key}`;
+    const secretId = `${secretPrefix}/${environment}/${key}`;
 
     try {
       const command = new GetSecretValueCommand({ SecretId: secretId });
