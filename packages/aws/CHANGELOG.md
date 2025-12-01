@@ -1,5 +1,14 @@
 # @looopy-ai/aws
 
+## 2.1.8
+
+### Patch Changes
+
+- 511c29f: update prompt validation to include metadata in agent turn options
+- Updated dependencies [d27c2f6]
+- Updated dependencies [511c29f]
+  - @looopy-ai/core@2.1.7
+
 ## 2.1.7
 
 ### Patch Changes

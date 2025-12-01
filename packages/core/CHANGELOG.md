@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.7
+
+### Patch Changes
+
+- d27c2f6: update getSystemPrompt to accept loopContext parameter
+- 511c29f: update prompt validation to include metadata in agent turn options
+
 ## 2.1.6
 
 ### Patch Changes
