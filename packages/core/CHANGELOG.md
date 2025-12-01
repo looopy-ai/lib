@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.6
+
+### Patch Changes
+
+- bf90de4: change child session id format
+
 ## 2.1.5
 
 ### Patch Changes
