@@ -4,6 +4,7 @@ export type SystemPrompt = {
   prompt: string;
   name?: string;
   version?: number;
+  metadata?: Record<string, unknown>;
 };
 
 export type SystemPromptProp<AuthContext> =

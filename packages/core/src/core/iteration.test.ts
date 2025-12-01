@@ -75,7 +75,7 @@ vi.mock('./tools', () => ({
 
 describe('iteration', () => {
   let mockContext: LoopContext<unknown>;
-  let mockConfig: IterationConfig;
+  let mockConfig: IterationConfig<unknown>;
   let mockHistory: Message[];
   let mockLLMProvider: LLMProvider;
 

@@ -72,7 +72,7 @@ import type { IterationConfig, LoopContext } from './types';
  */
 export const runIteration = <AuthContext>(
   context: LoopContext<AuthContext>,
-  config: IterationConfig,
+  config: IterationConfig<AuthContext>,
   history: Message[],
 ): Observable<ContextAnyEvent> => {
   const logger = context.logger.child({
@@ -104,7 +104,12 @@ export const runIteration = <AuthContext>(
         messages,
         tools,
       );
-      return config.llmProvider
+      const llmProvider =
+        typeof config.llmProvider === 'function'
+          ? config.llmProvider(context, systemPrompt?.metadata)
+          : config.llmProvider;
+
+      return llmProvider
         .call({
           messages,
           tools,

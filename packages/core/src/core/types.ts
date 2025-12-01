@@ -31,7 +31,12 @@ export type LoopConfig = {
   stopOnToolError: boolean;
 };
 
-export type IterationConfig = {
-  llmProvider: LLMProvider;
+export type IterationConfig<AuthContext> = {
+  llmProvider:
+    | LLMProvider
+    | ((
+        context: LoopContext<AuthContext>,
+        systemPromptMetadata: Record<string, unknown> | undefined,
+      ) => LLMProvider);
   iterationNumber: number;
 };
