@@ -1,5 +1,14 @@
 # @looopy-ai/aws
 
+## 2.1.10
+
+### Patch Changes
+
+- 7479119: export Hono from hono for improved module accessibility
+- Updated dependencies [927d7dd]
+- Updated dependencies [9143886]
+  - @looopy-ai/core@2.1.9
+
 ## 2.1.9
 
 ### Patch Changes

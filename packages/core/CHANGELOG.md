@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.9
+
+### Patch Changes
+
+- 927d7dd: LLM Provider function
+- 9143886: update SystemPromptProp type to be generic for better type safety
+
 ## 2.1.8
 
 ### Patch Changes
