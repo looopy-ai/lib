@@ -1,10 +1,8 @@
 import { type Agent, getLogger, type ShutdownManager, SSEServer } from '@looopy-ai/core';
-import { Hono } from 'hono';
+import { Hono as BaseHono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type pino from 'pino';
 import { z } from 'zod';
-
-export { Hono } from 'hono';
 
 export type ServeConfig<AuthContext> = {
   agent: (contextId: string) => Promise<Agent<AuthContext>>;
@@ -22,10 +20,10 @@ const promptValidator = z.looseObject({
   prompt: z.string().min(1),
 });
 
-export const hono = <AuthContext>(
-  config: ServeConfig<AuthContext>,
-): Hono<{ Variables: HonoVariables }> => {
-  const app = new Hono<{ Variables: HonoVariables }>();
+export type Hono = BaseHono<{ Variables: HonoVariables }>;
+
+export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
+  const app = new BaseHono<{ Variables: HonoVariables }>();
 
   app.use(requestId());
   app.use('*', async (c, next) => {
