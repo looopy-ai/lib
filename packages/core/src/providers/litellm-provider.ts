@@ -147,9 +147,7 @@ interface LiteLLMStreamChunk {
  */
 export class LiteLLMProvider implements LLMProvider {
   private readonly config: LiteLLMConfig & {
-    temperature: number;
     maxTokens: number;
-    topP: number;
     timeout: number;
     extraParams: Record<string, unknown>;
   };
@@ -159,9 +157,9 @@ export class LiteLLMProvider implements LLMProvider {
   constructor(config: LiteLLMConfig) {
     this.config = {
       ...config,
-      temperature: config.temperature ?? 0.7,
+      temperature: config.temperature,
       maxTokens: config.maxTokens ?? 4096,
-      topP: config.topP ?? 1.0,
+      topP: config.topP,
       timeout: config.timeout ?? 60000,
       extraParams: config.extraParams ?? {},
     };
@@ -189,6 +187,7 @@ export class LiteLLMProvider implements LLMProvider {
     messages: Message[];
     tools?: ToolDefinition[];
     sessionId?: string;
+    metadata?: Record<string, unknown>;
   }): Observable<AnyEvent> {
     const rawStream$ = this.createSSEStream(request);
 
@@ -423,6 +422,7 @@ export class LiteLLMProvider implements LLMProvider {
     messages: Message[];
     tools?: ToolDefinition[];
     sessionId?: string;
+    metadata?: Record<string, unknown>;
   }): Observable<LiteLLMStreamChunk> {
     return new Observable<LiteLLMStreamChunk>((subscriber) => {
       const controller = new AbortController();
@@ -462,14 +462,12 @@ export class LiteLLMProvider implements LLMProvider {
         stream: true,
         stream_options: { include_usage: true },
         ...this.config.extraParams,
+        metadata: {
+          ...((this.config.extraParams.metadata as Record<string, unknown>) || {}),
+          ...request.metadata,
+          ...(request.sessionId ? { session_id: request.sessionId } : {}),
+        },
       };
-
-      if (request.sessionId) {
-        litellmRequest.metadata = {
-          ...((litellmRequest.metadata as Record<string, unknown>) || {}),
-          session_id: request.sessionId,
-        };
-      }
 
       if (request.tools && request.tools.length > 0) {
         litellmRequest.tools = request.tools.map((tool) => ({
@@ -596,6 +594,7 @@ export const LiteLLM = {
       apiKey,
       temperature: 0.7,
       maxTokens: 8192,
+      topP: 1.0,
     });
   },
 
@@ -610,6 +609,7 @@ export const LiteLLM = {
       temperature: 0.7,
       maxTokens: 8192,
       debugLogPath,
+      topP: 1.0,
     });
   },
 
@@ -700,6 +700,7 @@ export const LiteLLM = {
       model: `ollama/${model}`,
       temperature: 0.7,
       maxTokens: 2048,
+      topP: 1.0,
     });
   },
 };
