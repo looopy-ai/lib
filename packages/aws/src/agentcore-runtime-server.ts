@@ -4,6 +4,8 @@ import { requestId } from 'hono/request-id';
 import type pino from 'pino';
 import { z } from 'zod';
 
+export { Hono } from 'hono';
+
 export type ServeConfig<AuthContext> = {
   agent: (contextId: string) => Promise<Agent<AuthContext>>;
   decodeAuthorization?: (authorization: string) => Promise<AuthContext | undefined>;
