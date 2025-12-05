@@ -1,9 +1,8 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { IterationConfig, IterationContext } from '../types/core';
+import type { IterationConfig, IterationContext,Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
-import type { ToolProvider } from '../types/tools';
 import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
 import { runToolCall } from './tools';
 
@@ -87,7 +86,7 @@ export const runIteration = <AuthContext>(
     // const systemPrompt = await getSystemPrompt(context.systemPrompt, context);
     const systemPrompts = await getSystemPrompts(context.plugins, context);
     const messages = await prepareMessages(systemPrompts, history);
-    const tools = await prepareTools(context.toolProviders);
+    const tools = await prepareTools(context.plugins);
     logger.debug(
       { systemPrompts, messages: messages.length, tools: tools.map((t) => t.id).join(', ') },
       'Prepared messages and tools for LLM call',
@@ -207,8 +206,8 @@ const prepareMessages = async (
  * - If a provider fails to return tools, the promise will reject
  * - Duplicate tool names from different providers are not filtered
  */
-const prepareTools = async <AuthContext>(toolProviders: readonly ToolProvider<AuthContext>[]) => {
-  const toolPromises = toolProviders.map((p) => p.listTools());
+const prepareTools = async <AuthContext>(toolProviders: readonly Plugin<AuthContext>[]) => {
+  const toolPromises = toolProviders.map((p) => p.tools).filter(Boolean).map((p) => p.listTools());
   const toolArrays = await Promise.all(toolPromises);
   return toolArrays.flat();
 };

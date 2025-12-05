@@ -59,7 +59,7 @@ describe('loop', () => {
       contextId: 'ctx-456',
       taskId: 'task-789',
       turnNumber: 1,
-      toolProviders: [],
+      plugins: [],
       logger: pino.pino(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };

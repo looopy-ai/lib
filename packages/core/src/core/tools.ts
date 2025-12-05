@@ -2,15 +2,20 @@ import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'r
 import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
-import type { IterationContext } from '../types/core';
+import type { IterationContext, Plugin } from '../types/core';
 import type {
   ContextAnyEvent,
   ContextEvent,
   ToolCallEvent,
   ToolExecutionEvent,
 } from '../types/event';
-import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
+import type { ToolCall, ToolDefinition } from '../types/tools';
 
+type ToolProvider<AuthContext> = Exclude<Plugin<AuthContext>['tools'], undefined>;
+
+type HasTools<AuthContext> = Plugin<AuthContext> & {
+  tools: ToolProvider<AuthContext>;
+};
 /**
  * Execute a tool call and return an observable stream of tool execution events
  *
@@ -71,25 +76,24 @@ export const runToolCall = <AuthContext>(
   });
 
   return defer(async () => {
-    const matchingProviders = await Promise.all(
-      context.toolProviders.map(async (p) => ({
-        provider: p,
-        tool: await p.getTool(toolCall.toolName),
+    const matchingPlugins = await Promise.all(
+      context.plugins.filter((p): p is HasTools<AuthContext> => !!p.tools).map(async (p) => ({
+        plugin: p,
+        tool: await p.tools.getTool(toolCall.toolName),
       })),
     );
 
-    const matchingProvider = matchingProviders.find(
-      (p): p is { provider: ToolProvider<AuthContext>; tool: ToolDefinition } =>
-        p.tool !== undefined,
+    const matchingPlugin = matchingPlugins.find(
+      (p): p is {plugin: HasTools<AuthContext>, tool: ToolDefinition} => p.tool !== undefined,
     );
-    if (!matchingProvider) {
-      logger.warn('No tool provider found for tool');
+    if (!matchingPlugin) {
+      logger.warn('No plugin found for tool');
       return of(toolCall);
     }
 
-    const { provider, tool } = matchingProvider;
+    const { plugin, tool } = matchingPlugin;
     logger.debug(
-      { providerName: provider.name, toolIcon: tool.icon },
+      { providerName: plugin.name, toolIcon: tool.icon },
       'Found tool provider for tool',
     );
 
@@ -119,16 +123,16 @@ export const runToolCall = <AuthContext>(
 
     const execution$ = defer(() => {
       try {
-        logger.trace({ providerName: provider.name }, 'Executing tool');
+        logger.trace({ providerName: plugin.name }, 'Executing tool');
 
-        return provider.executeTool(toolCallInput, context).pipe(
+        return plugin.tools.executeTool(toolCallInput, context).pipe(
           tap((event) => {
             if (isChildTaskEvent(event)) return;
             if (event.kind !== 'tool-complete') {
               return;
             }
             logger.trace(
-              { providerName: provider.name, success: event.success },
+              { providerName: plugin.name, success: event.success },
               'Tool execution complete',
             );
           }),
@@ -137,7 +141,7 @@ export const runToolCall = <AuthContext>(
             const err = error instanceof Error ? error : new Error(String(error));
             logger.error(
               {
-                providerName: provider.name,
+                providerName: plugin.name,
                 error: err.message,
                 stack: err.stack,
               },
@@ -150,7 +154,7 @@ export const runToolCall = <AuthContext>(
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
           {
-            providerName: provider.name,
+            providerName: plugin.name,
             error: err.message,
             stack: err.stack,
           },

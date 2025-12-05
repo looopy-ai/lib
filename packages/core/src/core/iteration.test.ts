@@ -6,7 +6,6 @@ import type { IterationConfig, LoopContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { LLMMessage } from '../types/message';
-import type { ToolProvider } from '../types/tools';
 import { runIteration } from './iteration';
 import * as tools from './tools';
 
@@ -74,7 +73,7 @@ vi.mock('./tools', () => ({
 }));
 
 describe('iteration', () => {
-  let mockContext: LoopContext<unknown> & { toolProviders: ToolProvider<unknown>[] };
+  let mockContext: LoopContext<unknown>;
   let mockConfig: IterationConfig<unknown>;
   let mockHistory: LLMMessage[];
   let mockLLMProvider: LLMProvider;
@@ -110,7 +109,6 @@ describe('iteration', () => {
       taskId: 'task-789',
       turnNumber: 1,
       plugins: [mockSystemPromptPlugin],
-      toolProviders: [],
       logger: createTestLogger(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };
@@ -161,14 +159,16 @@ describe('iteration', () => {
         },
       };
 
-      const mockToolProvider: ToolProvider<unknown> = {
+      const mockToolProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        executeTool: vi.fn(() => of()),
-        getTool: vi.fn(async () => undefined),
-        listTools: vi.fn(async () => [mockTool]),
+        tools: {
+          executeTool: vi.fn(() => of()),
+          getTool: vi.fn(async () => undefined),
+          listTools: vi.fn(async () => [mockTool]),
+        }
       };
 
-      mockContext.toolProviders = [mockToolProvider];
+      mockContext.plugins = [...mockContext.plugins, mockToolProvider];
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -280,13 +280,15 @@ describe('iteration', () => {
         },
       };
 
-      const mockProvider: ToolProvider<unknown> = {
+      const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        getTool: vi.fn(async (id: string) => (id === 'test_tool' ? toolDefinition : undefined)),
-        listTools: vi.fn(async () => [toolDefinition]),
-        executeTool: vi.fn(() => of()),
+        tools: {
+          getTool: vi.fn(async (id: string) => (id === 'test_tool' ? toolDefinition : undefined)),
+          listTools: vi.fn(async () => [toolDefinition]),
+          executeTool: vi.fn(() => of()),
+        },
       };
-      mockContext.toolProviders = [mockProvider];
+      mockContext.plugins = [...mockContext.plugins, mockProvider];
 
       const llmEvent1 = {
         kind: 'content-delta',
@@ -378,21 +380,25 @@ describe('iteration', () => {
         },
       };
 
-      const provider1: ToolProvider<unknown> = {
+      const provider1: Plugin<unknown> = {
         name: 'provider-1',
-        executeTool: vi.fn(() => of()),
-        getTool: vi.fn(async () => undefined),
-        listTools: vi.fn(async () => [tool1]),
+        tools: {
+          executeTool: vi.fn(() => of()),
+          getTool: vi.fn(async () => undefined),
+          listTools: vi.fn(async () => [tool1]),
+        },
       };
 
-      const provider2: ToolProvider<unknown> = {
+      const provider2: Plugin<unknown> = {
         name: 'provider-2',
-        executeTool: vi.fn(() => of()),
-        getTool: vi.fn(async () => undefined),
-        listTools: vi.fn(async () => [tool2]),
+        tools: {
+          executeTool: vi.fn(() => of()),
+          getTool: vi.fn(async () => undefined),
+          listTools: vi.fn(async () => [tool2]),
+        },
       };
 
-      mockContext.toolProviders = [provider1, provider2];
+      mockContext.plugins = [...mockContext.plugins, provider1, provider2];
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -405,8 +411,6 @@ describe('iteration', () => {
     });
 
     it('should handle empty tool providers array', async () => {
-      mockContext.toolProviders = [];
-
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
@@ -545,14 +549,16 @@ describe('iteration', () => {
     });
 
     it('should handle tool provider that returns empty tools', async () => {
-      const emptyProvider: ToolProvider<unknown> = {
+      const emptyProvider: Plugin<unknown> = {
         name: 'empty-provider',
-        executeTool: vi.fn(() => of()),
-        getTool: vi.fn(async () => undefined),
-        listTools: vi.fn(async () => []),
+        tools: {
+          executeTool: vi.fn(() => of()),
+          getTool: vi.fn(async () => undefined),
+          listTools: vi.fn(async () => []),
+        },
       };
 
-      mockContext.toolProviders = [emptyProvider];
+      mockContext.plugins = [...mockContext.plugins, emptyProvider];
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));

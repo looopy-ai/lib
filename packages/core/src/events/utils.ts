@@ -678,6 +678,6 @@ export function filterByKind<K extends ContextAnyEvent['kind']>(
 // Child Task Event Detection
 // ============================================================================
 
-export const isChildTaskEvent = (event: AnyEvent) => {
+export const isChildTaskEvent = (event: AnyEvent): event is ChildTaskEvent<ContextAnyEvent> => {
   return !!(event as ChildTaskEvent<ContextAnyEvent>).parentTaskId;
 };

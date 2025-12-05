@@ -31,7 +31,6 @@ import type { Plugin } from '../types/core';
 import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
 import type { LLMMessage } from '../types/message';
-import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
@@ -48,9 +47,6 @@ export interface AgentConfig<AuthContext> {
 
   /** LLM provider for generating responses */
   llmProvider: LLMProvider;
-
-  /** Tool providers for tool execution */
-  toolProviders: ToolProvider<AuthContext>[];
 
   /** Message store for conversation history */
   messageStore: MessageStore;
@@ -401,9 +397,9 @@ export class Agent<AuthContext> {
                 taskId,
                 authContext,
                 parentContext: turnContext,
-                toolProviders: this.config.toolProviders,
                 skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
+                plugins: this.config.plugins || [],
                 turnNumber,
                 metadata,
               },

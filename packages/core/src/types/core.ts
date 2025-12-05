@@ -3,18 +3,17 @@ import type { Observable } from 'rxjs';
 import type { SkillRegistry } from '../skills';
 import type { LLMProvider } from '../types/llm';
 import type { ContextAnyEvent } from './event';
-import type { ToolCall, ToolDefinition, ToolProvider } from './tools';
+import type { ToolCall, ToolDefinition } from './tools';
 
 export type AgentContext<AuthContext> = Readonly<{
   agentId: string;
   contextId: string;
   parentContext: import('@opentelemetry/api').Context;
   authContext?: AuthContext;
-  toolProviders: readonly ToolProvider<AuthContext>[];
   /** Logger */
   logger: pino.Logger;
   /** Plugins */
-  plugins?: readonly Plugin<AuthContext>[];
+  plugins: readonly Plugin<AuthContext>[];
   skillRegistry?: SkillRegistry;
   metadata?: Record<string, unknown>;
 }>;
@@ -58,9 +57,9 @@ export type Plugin<AuthContext> = {
 
   tools?: {
     /**
-     * Get tool definition by name
+     * Get tool definition by ID
      */
-    getTool: (toolName: string) => Promise<ToolDefinition | undefined>;
+    getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
 
     /**
      * Get available tools from this provider

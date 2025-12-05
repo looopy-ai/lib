@@ -137,33 +137,3 @@ export const ToolCallSchema = z.object({
     arguments: z.record(z.string(), z.unknown()), // object
   }),
 });
-
-/**
- * Tool provider type
- *
- * Implementations:
- * - LocalToolProvider: Execute local TypeScript functions
- * - MCPToolProvider: Execute MCP server tools
- * - ClientToolProvider: Delegate to client via input-required
- */
-export type ToolProvider<AuthContext> = {
-  get name(): string;
-
-  /**
-   * Get tool definition by ID
-   */
-  getTool(toolId: string): Promise<ToolDefinition | undefined>;
-
-  /**
-   * Get available tools from this provider
-   */
-  listTools(): Promise<ToolDefinition[]>;
-
-  /**
-   * Execute a tool call
-   */
-  executeTool(
-    toolCall: ToolCall,
-    context: ExecutionContext<AuthContext>,
-  ): Observable<ContextAnyEvent>;
-};
