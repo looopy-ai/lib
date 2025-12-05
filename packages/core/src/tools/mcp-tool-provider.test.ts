@@ -92,14 +92,14 @@ describe('McpToolProvider', () => {
       }),
     );
 
-    const tools = await provider.getTools();
+    const tools = await provider.listTools();
     expect(tools).toHaveLength(2);
-    expect(tools[0].name).toBe('file_read');
+    expect(tools[0].id).toBe('file_read');
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith('http://localhost:3100/rpc', expect.any(Object));
 
     // Should use cache for the second call
-    const cachedTools = await provider.getTools();
+    const cachedTools = await provider.listTools();
     expect(cachedTools).toEqual(tools);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
@@ -113,7 +113,7 @@ describe('McpToolProvider', () => {
         result: { tools: MOCK_TOOL_DEFS },
       }),
     );
-    await provider.getTools();
+    await provider.listTools();
 
     // Mock the response for callTool
     mockFetch.mockReturnValueOnce(
@@ -133,7 +133,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    const events = await lastValueFrom(provider.executeTool(toolCall, mockContext).pipe(toArray()));
     const result = events[0];
 
     expect(result).toBeDefined();
@@ -154,7 +154,7 @@ describe('McpToolProvider', () => {
         result: { tools: MOCK_TOOL_DEFS },
       }),
     );
-    await provider.getTools();
+    await provider.listTools();
 
     mockFetch.mockReturnValueOnce(
       createOkResponse({
@@ -173,7 +173,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    const events = await lastValueFrom(provider.executeTool(toolCall, mockContext).pipe(toArray()));
     const result = events[0];
 
     expect(result).toBeDefined();
@@ -187,7 +187,7 @@ describe('McpToolProvider', () => {
   it('should handle network errors gracefully', async () => {
     mockFetch.mockReturnValueOnce(createErrorResponse(500, 'Internal Server Error'));
 
-    await expect(provider.getTools()).rejects.toThrow('MCP request failed with status 500');
+    await expect(provider.listTools()).rejects.toThrow('MCP request failed with status 500');
   });
 
   it('should handle timeouts', async () => {
@@ -218,7 +218,7 @@ describe('McpToolProvider', () => {
       });
     });
 
-    await expect(provider.getTools()).rejects.toThrow('MCP request timed out after 100ms');
+    await expect(provider.listTools()).rejects.toThrow('MCP request timed out after 100ms');
   });
 
   it('should return tool definition via getTool', async () => {
@@ -231,7 +231,7 @@ describe('McpToolProvider', () => {
     );
 
     const tool = await provider.getTool('file_read');
-    expect(tool?.name).toBe('file_read');
+    expect(tool?.id).toBe('file_read');
   });
 
   it('should return undefined for unknown tools', async () => {
@@ -265,7 +265,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    await lastValueFrom(provider.executeTool(toolCall, mockContext).pipe(toArray()));
 
     const fetchOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(fetchOptions.headers).toEqual({
@@ -300,7 +300,7 @@ describe('McpToolProvider', () => {
       },
     };
 
-    await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+    await lastValueFrom(provider.executeTool(toolCall, mockContext).pipe(toArray()));
 
     const fetchOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(fetchOptions.headers).toEqual({

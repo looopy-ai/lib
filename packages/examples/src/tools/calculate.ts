@@ -9,7 +9,7 @@ import { evaluate } from 'mathjs';
 import { z } from 'zod';
 
 export const calculateTool = tool({
-  name: 'calculate',
+  id: 'calculate',
   icon: 'lucide:calculator',
   description: 'Evaluate a mathematical expression. Supports +, -, *, /, parentheses.',
   schema: z.object({

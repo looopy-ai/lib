@@ -29,7 +29,7 @@ describe('AgentToolProvider', () => {
 
   beforeEach(async () => {
     provider = AgentToolProvider.from(card);
-    const [invokeTool] = await provider.getTools();
+    const [invokeTool] = await provider.listTools();
 
     executionContext = {
       agentId: 'parent-agent',
@@ -43,7 +43,7 @@ describe('AgentToolProvider', () => {
       id: 'call-1',
       type: 'function',
       function: {
-        name: invokeTool.name,
+        name: invokeTool.id,
         arguments: { prompt: 'Hello' },
       },
     };
@@ -73,7 +73,7 @@ describe('AgentToolProvider', () => {
     });
 
     const events = await lastValueFrom(
-      provider.execute(invokeToolCall, executionContext).pipe(toArray()),
+      provider.executeTool(invokeToolCall, executionContext).pipe(toArray()),
     );
 
     const streamedEvents = events.filter((event) => event.kind !== 'tool-complete');
@@ -106,7 +106,7 @@ describe('AgentToolProvider', () => {
     });
 
     const events = await lastValueFrom(
-      provider.execute(invokeToolCall, executionContext).pipe(toArray()),
+      provider.executeTool(invokeToolCall, executionContext).pipe(toArray()),
     );
 
     const append = vi.fn();

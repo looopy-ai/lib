@@ -26,7 +26,7 @@ export type ToolHandler<TParams, AuthContext> = (
  * Tool definition with Zod schema and handler
  */
 export interface LocalToolDefinition<TSchema extends z.ZodObject, AuthContext> {
-  name: string;
+  id: string;
   description: string;
   icon?: string;
   schema: TSchema;
@@ -115,17 +115,17 @@ export function localTools<AuthContext>(
   const toolMap = new Map<string, LocalToolDefinition<z.ZodObject, AuthContext>>();
 
   for (const tool of tools) {
-    if (toolMap.has(tool.name)) {
-      throw new Error(`Duplicate tool name: ${tool.name}`);
+    if (toolMap.has(tool.id)) {
+      throw new Error(`Duplicate tool name: ${tool.id}`);
     }
-    toolMap.set(tool.name, tool);
+    toolMap.set(tool.id, tool);
   }
 
   return {
     name: 'local-tool-provider',
-    getTools: async (): Promise<ToolDefinition[]> =>
+    listTools: async (): Promise<ToolDefinition[]> =>
       tools.map((t) => ({
-        name: t.name,
+        id: t.id,
         description: t.description,
         icon: t.icon,
         parameters: zodToJsonSchema(t.schema),
@@ -137,14 +137,14 @@ export function localTools<AuthContext>(
         return undefined;
       }
       return {
-        name: toolDef.name,
+        id: toolDef.id,
         description: toolDef.description,
         icon: toolDef.icon,
         parameters: zodToJsonSchema(toolDef.schema),
       };
     },
 
-    execute: (toolCall: ToolCall, context: ExecutionContext<AuthContext>) =>
+    executeTool: (toolCall: ToolCall, context: ExecutionContext<AuthContext>) =>
       defer(async () => {
         const toolDef = toolMap.get(toolCall.function.name);
 

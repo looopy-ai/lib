@@ -1,7 +1,9 @@
 import type pino from 'pino';
+import type { Observable } from 'rxjs';
 import type { SkillRegistry } from '../skills';
 import type { LLMProvider } from '../types/llm';
-import type { ToolProvider } from '../types/tools';
+import type { ContextAnyEvent } from './event';
+import type { ToolCall, ToolDefinition, ToolProvider } from './tools';
 
 export type AgentContext<AuthContext> = Readonly<{
   agentId: string;
@@ -44,11 +46,36 @@ export type IterationConfig<AuthContext> = {
 };
 
 export type Plugin<AuthContext> = {
-  name: string;
-  version?: string;
-  generateSystemPrompts: (
+  readonly name: string;
+  readonly version?: string;
+
+  /**
+   * Generate system prompts for the iteration
+   */
+  generateSystemPrompts?: (
     context: IterationContext<AuthContext>,
   ) => SystemPrompt[] | Promise<SystemPrompt[]>;
+
+  tools?: {
+    /**
+     * Get tool definition by name
+     */
+    getTool: (toolName: string) => Promise<ToolDefinition | undefined>;
+
+    /**
+     * Get available tools from this provider
+     */
+    listTools: () => Promise<ToolDefinition[]>;
+
+    /**
+     * Execute a tool call
+     */
+    executeTool: (
+      toolCall: ToolCall,
+      context: IterationContext<AuthContext>,
+    ) => Observable<ContextAnyEvent>;
+  };
+
   // TODO: tools, agents, skills, ?message store?
 
   // TODO: state persistence hooks

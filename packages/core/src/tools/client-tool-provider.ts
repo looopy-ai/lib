@@ -62,11 +62,11 @@ export class ClientToolProvider<AuthContext> implements ToolProvider<AuthContext
     }
 
     // Build tool name index for fast lookup
-    this.toolNames = new Set(this.tools.map((t) => t.name));
+    this.toolNames = new Set(this.tools.map((t) => t.id));
 
     // Check for duplicate tool names
     if (this.toolNames.size !== this.tools.length) {
-      const names = this.tools.map((t) => t.name);
+      const names = this.tools.map((t) => t.id);
       const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
       throw new Error(`Duplicate tool names: ${duplicates.join(', ')}`);
     }
@@ -77,7 +77,7 @@ export class ClientToolProvider<AuthContext> implements ToolProvider<AuthContext
   /**
    * Get all client-provided tools
    */
-  async getTools(): Promise<ToolDefinition[]> {
+  async listTools(): Promise<ToolDefinition[]> {
     return [...this.tools];
   }
 
@@ -90,7 +90,7 @@ export class ClientToolProvider<AuthContext> implements ToolProvider<AuthContext
    * 3. Client sends the result back via tasks/resume or message/stream continuation
    * 4. Agent continues with the tool result
    */
-  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
+  executeTool(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     return defer(async () => {
       const tool = await this.getTool(toolCall.function.name);
       if (!tool) {
@@ -144,7 +144,7 @@ export class ClientToolProvider<AuthContext> implements ToolProvider<AuthContext
    * Get tool definition by name
    */
   async getTool(name: string): Promise<ToolDefinition | undefined> {
-    return this.tools.find((t) => t.name === name);
+    return this.tools.find((t) => t.id === name);
   }
 
   /**

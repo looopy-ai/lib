@@ -12,8 +12,8 @@ export const getSystemPrompts = async <AuthContext>(
   if (!plugins?.length) {
     return { before: [], after: [] };
   }
-  const prompts = await Promise.all(plugins.map((p) => p.generateSystemPrompts(loopContext)));
-  const flattened = prompts.flat();
+  const prompts = await Promise.all(plugins.map((p) => p.generateSystemPrompts?.(loopContext)));
+  const flattened = prompts.flat().filter((p): p is SystemPrompt => p !== undefined);
   const before = Object.freeze(
     flattened
       .filter((p) => p.position === 'before')

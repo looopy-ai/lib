@@ -74,7 +74,7 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
 
     this.tools = [
       {
-        name: `${this.name}__invoke`,
+        id: `${this.name}__invoke`,
         description:
           `Invoke the ${card.name} agent.\n\n${card.description}` ||
           `Invoke the ${card.name} agent`,
@@ -95,15 +95,15 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
   }
 
   getTool(toolName: string): Promise<ToolDefinition | undefined> {
-    const tool = this.tools.find((t) => t.name === toolName);
+    const tool = this.tools.find((t) => t.id === toolName);
     return Promise.resolve(tool);
   }
 
-  getTools(): Promise<ToolDefinition[]> {
+  listTools(): Promise<ToolDefinition[]> {
     return Promise.resolve(this.tools);
   }
 
-  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
+  executeTool(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     const logger = this.logger.child({
       taskId: context.taskId,
       toolCallId: toolCall.id,

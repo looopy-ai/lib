@@ -473,7 +473,7 @@ export class LiteLLMProvider implements LLMProvider {
         litellmRequest.tools = request.tools.map((tool) => ({
           type: 'function',
           function: {
-            name: tool.name,
+            name: tool.id,
             description: tool.description,
             parameters: tool.parameters as Record<string, unknown>,
           },

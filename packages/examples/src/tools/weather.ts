@@ -19,7 +19,7 @@ const weatherData: Record<string, { temp: number; condition: string }> = {
 };
 
 export const weatherTool = tool({
-  name: 'get_weather',
+  id: 'get_weather',
   icon: 'lucide:cloud-sun',
   description: 'Get current weather for a city (simulated)',
   schema: z.object({

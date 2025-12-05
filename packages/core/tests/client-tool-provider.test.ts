@@ -169,10 +169,10 @@ describe('ClientToolProvider', () => {
         onInputRequired: mockOnInputRequired,
       });
 
-      const tools = await provider.getTools();
+      const tools = await provider.listTools();
       expect(tools).toHaveLength(2);
-      expect(tools[0].name).toBe('get_weather');
-      expect(tools[1].name).toBe('calculate');
+      expect(tools[0].id).toBe('get_weather');
+      expect(tools[1].id).toBe('calculate');
     });
 
     it('should return a copy of tools array', async () => {
@@ -181,8 +181,8 @@ describe('ClientToolProvider', () => {
         onInputRequired: mockOnInputRequired,
       });
 
-      const tools1 = await provider.getTools();
-      const tools2 = await provider.getTools();
+      const tools1 = await provider.listTools();
+      const tools2 = await provider.listTools();
 
       expect(tools1).not.toBe(tools2);
       expect(tools1).toEqual(tools2);
@@ -205,7 +205,9 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const events = await lastValueFrom(
+        provider.executeTool(toolCall, mockContext).pipe(toArray()),
+      );
       const result = events[0];
 
       expect(result).toBeDefined();
@@ -232,7 +234,9 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const events = await lastValueFrom(
+        provider.executeTool(toolCall, mockContext).pipe(toArray()),
+      );
       const result = events[0];
 
       expect(result).toBeDefined();
@@ -259,7 +263,9 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const events = await lastValueFrom(
+        provider.executeTool(toolCall, mockContext).pipe(toArray()),
+      );
       const result = events[0];
 
       expect(result).toBeDefined();
@@ -289,7 +295,9 @@ describe('ClientToolProvider', () => {
         },
       };
 
-      const events = await lastValueFrom(provider.execute(toolCall, mockContext).pipe(toArray()));
+      const events = await lastValueFrom(
+        provider.executeTool(toolCall, mockContext).pipe(toArray()),
+      );
       const result = events[0];
 
       expect(result).toBeDefined();
@@ -308,7 +316,7 @@ describe('ClientToolProvider', () => {
 
       const tool = await provider.getTool('get_weather');
       expect(tool).toBeDefined();
-      expect(tool?.name).toBe('get_weather');
+      expect(tool?.id).toBe('get_weather');
     });
 
     it('should return undefined for unknown tool', async () => {

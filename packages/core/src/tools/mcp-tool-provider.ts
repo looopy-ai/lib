@@ -45,11 +45,11 @@ export class McpToolProvider<AuthContext> implements ToolProvider<AuthContext> {
   }
 
   async getTool(toolName: string): Promise<ToolDefinition | undefined> {
-    const tools = await this.getTools();
-    return tools.find((tool) => tool.name === toolName);
+    const tools = await this.listTools();
+    return tools.find((tool) => tool.id === toolName);
   }
 
-  async getTools(): Promise<ToolDefinition[]> {
+  async listTools(): Promise<ToolDefinition[]> {
     if (this.toolCache.size > 0 && this.cacheExpiry && Date.now() < this.cacheExpiry) {
       return Array.from(this.toolCache.values());
     }
@@ -64,7 +64,7 @@ export class McpToolProvider<AuthContext> implements ToolProvider<AuthContext> {
         const toolDefs = tools.map(this.convertMCPTool);
         this.toolCache.clear();
         for (const tool of toolDefs) {
-          this.toolCache.set(tool.name, tool);
+          this.toolCache.set(tool.id, tool);
         }
         this.cacheExpiry = Date.now() + this.cacheTTL;
         return toolDefs;
@@ -76,7 +76,7 @@ export class McpToolProvider<AuthContext> implements ToolProvider<AuthContext> {
     return this.ongoingRequest;
   }
 
-  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
+  executeTool(toolCall: ToolCall, context: ExecutionContext<AuthContext>) {
     return defer(async () => {
       const { name, arguments: args } = toolCall.function;
 
@@ -126,7 +126,7 @@ export class McpToolProvider<AuthContext> implements ToolProvider<AuthContext> {
 
   private convertMCPTool = (mcpTool: MCPTool): ToolDefinition => {
     return {
-      name: mcpTool.name,
+      id: mcpTool.name,
       description: mcpTool.description,
       parameters: mcpTool.inputSchema,
     };

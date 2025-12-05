@@ -87,13 +87,13 @@ export type FunctionParameters = z.infer<typeof FunctionParametersSchema>;
  * should wrap this format in their implementation.
  */
 export const ToolDefinitionSchema = z.object({
-  name: z
+  id: z
     .string()
     .min(1)
     .max(64)
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Tool name must contain only alphanumeric characters, underscores, and hyphens',
+      'Tool ID must contain only alphanumeric characters, underscores, and hyphens',
     ),
   description: z.string().min(1).max(1024),
   icon: z.string().optional(),
@@ -150,17 +150,20 @@ export type ToolProvider<AuthContext> = {
   get name(): string;
 
   /**
-   * Get tool definition by name
+   * Get tool definition by ID
    */
-  getTool(toolName: string): Promise<ToolDefinition | undefined>;
+  getTool(toolId: string): Promise<ToolDefinition | undefined>;
 
   /**
    * Get available tools from this provider
    */
-  getTools(): Promise<ToolDefinition[]>;
+  listTools(): Promise<ToolDefinition[]>;
 
   /**
    * Execute a tool call
    */
-  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>): Observable<ContextAnyEvent>;
+  executeTool(
+    toolCall: ToolCall,
+    context: ExecutionContext<AuthContext>,
+  ): Observable<ContextAnyEvent>;
 };

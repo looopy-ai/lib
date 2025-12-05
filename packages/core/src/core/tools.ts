@@ -121,7 +121,7 @@ export const runToolCall = <AuthContext>(
       try {
         logger.trace({ providerName: provider.name }, 'Executing tool');
 
-        return provider.execute(toolCallInput, context).pipe(
+        return provider.executeTool(toolCallInput, context).pipe(
           tap((event) => {
             if (isChildTaskEvent(event)) return;
             if (event.kind !== 'tool-complete') {

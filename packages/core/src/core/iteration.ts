@@ -89,7 +89,7 @@ export const runIteration = <AuthContext>(
     const messages = await prepareMessages(systemPrompts, history);
     const tools = await prepareTools(context.toolProviders);
     logger.debug(
-      { systemPrompts, messages: messages.length, tools: tools.map((t) => t.name).join(', ') },
+      { systemPrompts, messages: messages.length, tools: tools.map((t) => t.id).join(', ') },
       'Prepared messages and tools for LLM call',
     );
     return { messages, tools, systemPrompts };
@@ -208,7 +208,7 @@ const prepareMessages = async (
  * - Duplicate tool names from different providers are not filtered
  */
 const prepareTools = async <AuthContext>(toolProviders: readonly ToolProvider<AuthContext>[]) => {
-  const toolPromises = toolProviders.map((p) => p.getTools());
+  const toolPromises = toolProviders.map((p) => p.listTools());
   const toolArrays = await Promise.all(toolPromises);
   return toolArrays.flat();
 };

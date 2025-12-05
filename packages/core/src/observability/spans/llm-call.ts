@@ -47,7 +47,7 @@ export const startLLMCallSpan = <AuthContext>(
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
         [SpanAttributes.LANGFUSE_PROMPT_NAME]: source?.promptName,
         [SpanAttributes.LANGFUSE_PROMPT_VERSION]: source?.promptVersion,
-        'tools.available': tools.map((t) => t.name),
+        'tools.available': tools.map((t) => t.id),
       },
     },
     context.parentContext,
