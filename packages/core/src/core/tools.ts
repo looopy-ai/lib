@@ -2,20 +2,15 @@ import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'r
 import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
-import type { IterationContext, Plugin } from '../types/core';
+import { type IterationContext, isToolPlugin } from '../types/core';
 import type {
   ContextAnyEvent,
   ContextEvent,
   ToolCallEvent,
   ToolExecutionEvent,
 } from '../types/event';
-import type { ToolCall, ToolDefinition } from '../types/tools';
+import type { ToolCall } from '../types/tools';
 
-type ToolProvider<AuthContext> = Exclude<Plugin<AuthContext>['tools'], undefined>;
-
-type HasTools<AuthContext> = Plugin<AuthContext> & {
-  tools: ToolProvider<AuthContext>;
-};
 /**
  * Execute a tool call and return an observable stream of tool execution events
  *
@@ -77,16 +72,14 @@ export const runToolCall = <AuthContext>(
 
   return defer(async () => {
     const matchingPlugins = await Promise.all(
-      context.plugins.filter((p): p is HasTools<AuthContext> => !!p.tools).map(async (p) => ({
+      context.plugins.filter(isToolPlugin).map(async (p) => ({
         plugin: p,
-        tool: await p.tools.getTool(toolCall.toolName),
+        tool: await p.getTool?.(toolCall.toolName),
       })),
     );
 
-    const matchingPlugin = matchingPlugins.find(
-      (p): p is {plugin: HasTools<AuthContext>, tool: ToolDefinition} => p.tool !== undefined,
-    );
-    if (!matchingPlugin) {
+    const matchingPlugin = matchingPlugins.find((p) => p.tool !== undefined);
+    if (!matchingPlugin?.tool) {
       logger.warn('No plugin found for tool');
       return of(toolCall);
     }
@@ -125,7 +118,13 @@ export const runToolCall = <AuthContext>(
       try {
         logger.trace({ providerName: plugin.name }, 'Executing tool');
 
-        return plugin.tools.executeTool(toolCallInput, context).pipe(
+        if (!isToolPlugin(plugin)) {
+          return of<ContextAnyEvent>(
+            toolErrorEvent(context, toolCallInput, 'Plugin does not implement tools'),
+          );
+        }
+
+        return plugin.executeTool(toolCallInput, context).pipe(
           tap((event) => {
             if (isChildTaskEvent(event)) return;
             if (event.kind !== 'tool-complete') {

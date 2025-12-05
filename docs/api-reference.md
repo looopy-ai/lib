@@ -17,7 +17,7 @@ Creates a new `Agent` instance.
 Starts a new turn in the conversation and streams events for that turn.
 
 - `userMessage`: The user's input (or `null` for tool-only turns).
-- `options.authContext`: Optional auth context that is forwarded to tool providers.
+- `options.authContext`: Optional auth context that is forwarded to plugins (for tool execution, downstream headers, etc.).
 - `options.taskId`: Optional task identifier; defaults to an auto-generated value.
 - Returns: An RxJS `Observable` that emits agent events such as content deltas, tool calls, tool results, and task status updates.
   Events are emitted as `ContextAnyEvent`, which stamps `contextId` and `taskId` onto the base event payloads.
@@ -27,12 +27,11 @@ Starts a new turn in the conversation and streams events for that turn.
 - `agentId`: Unique ID for the agent.
 - `contextId`: Stable identifier for the conversation thread.
 - `llmProvider`: The LLM provider to use.
-- `toolProviders`: Array of tool providers to enable (can be empty).
 - `messageStore`: Where conversation history is persisted.
 - `agentStore?`: Optional persistence for agent state.
 - `autoCompact?`: Whether to compact history automatically (default `false`).
 - `maxMessages?`: Cap before compaction warnings (default `100`).
-- `plugins?`: Optional plugins to inject system prompts and other behaviors. Use helpers like `literalPrompt()` to add static prompts before history is sent to the LLM.
+- `plugins?`: Plugins that inject system prompts and tools. Include tool plugins (e.g., `localTools`, `createArtifactTools`, `AgentToolProvider`, `McpToolProvider`) plus prompt plugins such as `literalPrompt()`/`asyncPrompt()` to shape system context.
 - `logger?`: Optional pino logger instance.
 
 ## Event Types
@@ -45,7 +44,7 @@ type ContextEvent<T> = T & { contextId: string; taskId: string };
 type ContextAnyEvent = ContextEvent<AnyEvent>;
 ```
 
-LLM and tool providers should emit contextless `AnyEvent` values; the agent/loop layers stamp `contextId` and `taskId` for multiplexing and observability.
+LLM providers and plugins that execute tools should emit contextless `AnyEvent` values; the agent/loop layers stamp `contextId` and `taskId` for multiplexing and observability.
 
 # LLMProvider
 
@@ -60,27 +59,48 @@ Connects to external LLMs.
 - Returns: An `Observable` of LLM events (content deltas, tool calls, usage metrics, etc.).
   LLM providers should emit contextless `AnyEvent` objects; the agent layer wraps them as `ContextAnyEvent` with `contextId` and `taskId`.
 
-# ToolProvider
+# Plugin
 
-Executes tools for the agent runtime.
+Extends the agent with prompts and/or tools.
 
 ### Interface
 
 ```typescript
-export type ToolProvider = {
+export type Plugin<AuthContext> = {
   readonly name: string;
-  getTool(toolName: string): Promise<ToolDefinition | undefined>;
-  getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
+  readonly version?: string;
+
+  /**
+   * Generate system prompts for the iteration
+   */
+  generateSystemPrompts?: (
+    context: IterationContext<AuthContext>,
+  ) => SystemPrompt[] | Promise<SystemPrompt[]>;
+
+  /**
+   * Get tool definition by ID
+   */
+  getTool?: (toolId: string) => Promise<ToolDefinition | undefined>;
+
+  /**
+   * Get available tools from this provider
+   */
+  listTools?: () => Promise<ToolDefinition[]>;
+
+  /**
+   * Execute a tool call
+   */
+  executeTool?: (
+    toolCall: ToolCall,
+    context: IterationContext<AuthContext>,
+  ) => Observable<ContextAnyEvent>;
 };
 ```
 
-- `getTool`: Fetch a single tool definition by name (used for routing).
-- `getTools`: List all tool definitions exposed by the provider.
-- `execute`: Stream tool execution events with the current `ExecutionContext`.
-  Providers should emit `ContextAnyEvent` values (typically `tool-start`, `tool-progress`, and `tool-complete`) so callers can multiplex by `taskId`.
+- `generateSystemPrompts`: Inject static or dynamic system prompts before/after the conversation history.
+- `listTools`/`getTool`/`executeTool`: Declare and run tools. Implementations should emit `ContextAnyEvent` values (typically `tool-start`, `tool-progress`, and `tool-complete`) so callers can multiplex by `taskId`.
 
-The core package ships with `localTools` for in-process tools, `ClientToolProvider` for client-executed tools, and `McpToolProvider` for MCP-compliant servers.
+The core package ships with tool-capable plugins like `localTools` (in-process), `createArtifactTools`, `ClientToolProvider`, `McpToolProvider`, and `AgentToolProvider`. Prompt-only helpers (`literalPrompt`, `asyncPrompt`) compose with these in the same `plugins` array.
 
 # MessageStore
 

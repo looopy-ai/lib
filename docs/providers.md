@@ -1,10 +1,10 @@
-# Providers
+# Providers and Plugins
 
-Providers are connectors to external services, such as LLM providers and tool providers.
+Providers connect to external services (e.g., LLM backends). Plugins extend the agent with system prompts and tools—tool execution now flows through plugins instead of a separate `toolProviders` array.
 
 ## LLM Providers
 
-LLM providers are responsible for translating between the framework's internal data model and the external service's API.
+LLM providers translate between the framework's internal data model and an LLM API.
 
 ### `LiteLLMProvider`
 
@@ -56,20 +56,25 @@ export interface LLMProvider {
 }
 ```
 
-LLM providers should emit contextless `AnyEvent` values (content deltas, tool calls, usage metrics, etc.).
-The agent loop wraps them as `ContextAnyEvent` so downstream consumers always receive `contextId` and `taskId`.
+LLM providers should emit contextless `AnyEvent` values (content deltas, tool calls, usage metrics, etc.). The agent loop wraps them as `ContextAnyEvent` so downstream consumers always receive `contextId` and `taskId`.
 
-## Tool Providers
+## Plugins
 
-Tool providers are responsible for executing tools. The `@looopy-ai/core` package includes these tool providers:
+Plugins handle prompts and tools in a single extension point. The core ships with tool-capable plugins like:
 
-- `LocalToolProvider`: Executes tools as local functions.
-- `ClientToolProvider`: Delegates the execution of tools to the client.
-- `McpToolProvider`: Connects to an MCP server and proxies the server's tools over JSON-RPC.
-- `AgentToolProvider`: Calls another agent via its published card and streams SSE events as tool results.
+- `localTools`: Runs Zod-validated functions in-process.
+- `createArtifactTools`: Manages file/data/dataset artifacts and tracks them in task state.
+- `ClientToolProvider`: Delegates tool execution to a connected client.
+- `McpToolProvider`: Proxies tools from an MCP server over JSON-RPC.
+- `AgentToolProvider`: Calls another agent via its published card and streams SSE events.
+
+Prompt-only helpers such as `literalPrompt` and `asyncPrompt` compose in the same `plugins` array.
 
 ```typescript
-import { mcp } from '@looopy-ai/core';
+import { Agent, literalPrompt, mcp } from '@looopy-ai/core';
+
+const llmProvider = /* e.g., new LiteLLMProvider(...) */;
+const messageStore = /* e.g., new InMemoryMessageStore() */;
 
 const filesystemTools = mcp({
   serverId: 'filesystem',
@@ -78,9 +83,17 @@ const filesystemTools = mcp({
     Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
   }),
 });
+
+const agent = new Agent({
+  agentId: 'docs-agent',
+  contextId: 'demo',
+  llmProvider,
+  messageStore,
+  plugins: [literalPrompt('You are a helpful assistant.'), filesystemTools],
+});
 ```
 
-or
+You can also instantiate the class form directly:
 
 ```typescript
 import { McpToolProvider } from '@looopy-ai/core';
@@ -94,31 +107,34 @@ const filesystemTools = new McpToolProvider({
 });
 ```
 
-`McpToolProvider` automatically discovers tool definitions from the MCP server, caches them, and calls the server with the current execution's `authContext` so that per-user credentials can flow through to the remote system.
+### Creating a Custom Plugin
 
-### Creating a Custom Tool Provider
-
-To create a custom tool provider, implement the `ToolProvider` interface:
+To create a custom plugin, implement any of the optional hooks below:
 
 ```typescript
-export type ToolProvider = {
+export type Plugin<AuthContext> = {
   readonly name: string;
-  getTool(toolName: string): Promise<ToolDefinition | undefined>;
-  getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
+  readonly version?: string;
+  generateSystemPrompts?: (
+    context: IterationContext<AuthContext>,
+  ) => SystemPrompt[] | Promise<SystemPrompt[]>;
+  getTool?: (toolId: string) => Promise<ToolDefinition | undefined>;
+  listTools?: () => Promise<ToolDefinition[]>;
+  executeTool?: (
+    toolCall: ToolCall,
+    context: IterationContext<AuthContext>,
+  ) => Observable<ContextAnyEvent>;
 };
 ```
 
-`execute` should emit an RxJS `Observable` of `ContextAnyEvent` values.
-Providers typically stream `tool-start`, any intermediate progress, and a final `tool-complete` event.
-The `ExecutionContext` includes `contextId`/`taskId` so providers can forward those IDs to downstream systems (e.g., MCP headers or remote agent calls).
+`executeTool` should emit an RxJS `Observable` of `ContextAnyEvent` values (typically `tool-start`, any intermediate progress, and a final `tool-complete` event). The `IterationContext` includes `contextId`/`taskId` so plugins can forward those IDs to downstream systems (e.g., MCP headers or remote agent calls).
 
 ### Remote agents with `AgentToolProvider`
 
 Use the `AgentToolProvider` to invoke another agent that exposes a card endpoint:
 
 ```typescript
-import { AgentToolProvider } from '@looopy-ai/core';
+import { Agent, AgentToolProvider } from '@looopy-ai/core';
 
 const remoteAgent = AgentToolProvider.from({
   name: 'Research Copilot',
@@ -129,7 +145,7 @@ const remoteAgent = AgentToolProvider.from({
 
 const agent = new Agent({
   // ...
-  toolProviders: [remoteAgent],
+  plugins: [remoteAgent],
 });
 ```
 

@@ -286,7 +286,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
     try {
       const dataPath = join(artifactDir, 'data.json');
       const content = await readFile(dataPath, 'utf-8');
-      return JSON.parse(content);
+      return JSON.parse(content) as Record<string, unknown>;
     } catch {
       // Fallback to metadata if file not found
       return artifact.data;
@@ -416,7 +416,7 @@ export class FileSystemArtifactStore implements ArtifactStore {
         .trim()
         .split('\n')
         .filter((line) => line.length > 0);
-      return lines.map((line) => JSON.parse(line));
+      return lines.map((line) => JSON.parse(line) as Record<string, unknown>);
     } catch {
       // Fallback to metadata if file not found
       return artifact.rows;

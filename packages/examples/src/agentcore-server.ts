@@ -94,9 +94,8 @@ const createAgent = async (contextId: string) => {
     agentId,
     llmProvider,
     agentStore,
-    toolProviders: [localToolProvider, artifactToolProvider(agentId), remoteAgent],
     messageStore: messageStore(agentId),
-    plugins: [systemPrompt],
+    plugins: [systemPrompt, localToolProvider, artifactToolProvider(agentId), remoteAgent],
     logger,
   });
 };

@@ -83,7 +83,7 @@ pnpm tsx src/kitchen-sink.ts --agent-id my-agent --context-id my-session
 - Filesystem-based persistence (FileSystemStateStore, FileSystemMessageStore, FileSystemArtifactStore)
 - Interactive CLI with readline
 - Multi-turn conversations with context
-- Tool execution (local tools + artifact tools)
+- Tool execution (local tool plugins + artifact tools)
 - Event handling and display
 - Graceful shutdown
 
@@ -109,7 +109,7 @@ pnpm tsx src/kitchen-sink.ts --agent-id my-agent --context-id my-session
 **Features**:
 - **AWS-compatible endpoints**: Implements `/ping` and `/invocation` with SSE streaming, mirroring AgentCore’s expectations (busy responses, health checks, and JSON validation).
 - **Session-aware Agents**: Validates `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id`, lazily creates an Agent per session, and prevents cross-session collisions.
-- **Shared configuration**: Uses the filesystem stores, prompts, and tool providers defined in `src/configs/basic.ts`, so artifacts/messages land under `_agent_store/`.
+- **Shared configuration**: Uses the filesystem stores, prompts, and tool plugins defined in `src/configs/basic.ts`, so artifacts/messages land under `_agent_store/`.
 - **Instrumentation ready**: Automatically respects OTEL/logging env vars and writes structured logs per context to `logger.jsonl`.
 
 **How to use**:
@@ -156,7 +156,7 @@ pnpm tsx src/agentcore-client.ts "Summarize the meeting in bullet points"
 **Features**:
 - **Hono + SSEServer**: Lightweight Node server (port 3000) with a `POST /sse/:contextId` endpoint that emits every Agent event over the same request.
 - **Filesystem persistence**: Stores state, messages, and artifacts just like `kitchen-sink.ts`, enabling deep inspection.
-- **Tool + artifact support**: Shares the same calculator/weather/random tools and artifact providers as other examples.
+- **Tool + artifact support**: Shares the same calculator/weather/random tools and artifact plugins as other examples.
 - **Multi-subscriber fan-out**: `SSEServer` allows multiple listeners to subscribe to the same context.
 
 **To run**:
@@ -206,8 +206,8 @@ pnpm tsx src/sse-client2.ts "Draft an email inviting the team to lunch"
 
 ### Supporting Modules
 
-- `src/configs/basic.ts` centralizes shared stores, prompts, and tool providers so every example behaves consistently. Tweak it to point at different storage backends or tool sets.
-- `src/tools/` contains the calculator, random number, and weather tools that power the examples. Copy these as starting points for your own tool providers.
+- `src/configs/basic.ts` centralizes shared stores, prompts, and tool plugins so every example behaves consistently. Tweak it to point at different storage backends or tool sets.
+- `src/tools/` contains the calculator, random number, and weather tools that power the examples. Copy these as starting points for your own tool plugins.
 
 ## Example Progression
 

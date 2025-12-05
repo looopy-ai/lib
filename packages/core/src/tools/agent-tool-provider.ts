@@ -4,8 +4,14 @@ import type pino from 'pino';
 import { Observable } from 'rxjs';
 import z from 'zod';
 import { getLogger } from '../core';
-import type { ContextAnyEvent, ContextEvent, ExecutionContext, ToolCompleteEvent } from '../types';
-import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
+import type {
+  ContextAnyEvent,
+  ContextEvent,
+  ExecutionContext,
+  Plugin,
+  ToolCompleteEvent,
+} from '../types';
+import type { ToolCall, ToolDefinition } from '../types/tools';
 import { toolErrorEvent } from './tool-result-events';
 
 export type HeaderFactory<AuthContext> = (
@@ -39,7 +45,7 @@ type AgentCard = z.infer<typeof cardSchema>;
 
 const safeName = (name: string): string => name.replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase();
 
-export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext> {
+export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
   static fromUrl = <AuthContext>(
     cardUrl: string,
     getHeaders?: HeaderFactory<AuthContext>,
@@ -176,14 +182,14 @@ export class AgentToolProvider<AuthContext> implements ToolProvider<AuthContext>
         let content = '';
         await consumeSSEStream(body, (e) => {
           if (subscriber.closed) return;
-          const data = JSON.parse(e.data);
+          const data = JSON.parse(e.data) as Record<string, unknown>;
           subscriber.next({
             kind: e.event,
             parentTaskId: context.taskId,
             ...data,
-          });
+          } as ContextAnyEvent);
           if (e.event === 'task-complete') {
-            content = data.content;
+            content = data.content as string;
           }
           logger.debug({ event: e.event }, 'Received SSE event');
         });

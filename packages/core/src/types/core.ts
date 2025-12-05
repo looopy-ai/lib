@@ -44,40 +44,62 @@ export type IterationConfig<AuthContext> = {
   iterationNumber: number;
 };
 
-export type Plugin<AuthContext> = {
+export type Plugin<AuthContext> = BasePlugin &
+  Partial<SystemPromptPlugin<AuthContext>> &
+  Partial<ToolPlugin<AuthContext>>;
+
+type BasePlugin = {
   readonly name: string;
   readonly version?: string;
+};
 
+// TODO: agents, skills, ?message store?
+
+// TODO: state persistence hooks
+
+export type SystemPromptPlugin<AuthContext> = {
   /**
    * Generate system prompts for the iteration
    */
-  generateSystemPrompts?: (
+  generateSystemPrompts: (
     context: IterationContext<AuthContext>,
   ) => SystemPrompt[] | Promise<SystemPrompt[]>;
+};
 
-  tools?: {
-    /**
-     * Get tool definition by ID
-     */
-    getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
+export const isSystemPromptPlugin = <AuthContext>(
+  plugin: Plugin<AuthContext>,
+): plugin is BasePlugin & SystemPromptPlugin<AuthContext> => {
+  return typeof (plugin as SystemPromptPlugin<AuthContext>).generateSystemPrompts === 'function';
+};
 
-    /**
-     * Get available tools from this provider
-     */
-    listTools: () => Promise<ToolDefinition[]>;
+export type ToolPlugin<AuthContext> = {
+  /**
+   * Get available tools from this provider
+   */
+  listTools: () => Promise<ToolDefinition[]>;
 
-    /**
-     * Execute a tool call
-     */
-    executeTool: (
-      toolCall: ToolCall,
-      context: IterationContext<AuthContext>,
-    ) => Observable<ContextAnyEvent>;
-  };
+  /**
+   * Get tool definition by ID
+   */
+  getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
 
-  // TODO: tools, agents, skills, ?message store?
+  /**
+   * Execute a tool call
+   */
+  executeTool: (
+    toolCall: ToolCall,
+    context: IterationContext<AuthContext>,
+  ) => Observable<ContextAnyEvent>;
+};
 
-  // TODO: state persistence hooks
+export const isToolPlugin = <AuthContext>(
+  plugin: Plugin<AuthContext>,
+): plugin is BasePlugin & ToolPlugin<AuthContext> => {
+  return (
+    typeof (plugin as ToolPlugin<AuthContext>).listTools === 'function' &&
+    typeof (plugin as ToolPlugin<AuthContext>).getTool === 'function' &&
+    typeof (plugin as ToolPlugin<AuthContext>).executeTool === 'function'
+  );
 };
 
 export type SystemPrompt = {

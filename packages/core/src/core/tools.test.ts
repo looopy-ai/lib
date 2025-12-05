@@ -4,7 +4,7 @@ import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
 import { toolResultToEvents } from '../tools/tool-result-events';
-import type { IterationContext,Plugin } from '../types/core';
+import type { IterationContext, Plugin } from '../types/core';
 import type { ContextEvent, ToolCallEvent } from '../types/event';
 import type { ToolCall } from '../types/tools';
 import { runToolCall } from './tools';
@@ -12,6 +12,21 @@ import { runToolCall } from './tools';
 const createTestLogger = () => pino.pino();
 type LoggerInstance = ReturnType<typeof createTestLogger>;
 type SpyInstance = ReturnType<typeof vi.fn>;
+
+const createContextWithPlugins = (
+  plugins: readonly Plugin<unknown>[],
+): IterationContext<unknown> => ({
+  agentId: 'agent-123',
+  contextId: 'ctx-456',
+  taskId: 'task-789',
+  turnNumber: 1,
+  plugins,
+  logger: createTestLogger(),
+  parentContext: context.active(),
+  authContext: {
+    userId: 'user-1',
+  },
+});
 
 const getChildLogger = (logger: LoggerInstance): LoggerInstance | undefined => {
   const childSpy = logger.child as unknown as SpyInstance;
@@ -54,13 +69,13 @@ describe('tools', () => {
       contextId: 'ctx-456',
       taskId: 'task-789',
       turnNumber: 1,
-      plugins: [],
+      plugins: [] as readonly Plugin<unknown>[],
       logger: createTestLogger(),
       parentContext: context.active(),
       authContext: {
         userId: 'user-1',
       },
-    };
+    } as IterationContext<unknown>;
 
     mockToolCall = {
       kind: 'tool-call',
@@ -97,16 +112,14 @@ describe('tools', () => {
     it('should emit tool-start and tool-complete when a provider supports the tool', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('test result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('test result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events).toHaveLength(2);
@@ -133,19 +146,17 @@ describe('tools', () => {
     it('should call provider.execute with correct parameters', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockProvider.tools.executeTool).toHaveBeenCalledWith(
+      expect(mockProvider.executeTool).toHaveBeenCalledWith(
         {
           id: 'call-abc',
           type: 'function',
@@ -167,34 +178,28 @@ describe('tools', () => {
     it('should execute the first provider that returns a matching tool', async () => {
       const provider1: Plugin<unknown> = {
         name: 'provider-1',
-        tools: {
-          getTool: vi.fn(async () => undefined),
-          listTools: vi.fn(async () => []),
-          executeTool: vi.fn(() => of()),
-        },
+        getTool: vi.fn(async () => undefined),
+        listTools: vi.fn(async () => []),
+        executeTool: vi.fn(() => of()),
       };
 
       const provider2: Plugin<unknown> = {
         name: 'provider-2',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('correct'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('correct'),
       };
 
       const provider3: Plugin<unknown> = {
         name: 'provider-3',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: vi.fn(() => of()),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: vi.fn(() => of()),
       };
 
-      mockContext.plugins = [provider1, provider2, provider3];
+      const testContext = createContextWithPlugins([provider1, provider2, provider3]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(provider1.executeTool).not.toHaveBeenCalled();
@@ -215,23 +220,21 @@ describe('tools', () => {
       expect(events[0]).toEqual(mockToolCall);
 
       const childLogger = expectChildLogger(mockContext.logger);
-      expect(childLogger.warn).toHaveBeenCalledWith('No tool provider found for tool');
+      expect(childLogger.warn).toHaveBeenCalledWith('No plugin found for tool');
     });
 
     it('should handle provider throwing an error', async () => {
       const testError = new Error('Provider crashed');
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: vi.fn(() => throwError(() => testError)),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: vi.fn(() => throwError(() => testError)),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events.at(-1)).toEqual(
@@ -242,7 +245,7 @@ describe('tools', () => {
         }),
       );
 
-      const childLogger = expectChildLogger(mockContext.logger);
+      const childLogger = expectChildLogger(testContext.logger);
       expect(childLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'Provider crashed',
@@ -254,16 +257,14 @@ describe('tools', () => {
     it('should handle provider throwing non-Error object', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: vi.fn(() => throwError(() => 'String error')),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: vi.fn(() => throwError(() => 'String error')),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       expect(events.at(-1)).toEqual(
@@ -278,19 +279,17 @@ describe('tools', () => {
     it('should log trace messages during execution', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
-      const childLogger = expectChildLogger(mockContext.logger);
+      const childLogger = expectChildLogger(testContext.logger);
       expect(childLogger.debug).toHaveBeenCalledWith(
         { providerName: 'mock-provider', toolIcon: 'mock-icon' },
         'Found tool provider for tool',
@@ -308,20 +307,18 @@ describe('tools', () => {
     it('should create OpenTelemetry span with correct parameters', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalledWith(
-        mockContext,
+        testContext,
         expect.objectContaining({
           kind: 'tool-call',
           toolName: 'test_tool',
@@ -333,16 +330,14 @@ describe('tools', () => {
     it('should use tapFinish operator for span management', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(spanHelpers.startToolExecuteSpan).toHaveBeenCalled();
@@ -359,16 +354,14 @@ describe('tools', () => {
 
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute(complexResult),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute(complexResult),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       const completeEvent = events[1];
@@ -380,24 +373,22 @@ describe('tools', () => {
     it('should handle empty arguments object', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
       const toolCallWithEmptyArgs: ContextEvent<ToolCallEvent> = {
         ...mockToolCall,
         arguments: {},
       };
 
-      const events$ = runToolCall(mockContext, toolCallWithEmptyArgs);
+      const events$ = runToolCall(testContext, toolCallWithEmptyArgs);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
-      expect(mockProvider.tools.executeTool).toHaveBeenCalledWith(
+      expect(mockProvider.executeTool).toHaveBeenCalledWith(
         expect.objectContaining({
           function: { name: 'test_tool', arguments: {} },
         }),
@@ -413,16 +404,14 @@ describe('tools', () => {
     it('should include timestamps in all events', async () => {
       const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        tools: {
-          getTool: vi.fn(async () => mockToolDef),
-          listTools: vi.fn(async () => [mockToolDef]),
-          executeTool: createSuccessExecute('result'),
-        },
+        getTool: vi.fn(async () => mockToolDef),
+        listTools: vi.fn(async () => [mockToolDef]),
+        executeTool: createSuccessExecute('result'),
       };
 
-      mockContext.plugins = [mockProvider];
+      const testContext = createContextWithPlugins([mockProvider]);
 
-      const events$ = runToolCall(mockContext, mockToolCall);
+      const events$ = runToolCall(testContext, mockToolCall);
       const events = await lastValueFrom(events$.pipe(toArray()));
 
       for (const event of events) {

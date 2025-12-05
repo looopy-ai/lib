@@ -40,7 +40,7 @@ describe('Agent Artifact Tools Integration', () => {
             type: 'function' as const,
             function: {
               name: tc.name,
-              arguments: JSON.parse(tc.arguments), // Parse the JSON string to object
+              arguments: JSON.parse(tc.arguments) as Record<string, unknown>, // Parse the JSON string to object
             },
           }));
 
@@ -90,7 +90,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: mockLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -121,7 +121,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -153,7 +153,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -188,7 +188,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -221,7 +221,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -265,7 +265,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: createLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -295,7 +295,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: overrideLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 
@@ -318,7 +318,7 @@ describe('Agent Artifact Tools Integration', () => {
       agentId: 'test-agent',
       contextId: 'test-context',
       llmProvider: mockLLM,
-      toolProviders: [artifactTools],
+      plugins: [artifactTools],
       messageStore,
     });
 

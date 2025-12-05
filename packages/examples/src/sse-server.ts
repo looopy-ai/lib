@@ -81,10 +81,10 @@ app.post('/sse/:contextId', async (c) => {
   );
 
   // Local tools provider
-  const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
+  const localToolProvider = localTools<MyContext>([calculateTool, randomNumberTool, weatherTool]);
 
   // Artifact tools provider
-  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
+  const artifactToolProvider = createArtifactTools<MyContext>(artifactStore, taskStateStore);
 
   // Create agent
   console.log('🎯 Creating agent...\n');
@@ -92,9 +92,8 @@ app.post('/sse/:contextId', async (c) => {
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider],
     messageStore,
-    plugins: [systemPrompt],
+    plugins: [systemPrompt, localToolProvider, artifactToolProvider],
     logger,
   });
 

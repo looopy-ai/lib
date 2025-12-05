@@ -25,11 +25,15 @@ export const artifactStore = (agentId: string) =>
 export const contextStore = new FileSystemContextStore({ basePath: BASE_PATH });
 
 // Local tools provider
-export const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
+export const localToolProvider = localTools<MyContext>([
+  calculateTool,
+  randomNumberTool,
+  weatherTool,
+]);
 
 // Artifact tools provider
 export const artifactToolProvider = (agentId: string) =>
-  createArtifactTools(artifactStore(agentId), taskStateStore);
+  createArtifactTools<MyContext>(artifactStore(agentId), taskStateStore);
 
 // System prompt
 export const systemPrompt =

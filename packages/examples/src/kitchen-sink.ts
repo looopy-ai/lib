@@ -186,7 +186,7 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools([
+  const localToolProvider = localTools<MyContext>([
     calculateTool,
     randomNumberTool,
     weatherTool,
@@ -194,7 +194,7 @@ async function main() {
   ]);
 
   // Artifact tools provider
-  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
+  const artifactToolProvider = createArtifactTools<MyContext>(artifactStore, taskStateStore);
 
   const remoteAgent = AgentToolProvider.from({
     name: 'RemoteAgent',
@@ -209,9 +209,8 @@ async function main() {
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider, remoteAgent],
     messageStore,
-    plugins: [getSystemPrompt],
+    plugins: [getSystemPrompt, localToolProvider, artifactToolProvider, remoteAgent],
     skillRegistry,
     logger,
   });

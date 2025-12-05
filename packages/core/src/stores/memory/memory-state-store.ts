@@ -14,7 +14,7 @@ export class InMemoryStateStore implements TaskStateStore {
 
   async save(taskId: string, state: PersistedLoopState): Promise<void> {
     this.states.set(taskId, {
-      state: JSON.parse(JSON.stringify(state)),
+      state: JSON.parse(JSON.stringify(state)) as PersistedLoopState,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     });
   }
@@ -22,7 +22,7 @@ export class InMemoryStateStore implements TaskStateStore {
   async load(taskId: string): Promise<PersistedLoopState | null> {
     this.cleanup();
     const entry = this.states.get(taskId);
-    return entry ? JSON.parse(JSON.stringify(entry.state)) : null;
+    return entry ? (JSON.parse(JSON.stringify(entry.state)) as PersistedLoopState) : null;
   }
 
   async exists(taskId: string): Promise<boolean> {

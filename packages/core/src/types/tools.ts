@@ -6,10 +6,7 @@
  * Design Reference: design/tool-integration.md
  */
 
-import type { Observable } from 'rxjs';
 import { z } from 'zod';
-import type { ExecutionContext } from './context';
-import type { ContextAnyEvent } from './event';
 import type { SystemLLMMessage } from './message';
 
 /**

@@ -1,10 +1,11 @@
 import { context } from '@opentelemetry/api';
 import { evaluate } from 'mathjs';
+import pino from 'pino';
 import { lastValueFrom, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { localTools, tool } from '../src/tools/local-tools';
-import type { ExecutionContext } from '../src/types';
+import type { ExecutionContext, IterationContext, Plugin, ToolCall } from '../src/types';
 
 describe('local-tools', () => {
   describe('tool()', () => {
@@ -69,7 +70,7 @@ describe('local-tools', () => {
         handler: async ({ x, y }) => ({ success: true, result: x * y }),
       });
 
-      const provider = localTools([tool1, tool2]);
+      const provider = localTools<unknown>([tool1, tool2]);
 
       expect(provider).toBeDefined();
       expect(typeof provider.listTools).toBe('function');
@@ -109,6 +110,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([calculatorTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools).toHaveLength(1);
@@ -145,6 +147,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([stringTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.properties.name).toEqual({
@@ -176,6 +179,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([numberTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.properties.age).toEqual({
@@ -206,6 +210,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([arrayTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.properties.tags).toEqual({
@@ -231,6 +236,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([enumTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.properties.role).toEqual({
@@ -256,6 +262,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([nestedTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.properties.user).toEqual({
@@ -289,6 +296,7 @@ describe('local-tools', () => {
         });
 
         const provider = localTools([optionalTool]);
+        if (!provider.listTools) expect.fail('listTools not defined');
         const tools = await provider.listTools();
 
         expect(tools[0].parameters.required).toEqual(['required']);
@@ -304,8 +312,9 @@ describe('local-tools', () => {
           handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
-
+        if (!provider.getTool) expect.fail('getTool not defined');
         const toolDef = await provider.getTool('test');
+
         expect(toolDef?.id).toBe('test');
       });
 
@@ -317,22 +326,25 @@ describe('local-tools', () => {
           handler: async () => ({ success: true, result: 'result' }),
         });
         const provider = localTools([testTool]);
-
+        if (!provider.getTool) expect.fail('getTool not defined');
         const toolDef = await provider.getTool('unknown');
+
         expect(toolDef).toBeUndefined();
       });
     });
 
     describe('execute()', () => {
-      const mockContext: ExecutionContext<unknown> = {
+      const mockContext: IterationContext<unknown> = {
         taskId: 'test-task',
         contextId: 'test-context',
         agentId: 'test-agent',
         parentContext: context.active(),
+        plugins: [],
+        logger: pino(),
+        turnNumber: 1,
       };
-      type LocalProvider = ReturnType<typeof localTools>;
-      type LocalToolCall = Parameters<LocalProvider['executeTool']>[0];
-      const getFirstEvent = async (provider: LocalProvider, toolCall: LocalToolCall) => {
+      const getFirstEvent = async (provider: Plugin<unknown>, toolCall: ToolCall) => {
+        if (!provider.executeTool) expect.fail('executeTool not defined');
         const events = await lastValueFrom(
           provider.executeTool(toolCall, mockContext).pipe(toArray()),
         );

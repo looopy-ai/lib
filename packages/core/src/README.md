@@ -12,7 +12,7 @@ src/
 ├── providers/                 # LLM providers (LiteLLM) and chat-completion helpers
 ├── server/                    # HTTP runtime helpers (serve entrypoints)
 ├── stores/                    # Message, agent-state, artifact stores (in-memory, filesystem, etc.)
-├── tools/                     # Tool providers (local, client, MCP) and helpers
+├── tools/                     # Tool plugins (local, client, MCP) and helpers
 ├── types/                     # Shared types for events, messages, tools, context
 └── utils/                     # Shared utilities (error serialization, system prompt helpers)
 ```

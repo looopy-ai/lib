@@ -74,7 +74,7 @@ class MockSSEResponse implements SSEResponse {
       if (currentEvent.kind && currentEvent.data) {
         events.push({
           kind: currentEvent.kind,
-          data: JSON.parse(currentEvent.data),
+          data: JSON.parse(currentEvent.data) as ContextAnyEvent,
         });
         currentEvent = {};
       }

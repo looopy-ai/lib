@@ -10,8 +10,8 @@
 import { z } from 'zod';
 import { ArtifactScheduler } from '../stores';
 import type { ArtifactStore, StoredArtifact } from '../types/artifact';
+import type { Plugin } from '../types/core';
 import type { TaskStateStore } from '../types/state';
-import type { ToolProvider } from '../types/tools';
 import { localTools, tool } from './local-tools';
 
 /**
@@ -48,7 +48,7 @@ async function trackArtifactInState(
 export function createArtifactTools<AuthContext>(
   artifactStore: ArtifactStore,
   taskStateStore: TaskStateStore,
-): ToolProvider<AuthContext> {
+): Plugin<AuthContext> {
   const scheduledStore = new ArtifactScheduler(artifactStore);
   return localTools([
     // ============================================================================

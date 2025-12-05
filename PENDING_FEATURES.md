@@ -55,7 +55,7 @@ This document lists features that are **not yet implemented** and should be eval
 **Testing**:
 - 103 tests passing
 - Unit tests for core components
-- Integration tests for tool providers
+- Integration tests for tool plugins
 - Artifact store tests
 
 ### 🚧 Partially Implemented

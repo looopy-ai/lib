@@ -25,7 +25,7 @@ This guide will walk you through the process of setting up your development envi
    ```typescript
    import {
      Agent,
-    asyncPrompt,
+     asyncPrompt,
      InMemoryMessageStore,
      LiteLLMProvider,
      literalPrompt,
@@ -38,21 +38,20 @@ This guide will walk you through the process of setting up your development envi
    - `agentId`: A unique ID for the agent.
    - `contextId`: A stable identifier for the conversation thread.
    - `llmProvider`: The LLM provider to use (e.g., `LiteLLMProvider`).
-   - `toolProviders`: Tool providers to enable (can be an empty array).
    - `messageStore`: Where conversation history is persisted (e.g., `InMemoryMessageStore`).
-   - `plugins`: Optional plugins that can inject system prompts and other behavior. Use `literalPrompt(...)` for a static system prompt, `asyncPrompt(...)` to load a prompt from an external source or compose multiple plugins to layer prompts.
+   - `plugins`: Plugins that inject system prompts and tools. Use helpers like `literalPrompt(...)`/`asyncPrompt(...)` for prompts and `localTools(...)`/`createArtifactTools(...)` for tool execution.
    ```typescript
    const llmProvider = new LiteLLMProvider({
      baseUrl: 'http://localhost:4000',
      model: 'gpt-4o-mini',
    });
 
-   const localToolProvider = localTools([
+   const toolPlugin = localTools([
      tool({
-       name: 'echo',
+       id: 'echo',
        description: 'Echo text back to the caller',
        schema: z.object({ text: z.string() }),
-       handler: ({ text }) => text,
+       handler: ({ text }) => ({ success: true, result: { text } }),
      }),
    ]);
 
@@ -68,9 +67,8 @@ This guide will walk you through the process of setting up your development envi
      agentId: 'my-first-agent',
      contextId: 'demo-session',
      llmProvider,
-     toolProviders: [localToolProvider],
      messageStore: new InMemoryMessageStore(),
-     plugins: [promptPlugin],
+     plugins: [promptPlugin, toolPlugin],
    });
    ```
 4. Start a conversation. The `startTurn` method returns an `Observable<ContextAnyEvent>` stream stamped with `contextId` and `taskId`.

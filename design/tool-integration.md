@@ -10,6 +10,8 @@ Looopy supports three types of tool backends:
 
 All tool types share a common interface for uniform execution.
 
+> Note: Tool routing now flows through the plugin interface. The provider terminology below maps directly to plugins that implement `listTools`/`executeTool`.
+
 ## Tool Provider Architecture
 
 ```
@@ -640,7 +642,7 @@ class DynamicToolDiscovery {
   }
 
   /**
-   * Watch for new tool providers
+   * Watch for new tool plugins
    */
   watchForProviders(): Observable<ToolProvider> {
     return this.registry.watchServices({ type: 'mcp-server' }).pipe(

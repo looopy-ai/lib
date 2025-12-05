@@ -6,6 +6,7 @@ export * from './core';
 export * from './event';
 export * from './llm';
 export * from './message';
+export * from './prettify';
 export * from './skills';
 export * from './state';
 export * from './tools';

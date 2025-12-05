@@ -1,6 +1,6 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { IterationConfig, IterationContext,Plugin } from '../types/core';
+import type { IterationConfig, IterationContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
@@ -106,7 +106,8 @@ export const runIteration = <AuthContext>(
         .reverse()
         .reduce<Record<string, unknown>>((acc, sp) => {
           if (sp.metadata) {
-            Object.assign(acc, sp.metadata);
+            // biome-ignore lint/performance/noAccumulatingSpread: gotta do it
+            return Object.assign(acc, sp.metadata);
           }
           return acc;
         }, {});
@@ -207,7 +208,7 @@ const prepareMessages = async (
  * - Duplicate tool names from different providers are not filtered
  */
 const prepareTools = async <AuthContext>(toolProviders: readonly Plugin<AuthContext>[]) => {
-  const toolPromises = toolProviders.map((p) => p.tools).filter(Boolean).map((p) => p.listTools());
+  const toolPromises = toolProviders.map((p) => p.listTools?.());
   const toolArrays = await Promise.all(toolPromises);
-  return toolArrays.flat();
+  return toolArrays.filter(Boolean).flat();
 };
