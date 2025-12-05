@@ -27,12 +27,12 @@ import {
 import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
+import type { Plugin } from '../types/core';
 import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { serializeError } from '../utils/error';
-import type { SystemPromptProp } from '../utils/prompt';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
 
@@ -64,8 +64,8 @@ export interface AgentConfig<AuthContext> {
   /** Maximum messages to keep before compaction warning */
   maxMessages?: number;
 
-  /** System prompt */
-  systemPrompt?: SystemPromptProp<AuthContext>;
+  /** Plugins */
+  plugins?: Plugin<AuthContext>[];
 
   /** Skill registry */
   skillRegistry?: SkillRegistry;
@@ -401,7 +401,6 @@ export class Agent<AuthContext> {
                 taskId,
                 authContext,
                 parentContext: turnContext,
-                systemPrompt: this.config.systemPrompt,
                 toolProviders: this.config.toolProviders,
                 skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
@@ -440,7 +439,7 @@ export class Agent<AuthContext> {
                     break;
                   case 'tool-complete': {
                     logger.debug({ event }, 'Saving tool-complete to message store');
-                    const message: Message = {
+                    const message: LLMMessage = {
                       role: 'tool',
                       content: JSON.stringify({
                         success: event.success,
@@ -572,7 +571,7 @@ export class Agent<AuthContext> {
   /**
    * Get conversation messages
    */
-  async getMessages(options: GetMessagesOptions = {}): Promise<Message[]> {
+  async getMessages(options: GetMessagesOptions = {}): Promise<LLMMessage[]> {
     if (options.maxMessages || options.maxTokens) {
       return this.config.messageStore.getRecent(this.config.contextId, options);
     }
@@ -650,7 +649,7 @@ export class Agent<AuthContext> {
   /**
    * Load messages for current turn
    */
-  private async loadMessages(): Promise<Message[]> {
+  private async loadMessages(): Promise<LLMMessage[]> {
     return this.config.messageStore.getRecent(this.config.contextId, {
       maxMessages: this.config.maxMessages,
     });

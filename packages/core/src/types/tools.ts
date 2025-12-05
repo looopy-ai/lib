@@ -10,7 +10,7 @@ import type { Observable } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from './context';
 import type { ContextAnyEvent } from './event';
-import type { SystemMessage } from './message';
+import type { SystemLLMMessage } from './message';
 
 /**
  * Tool call from LLM
@@ -33,7 +33,7 @@ export interface ToolResult {
   success: boolean;
   result: unknown;
   error?: string;
-  messages?: SystemMessage[];
+  messages?: SystemLLMMessage[];
 }
 
 /**

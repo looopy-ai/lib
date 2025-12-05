@@ -4,12 +4,12 @@
  * Design: design/message-management.md
  */
 
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 
 /**
  * Stored message with metadata
  */
-export type StoredMessage = Message & {
+export type StoredMessage = LLMMessage & {
   /** Unique message ID */
   id: string;
 
@@ -42,7 +42,7 @@ export interface MessageStore {
   /**
    * Append messages to a conversation
    */
-  append(contextId: string, messages: Message[]): Promise<void>;
+  append(contextId: string, messages: LLMMessage[]): Promise<void>;
 
   /**
    * Get recent messages within constraints
@@ -53,12 +53,12 @@ export interface MessageStore {
       maxMessages?: number;
       maxTokens?: number;
     },
-  ): Promise<Message[]>;
+  ): Promise<LLMMessage[]>;
 
   /**
    * Get all messages for a context
    */
-  getAll(contextId: string): Promise<Message[]>;
+  getAll(contextId: string): Promise<LLMMessage[]>;
 
   /**
    * Get total message count
@@ -68,7 +68,7 @@ export interface MessageStore {
   /**
    * Get messages in a specific range
    */
-  getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]>;
+  getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]>;
 
   /**
    * Compact old messages to reduce storage
@@ -103,7 +103,7 @@ export interface CompactionOptions {
  */
 export interface CompactionResult {
   /** Summary messages created */
-  summaryMessages: Message[];
+  summaryMessages: LLMMessage[];
 
   /** Range of messages that were compacted */
   compactedRange: { start: number; end: number };
@@ -125,7 +125,7 @@ export function estimateTokens(content: string | unknown): number {
  * Trim messages to fit within token budget
  * Returns up to maxTokens worth of messages from the end
  */
-export function trimToTokenBudget<T extends Message>(messages: T[], maxTokens: number): T[] {
+export function trimToTokenBudget<T extends LLMMessage>(messages: T[], maxTokens: number): T[] {
   let total = 0;
   const result: T[] = [];
 

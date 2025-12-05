@@ -11,7 +11,7 @@
  * - Conflict resolution
  */
 
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,
@@ -100,7 +100,7 @@ export class Mem0MessageStore implements MessageStore {
   /**
    * Append messages and extract memories
    */
-  async append(contextId: string, messages: Message[]): Promise<void> {
+  async append(contextId: string, messages: LLMMessage[]): Promise<void> {
     // Store raw messages in cache
     const cached = this.messageCache.get(contextId) || [];
     const nextIndex = cached.length;
@@ -174,12 +174,12 @@ export class Mem0MessageStore implements MessageStore {
   async getRecent(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     // Get recent messages from cache
     const cached = this.messageCache.get(contextId) || [];
     const { maxMessages = 50, maxTokens } = options || {};
 
-    let messages: Message[] = cached.slice(-maxMessages);
+    let messages: LLMMessage[] = cached.slice(-maxMessages);
 
     // Apply token budget
     if (maxTokens) {
@@ -192,12 +192,12 @@ export class Mem0MessageStore implements MessageStore {
 
       if (memories.length > 0) {
         // Prepend memory context as system message
-        const memoryContext: Message = {
+        const memoryContext: LLMMessage = {
           role: 'system',
           content: this.formatMemoriesAsContext(memories),
         };
 
-        messages = [memoryContext, ...messages] as Message[];
+        messages = [memoryContext, ...messages] as LLMMessage[];
       }
     } catch (error) {
       console.error('Failed to search Mem0 memories:', error);
@@ -261,7 +261,7 @@ export class Mem0MessageStore implements MessageStore {
     return `Relevant memories from previous conversations:\n${memoryLines.join('\n')}`;
   }
 
-  async getAll(contextId: string): Promise<Message[]> {
+  async getAll(contextId: string): Promise<LLMMessage[]> {
     return this.messageCache.get(contextId) || [];
   }
 
@@ -270,7 +270,7 @@ export class Mem0MessageStore implements MessageStore {
     return messages.length;
   }
 
-  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]> {
+  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
     const all = this.messageCache.get(contextId) || [];
     return all.slice(startIndex, endIndex);
   }

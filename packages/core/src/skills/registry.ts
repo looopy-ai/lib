@@ -1,6 +1,6 @@
 import z from 'zod';
 import { tool } from '../tools/local-tools';
-import type { Message, Skill, SkillRegistration } from '../types';
+import type { LLMMessage, Skill, SkillRegistration } from '../types';
 
 export const learnSkillToolName = 'learn_skill';
 
@@ -58,7 +58,7 @@ export class SkillRegistry {
           };
         }
 
-        const systemMessage: Message = {
+        const systemMessage: LLMMessage = {
           role: 'system',
           content: `You have learned the following skill:\n\n**${foundSkill.name}**\n${await getInstruction(foundSkill.instruction)}`,
         };

@@ -4,10 +4,10 @@ import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spanHelpers from '../observability/spans/tool';
 import { toolResultToEvents } from '../tools/tool-result-events';
+import type { IterationContext } from '../types/core';
 import type { ContextEvent, ToolCallEvent } from '../types/event';
 import type { ToolCall, ToolProvider } from '../types/tools';
 import { runToolCall } from './tools';
-import type { IterationContext } from './types';
 
 const createTestLogger = () => pino.pino();
 type LoggerInstance = ReturnType<typeof createTestLogger>;
@@ -43,7 +43,7 @@ vi.mock('../observability/spans/tool', () => ({
 }));
 
 describe('tools', () => {
-  let mockContext: IterationContext<unknown>;
+  let mockContext: IterationContext<unknown> & { toolProviders: ToolProvider<unknown>[] };
   let mockToolCall: ContextEvent<ToolCallEvent>;
 
   beforeEach(() => {

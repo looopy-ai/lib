@@ -7,7 +7,7 @@
 import { filter, firstValueFrom } from 'rxjs';
 import type { ContentCompleteEvent } from '../../types/event';
 import type { LLMProvider } from '../../types/llm';
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,
@@ -40,7 +40,7 @@ export class InMemoryMessageStore implements MessageStore {
     this.config = config;
   }
 
-  async append(contextId: string, messages: Message[]): Promise<void> {
+  async append(contextId: string, messages: LLMMessage[]): Promise<void> {
     const stored = this.messages.get(contextId) || [];
     const nextIndex = stored.length;
 
@@ -59,12 +59,12 @@ export class InMemoryMessageStore implements MessageStore {
   async getRecent(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     const all = this.messages.get(contextId) || [];
     const { maxMessages = 50, maxTokens } = options || {};
 
     // Take recent messages
-    let messages: Message[] = all.slice(-maxMessages);
+    let messages: LLMMessage[] = all.slice(-maxMessages);
 
     // If token limit specified, trim further
     if (maxTokens) {
@@ -74,7 +74,7 @@ export class InMemoryMessageStore implements MessageStore {
     return messages;
   }
 
-  async getAll(contextId: string): Promise<Message[]> {
+  async getAll(contextId: string): Promise<LLMMessage[]> {
     return this.messages.get(contextId) || [];
   }
 
@@ -83,7 +83,7 @@ export class InMemoryMessageStore implements MessageStore {
     return messages.length;
   }
 
-  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]> {
+  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
     const all = this.messages.get(contextId) || [];
     return all.slice(startIndex, endIndex);
   }
@@ -157,7 +157,7 @@ export class InMemoryMessageStore implements MessageStore {
 
     // Create summary message
     const summaryContent = await this.createSummary(oldMessages, summaryPrompt);
-    const summary: Message = {
+    const summary: LLMMessage = {
       role: 'system',
       content: summaryContent,
     };
@@ -205,7 +205,7 @@ export class InMemoryMessageStore implements MessageStore {
     for (let i = 0; i < oldMessages.length; i += 10) {
       const chunk = oldMessages.slice(i, Math.min(i + 10, oldMessages.length));
       const summaryContent = await this.createSummary(chunk);
-      const summary: Message = {
+      const summary: LLMMessage = {
         role: 'system',
         content: summaryContent,
       };
@@ -240,7 +240,7 @@ export class InMemoryMessageStore implements MessageStore {
    * Create a simple summary of messages
    * Uses LLM if available, otherwise falls back to rule-based summary
    */
-  private async createSummary(messages: Message[], customPrompt?: string): Promise<string> {
+  private async createSummary(messages: LLMMessage[], customPrompt?: string): Promise<string> {
     // If LLM provider is available, use it for intelligent summarization
     if (this.config.llmProvider) {
       try {
@@ -265,7 +265,7 @@ export class InMemoryMessageStore implements MessageStore {
   /**
    * Create LLM-based summary
    */
-  private async createLLMSummary(messages: Message[], customPrompt?: string): Promise<string> {
+  private async createLLMSummary(messages: LLMMessage[], customPrompt?: string): Promise<string> {
     if (!this.config.llmProvider) {
       throw new Error('LLM Provider not configured for summarization');
     }
@@ -280,7 +280,7 @@ export class InMemoryMessageStore implements MessageStore {
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
       .join('\n');
 
-    const summaryMessages: Message[] = [
+    const summaryMessages: LLMMessage[] = [
       {
         role: 'user',
         content: `${summaryPrompt}\n\n${conversationText}`,

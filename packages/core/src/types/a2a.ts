@@ -1,4 +1,4 @@
-import type { Message } from './message';
+import type { LLMMessage } from './message';
 
 /**
  * Task state as defined by A2A protocol
@@ -19,7 +19,7 @@ export type A2ATaskState =
  */
 export interface A2ATaskStatus {
   state: A2ATaskState;
-  message?: Message;
+  message?: LLMMessage;
   timestamp?: string; // ISO 8601
 }
 

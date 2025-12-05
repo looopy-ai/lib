@@ -28,7 +28,7 @@ import type {
   ToolCallEvent,
 } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import type { ToolDefinition } from '../types/tools';
 import {
   aggregateChoice,
@@ -184,7 +184,7 @@ export class LiteLLMProvider implements LLMProvider {
    * Returns an Observable of LLMEvent (without contextId/taskId - those are added by agent-loop)
    */
   call(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     sessionId?: string;
     metadata?: Record<string, unknown>;
@@ -419,7 +419,7 @@ export class LiteLLMProvider implements LLMProvider {
    * Create the raw SSE stream from LiteLLM
    */
   private createSSEStream(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     sessionId?: string;
     metadata?: Record<string, unknown>;

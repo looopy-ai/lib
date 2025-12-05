@@ -2,13 +2,13 @@ import pino from 'pino';
 import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
+import type { IterationConfig, LoopContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import type { ToolProvider } from '../types/tools';
 import { runIteration } from './iteration';
 import * as tools from './tools';
-import type { IterationConfig, LoopContext } from './types';
 
 const createTestLogger = () => pino.pino();
 type LoggerInstance = ReturnType<typeof createTestLogger>;
@@ -74,10 +74,11 @@ vi.mock('./tools', () => ({
 }));
 
 describe('iteration', () => {
-  let mockContext: LoopContext<unknown>;
+  let mockContext: LoopContext<unknown> & { toolProviders: ToolProvider<unknown>[] };
   let mockConfig: IterationConfig<unknown>;
-  let mockHistory: Message[];
+  let mockHistory: LLMMessage[];
   let mockLLMProvider: LLMProvider;
+  let mockSystemPrompt: string;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,12 +93,23 @@ describe('iteration', () => {
       ),
     };
 
+    const mockSystemPromptPlugin: Plugin<unknown> = {
+      name: 'mock-system-prompt',
+      generateSystemPrompts: async () => [
+        {
+          content: mockSystemPrompt,
+          position: 'before',
+        },
+      ],
+    };
+
+    mockSystemPrompt = 'You are a test assistant';
     mockContext = {
       agentId: 'agent-123',
       contextId: 'ctx-456',
       taskId: 'task-789',
       turnNumber: 1,
-      systemPrompt: 'You are a test assistant',
+      plugins: [mockSystemPromptPlugin],
       toolProviders: [],
       logger: createTestLogger(),
       parentContext: {} as import('@opentelemetry/api').Context,
@@ -178,7 +190,7 @@ describe('iteration', () => {
     });
 
     it('should add system prompt to messages when present', async () => {
-      mockContext.systemPrompt = 'Custom system prompt';
+      mockSystemPrompt = 'Custom system prompt';
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -196,7 +208,7 @@ describe('iteration', () => {
     });
 
     it('should work without system prompt', async () => {
-      delete mockContext.systemPrompt;
+      mockSystemPrompt = undefined as unknown as string;
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -426,14 +438,14 @@ describe('iteration', () => {
     });
 
     it('should preserve message history order', async () => {
-      const complexHistory: Message[] = [
+      const complexHistory: LLMMessage[] = [
         { role: 'user', content: 'First message' },
         { role: 'assistant', content: 'First response' },
         { role: 'user', content: 'Second message' },
         { role: 'assistant', content: 'Second response' },
       ];
 
-      mockContext.systemPrompt = 'System';
+      mockSystemPrompt = 'System';
 
       const events$ = runIteration(mockContext, mockConfig, complexHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -486,7 +498,7 @@ describe('iteration', () => {
     });
 
     it('should handle empty message history', async () => {
-      const emptyHistory: Message[] = [];
+      const emptyHistory: LLMMessage[] = [];
 
       const events$ = runIteration(mockContext, mockConfig, emptyHistory);
       await lastValueFrom(events$.pipe(toArray()));

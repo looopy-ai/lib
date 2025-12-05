@@ -1,6 +1,7 @@
 export * from './core';
 export * from './events';
 export * from './observability';
+export * from './plugins';
 export * from './providers';
 export * from './server';
 export * from './skills';

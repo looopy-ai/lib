@@ -2,11 +2,11 @@ import { concat, EMPTY, mergeMap, of, reduce, shareReplay } from 'rxjs';
 import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent } from '../events';
 import { isChildTaskEvent } from '../events/utils';
 import { startAgentLoopSpan } from '../observability/spans';
+import type { LoopConfig, LoopContext } from '../types/core';
 import type { ContentCompleteEvent, ContextAnyEvent, ContextEvent } from '../types/event';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import { recursiveMerge } from '../utils/recursive-merge';
 import { runIteration } from './iteration';
-import type { LoopConfig, TurnContext } from './types';
 
 /**
  * Execute the main agent loop that processes a turn through multiple iterations
@@ -73,9 +73,9 @@ import type { LoopConfig, TurnContext } from './types';
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
  */
 export const runLoop = <AuthContext>(
-  context: TurnContext<AuthContext>,
+  context: LoopContext<AuthContext>,
   config: LoopConfig,
-  history: Message[],
+  history: LLMMessage[],
 ) => {
   const logger = context.logger.child({ component: 'loop' });
   const { traceContext: loopContext, tapFinish } = startAgentLoopSpan({
@@ -191,8 +191,8 @@ export const runLoop = <AuthContext>(
  * - Tool complete creates tool message with stringified result or error
  * - Messages are in correct order for LLM consumption
  */
-const eventsToMessages = (events: ContextAnyEvent[]): Message[] => {
-  const messages: Message[] = [];
+const eventsToMessages = (events: ContextAnyEvent[]): LLMMessage[] => {
+  const messages: LLMMessage[] = [];
   for (const event of events) {
     if (isChildTaskEvent(event)) continue;
 

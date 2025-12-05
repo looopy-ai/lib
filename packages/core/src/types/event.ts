@@ -8,7 +8,7 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { Message, SystemMessage } from './message';
+import type { LLMMessage, SystemLLMMessage } from './message';
 import type { ToolCall } from './tools';
 
 // ============================================================================
@@ -493,7 +493,7 @@ export interface InternalLLMCallEvent {
  */
 export interface InternalToolMessageEvent {
   kind: 'internal:tool-message';
-  message: SystemMessage;
+  message: SystemLLMMessage;
   timestamp: string;
 }
 
@@ -580,7 +580,7 @@ export type UsageEvent = LLMUsageEvent;
  */
 export interface MessageEvent {
   kind: 'message';
-  message: Message;
+  message: LLMMessage;
   timestamp: string;
 }
 

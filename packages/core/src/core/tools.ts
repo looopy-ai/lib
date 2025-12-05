@@ -2,6 +2,7 @@ import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'r
 import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
+import type { IterationContext } from '../types/core';
 import type {
   ContextAnyEvent,
   ContextEvent,
@@ -9,7 +10,6 @@ import type {
   ToolExecutionEvent,
 } from '../types/event';
 import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
-import type { IterationContext } from './types';
 
 /**
  * Execute a tool call and return an observable stream of tool execution events

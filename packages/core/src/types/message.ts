@@ -3,30 +3,30 @@ import type { ToolCall } from './tools';
 /**
  * Message in the conversation
  */
-export type SystemMessage = {
+export type SystemLLMMessage = {
   role: 'system';
   content: string;
   name?: string;
 };
 
-export type UserMessage = {
+export type UserLLMMessage = {
   role: 'user';
   content: string;
   name?: string;
 };
 
-export type AssistantMessage = {
+export type AssistantLLMMessage = {
   role: 'assistant';
   content: string;
   name?: string;
   toolCalls?: ToolCall[];
 };
 
-export type ToolMessage = {
+export type ToolLLMMessage = {
   role: 'tool';
   content: string;
   name?: string;
   toolCallId: string;
 };
 
-export type Message = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
+export type LLMMessage = SystemLLMMessage | UserLLMMessage | AssistantLLMMessage | ToolLLMMessage;

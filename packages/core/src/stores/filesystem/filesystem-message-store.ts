@@ -11,7 +11,7 @@
 
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 import type {
   CompactionOptions,
   CompactionResult,
@@ -37,7 +37,7 @@ export class FileSystemMessageStore implements MessageStore {
     this.agentId = config.agentId;
   }
 
-  async append(contextId: string, messages: Message[]): Promise<void> {
+  async append(contextId: string, messages: LLMMessage[]): Promise<void> {
     const messagesDir = this.getMessagesDir(contextId);
     await mkdir(messagesDir, { recursive: true });
 
@@ -70,7 +70,7 @@ export class FileSystemMessageStore implements MessageStore {
       maxMessages?: number;
       maxTokens?: number;
     },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     const allMessages = await this.loadMessages(contextId);
 
     if (!options?.maxMessages && !options?.maxTokens) {
@@ -106,7 +106,7 @@ export class FileSystemMessageStore implements MessageStore {
     return messages.map(this.toMessage);
   }
 
-  async getAll(contextId: string): Promise<Message[]> {
+  async getAll(contextId: string): Promise<LLMMessage[]> {
     const messages = await this.loadMessages(contextId);
     return messages.map(this.toMessage);
   }
@@ -121,7 +121,7 @@ export class FileSystemMessageStore implements MessageStore {
     }
   }
 
-  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]> {
+  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
     const allMessages = await this.loadMessages(contextId);
     const messages = allMessages.filter((m) => m.index >= startIndex && m.index <= endIndex);
     return messages.map(this.toMessage);
@@ -209,7 +209,7 @@ export class FileSystemMessageStore implements MessageStore {
     }
   }
 
-  private toMessage(stored: StoredMessage): Message {
+  private toMessage(stored: StoredMessage): LLMMessage {
     // Remove storage-specific fields
     const {
       id: _id,

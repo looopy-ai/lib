@@ -6,18 +6,18 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs/internal/operators/tap';
-import type { LoopContext } from '../../core/types';
 import { isChildTaskEvent } from '../../events/utils';
+import type { LoopContext } from '../../types/core';
 import type { AnyEvent } from '../../types/event';
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 import type { ToolDefinition } from '../../types/tools';
-import type { SystemPrompt } from '../../utils/prompt';
+import type { SystemPrompts } from '../../utils/prompt';
 import { SpanAttributes, SpanNames } from '../tracing';
 
 export interface LLMCallSpanParams {
   agentId: string;
   taskId: string;
-  messages: Message[];
+  messages: LLMMessage[];
   parentContext: import('@opentelemetry/api').Context;
 }
 
@@ -26,11 +26,16 @@ export interface LLMCallSpanParams {
  */
 export const startLLMCallSpan = <AuthContext>(
   context: LoopContext<AuthContext>,
-  systemPrompt: SystemPrompt | undefined,
-  messages: Message[],
+  systemPrompts: SystemPrompts,
+  messages: LLMMessage[],
   tools: ToolDefinition[],
 ) => {
   const tracer = trace.getTracer('looopy');
+
+  const source = systemPrompts.before
+    .concat(systemPrompts.after)
+    .filter((sp) => sp.source?.providerName === 'langfuse')
+    .at(0)?.source;
 
   const span = tracer.startSpan(
     SpanNames.LLM_CALL,
@@ -40,8 +45,8 @@ export const startLLMCallSpan = <AuthContext>(
         [SpanAttributes.TASK_ID]: context.taskId,
         [SpanAttributes.GEN_AI_PROMPT]: JSON.stringify(messages),
         [SpanAttributes.LANGFUSE_OBSERVATION_TYPE]: 'generation',
-        [SpanAttributes.LANGFUSE_PROMPT_NAME]: systemPrompt?.name,
-        [SpanAttributes.LANGFUSE_PROMPT_VERSION]: systemPrompt?.version,
+        [SpanAttributes.LANGFUSE_PROMPT_NAME]: source?.promptName,
+        [SpanAttributes.LANGFUSE_PROMPT_VERSION]: source?.promptVersion,
         'tools.available': tools.map((t) => t.name),
       },
     },
