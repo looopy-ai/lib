@@ -1,11 +1,11 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
+import type { IterationConfig, IterationContext } from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import type { ToolProvider } from '../types/tools';
-import { getSystemPrompts,SystemPrompts } from '../utils/prompt';
+import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
 import { runToolCall } from './tools';
-import type { IterationConfig, IterationContext } from '../types/core';
 
 /**
  * Execute a single agent loop iteration with LLM call and tool execution
@@ -103,7 +103,8 @@ export const runIteration = <AuthContext>(
       );
 
       const metadata = systemPrompts.before
-        .concat(systemPrompts.after).reverse()
+        .concat(systemPrompts.after)
+        .reverse()
         .reduce<Record<string, unknown>>((acc, sp) => {
           if (sp.metadata) {
             Object.assign(acc, sp.metadata);

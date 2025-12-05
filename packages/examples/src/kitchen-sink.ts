@@ -38,10 +38,11 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { LangfuseClient } from '@langfuse/client';
-import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
+import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core';
 import {
   Agent,
   AgentToolProvider,
+  asyncPrompt,
   createArtifactTools,
   FileSystemArtifactStore,
   FileSystemContextStore,
@@ -53,12 +54,14 @@ import {
   localTools,
   ShutdownManager,
   SkillRegistry,
+  type SystemPrompt,
   setDefaultLogger,
   shutdownTracing,
-} from '@looopy-ai/core/ts';
+} from '@looopy-ai/core';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
+import type { MyContext } from './configs/basic';
 import { diagrammerSkill } from './skills/diagrammer';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
@@ -85,7 +88,7 @@ const skillRegistry = new SkillRegistry([diagrammerSkill]);
 
 const langfuse = new LangfuseClient();
 
-const getSystemPrompt = async () => {
+const getSystemPrompt = asyncPrompt<MyContext>(async (): Promise<SystemPrompt> => {
   const prompt = await langfuse.prompt.get(
     process.env.LANGFUSE_PROMPT_NAME || 'looopy-kitchen-sink',
   );
@@ -94,8 +97,12 @@ const getSystemPrompt = async () => {
     'Fetched system prompt from Langfuse',
   );
   const compiledPrompt = prompt.compile({});
-  return { prompt: compiledPrompt, name: prompt.name, version: prompt.version };
-};
+  return {
+    content: compiledPrompt,
+    position: 'before',
+    source: { providerName: 'langfuse', promptName: prompt.name, promptVersion: prompt.version },
+  };
+});
 
 // Parse command line arguments
 function parseArgs(): { agentId: string; contextId: string | null } {
@@ -198,13 +205,13 @@ async function main() {
 
   // Create agent
   console.log('🎯 Creating agent...\n');
-  const agent = new Agent({
+  const agent = new Agent<MyContext>({
     contextId,
     agentId,
     llmProvider,
     toolProviders: [localToolProvider, artifactToolProvider, remoteAgent],
     messageStore,
-    systemPrompt: getSystemPrompt,
+    plugins: [getSystemPrompt],
     skillRegistry,
     logger,
   });

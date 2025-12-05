@@ -1,4 +1,4 @@
-import { skill } from '@looopy-ai/core/ts';
+import { skill } from '@looopy-ai/core';
 
 export const diagrammerSkill = skill({
   name: 'diagrammer',

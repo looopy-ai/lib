@@ -1,19 +1,20 @@
 import * as fs from 'node:fs/promises';
-import { serve } from '@looopy-ai/aws';
+import { type ServeConfig, serve } from '@looopy-ai/aws';
 import {
   Agent,
+  AgentToolProvider,
   FileSystemAgentStore,
   initializeTracing,
   LiteLLM,
   ShutdownManager,
   setDefaultLogger,
 } from '@looopy-ai/core';
-import { AgentToolProvider } from '@looopy-ai/core/ts';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
 import {
   artifactToolProvider,
   localToolProvider,
+  type MyContext,
   messageStore,
   systemPrompt,
 } from './configs/basic';
@@ -88,23 +89,19 @@ const createAgent = async (contextId: string) => {
     agentId,
   });
 
-  return new Agent({
+  return new Agent<MyContext>({
     contextId,
     agentId,
     llmProvider,
     agentStore,
     toolProviders: [localToolProvider, artifactToolProvider(agentId), remoteAgent],
     messageStore: messageStore(agentId),
-    systemPrompt,
+    plugins: [systemPrompt],
     logger,
   });
 };
 
 const shutdown = new ShutdownManager();
-
-type MyContext = {
-  accessToken: string;
-};
 
 export const decodeAuthorization = async (
   authorization: string,
@@ -123,6 +120,6 @@ serve<MyContext>({
   decodeAuthorization,
   logger,
   shutdown,
-});
+} as unknown as ServeConfig<MyContext>);
 
 console.log('Server is running');

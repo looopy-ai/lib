@@ -4,7 +4,7 @@
  * Generate a random number between min and max
  */
 
-import { tool } from '@looopy-ai/core/ts';
+import { tool } from '@looopy-ai/core';
 import { z } from 'zod';
 
 export const randomNumberTool = tool({

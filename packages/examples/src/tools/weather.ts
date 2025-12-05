@@ -4,8 +4,7 @@
  * Get current weather for a city (simulated)
  */
 
-import { getLogger } from '@looopy-ai/core';
-import { tool } from '@looopy-ai/core/ts';
+import { getLogger, tool } from '@looopy-ai/core';
 import { z } from 'zod';
 
 // Simulated weather data

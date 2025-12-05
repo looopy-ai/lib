@@ -5,7 +5,7 @@ import {
   ListEventsCommand,
   RetrieveMemoryRecordsCommand,
 } from '@aws-sdk/client-bedrock-agentcore';
-import type { Message } from '@looopy-ai/core';
+import type { LLMMessage } from '@looopy-ai/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentCoreMemoryMessageStore } from './agentcore-memory-message-store';
@@ -27,7 +27,7 @@ const createStore = (send?: ReturnType<typeof vi.fn>) => {
 describe('AgentCoreMemoryMessageStore', () => {
   it('creates events when appending messages', async () => {
     const { store, sendMock } = createStore();
-    const messages: Message[] = [
+    const messages: LLMMessage[] = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
     ];
