@@ -21,7 +21,15 @@ pnpm install
 Here's a basic example of how to create and use an agent:
 
 ```typescript
-import { Agent, InMemoryMessageStore, LiteLLMProvider, localTools, tool } from '@looopy-ai/core';
+import {
+  Agent,
+  asyncPrompt,
+  InMemoryMessageStore,
+  LiteLLMProvider,
+  literalPrompt,
+  localTools,
+  tool,
+} from '@looopy-ai/core';
 import { z } from 'zod';
 
 // LLM provider that points at your LiteLLM proxy
@@ -40,6 +48,14 @@ const tools = localTools([
   }),
 ]);
 
+const promptPlugin = literalPrompt('You are a helpful assistant.');
+// or
+const promptPlugin = asyncPrompt(async ({authContext}) => {
+// load prompt from langfuse or similar prompt manager
+// inject user's name from authContext
+return prompt;
+});
+
 // Create a new agent
 const agent = new Agent({
   agentId: 'my-first-agent',
@@ -47,7 +63,7 @@ const agent = new Agent({
   llmProvider,
   toolProviders: [tools],
   messageStore: new InMemoryMessageStore(),
-  systemPrompt: { prompt: 'You are a helpful assistant.' },
+  plugins: [promptPlugin],
 });
 
 // Start a conversation

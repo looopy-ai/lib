@@ -49,7 +49,7 @@ export type Plugin<AuthContext> = {
   generateSystemPrompts: (
     context: IterationContext<AuthContext>,
   ) => SystemPrompt[] | Promise<SystemPrompt[]>;
-  // TODO: prompts, tools, agents, skills, ?message store?
+  // TODO: tools, agents, skills, ?message store?
 
   // TODO: state persistence hooks
 };

@@ -32,7 +32,7 @@ Starts a new turn in the conversation and streams events for that turn.
 - `agentStore?`: Optional persistence for agent state.
 - `autoCompact?`: Whether to compact history automatically (default `false`).
 - `maxMessages?`: Cap before compaction warnings (default `100`).
-- `systemPrompt?`: Either a string, `{ prompt, name?, version? }`, or an async function returning that shape.
+- `plugins?`: Optional plugins to inject system prompts and other behaviors. Use helpers like `literalPrompt()` to add static prompts before history is sent to the LLM.
 - `logger?`: Optional pino logger instance.
 
 ## Event Types
