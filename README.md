@@ -6,7 +6,7 @@ Looopy AI provides a powerful, stream-based architecture for creating advanced A
 
 ## Core Packages
 
-- **`@looopy-ai/core`**: The heart of the framework, providing the core `Agent` and `AgentLoop` classes, along with tools for building custom agents.
+- **`@looopy-ai/core`**: The heart of the framework, providing the core `Agent` class and `runLoop` function, along with tools for building custom agents.
 - **`@looopy-ai/aws`**: Integrations for AWS services, including Bedrock for LLM providers and S3 for artifact storage.
 - **`@looopy-ai/examples`**: A collection of examples to help you get started with the framework.
 
@@ -41,10 +41,10 @@ const llmProvider = new LiteLLMProvider({
 // Optional: add local tools with typed schemas
 const tools = localTools([
   tool({
-    name: 'echo',
+    id: 'echo',
     description: 'Echo text back to the caller',
     schema: z.object({ text: z.string() }),
-    handler: ({ text }) => text,
+    handler: ({ text }) => ({ success: true, result: text }),
   }),
 ]);
 
@@ -61,9 +61,8 @@ const agent = new Agent({
   agentId: 'my-first-agent',
   contextId: 'demo-session',
   llmProvider,
-  toolProviders: [tools],
   messageStore: new InMemoryMessageStore(),
-  plugins: [promptPlugin],
+  plugins: [promptPlugin, tools],
 });
 
 // Start a conversation

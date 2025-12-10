@@ -46,14 +46,14 @@ This guide will walk you through the process of setting up your development envi
      model: 'gpt-4o-mini',
    });
 
-   const toolPlugin = localTools([
-     tool({
-       id: 'echo',
-       description: 'Echo text back to the caller',
-       schema: z.object({ text: z.string() }),
-       handler: ({ text }) => ({ success: true, result: { text } }),
-     }),
-   ]);
+  const toolPlugin = localTools([
+    tool({
+      id: 'echo',
+      description: 'Echo text back to the caller',
+      schema: z.object({ text: z.string() }),
+      handler: ({ text }) => ({ success: true, result: text }),
+    }),
+  ]);
 
    const promptPlugin = literalPrompt('You are a helpful assistant.');
    // or

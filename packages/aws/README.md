@@ -34,7 +34,7 @@ const agent = new Agent({
   agentId: 'agentcore-runtime',
   contextId: 'ctx-1234',
   agentStore,
-  // supply llmProvider, toolProviders, and messageStore
+  // supply llmProvider, plugins, and messageStore
 });
 ```
 
@@ -133,7 +133,7 @@ const agent = new Agent({
   agentId: 'agentcore-runtime',
   contextId: 'ctx-1234',
   messageStore,
-  // llmProvider, toolProviders, agentStore, etc.
+  // llmProvider, plugins, agentStore, etc.
 });
 ```
 

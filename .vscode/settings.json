@@ -1,4 +1,14 @@
 {
+		// Files to exclude from explorer
+		"files.exclude": {
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/node_modules": true,
+			"**/Thumbs.db": true,
+			"**/*.tsbuildinfo": true,
+      "**/dist": true
+		},
+
 		// Files to exclude from search
 	 "search.exclude": {
 			"**/node_modules": true,
@@ -30,15 +40,6 @@
 			"**/.next/**": true,
 			"**/.nuxt/**": true,
 			"**/.cache/**": true,
-			"**/*.tsbuildinfo": true
-		},
-
-		// Files to exclude from explorer
-		"files.exclude": {
-			"**/.git": true,
-			"**/.DS_Store": true,
-			"**/node_modules": true,
-			"**/Thumbs.db": true,
 			"**/*.tsbuildinfo": true
 		},
 

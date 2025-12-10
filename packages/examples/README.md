@@ -235,13 +235,13 @@ Use **Agent** when you need:
 
 All examples in this package (`kitchen-sink.ts`, `sse-server.ts`, and `agentcore-server.ts`) rely on `Agent` because they showcase persistence, tooling, and observability together.
 
-### AgentLoop (Single-turn, Stateless)
+### runLoop (Single-turn, Stateless)
 
-Use **AgentLoop** when you only need a single LLM turn, no persistence, and low-latency orchestration (e.g., Lambda functions or smoke tests). There is no dedicated AgentLoop example in `packages/examples` right now, but the design guide below explains how to adapt the Agent code to AgentLoop.
+Use **`runLoop`** when you only need a single LLM turn, no persistence, and low-latency orchestration (e.g., Lambda functions or smoke tests). There is no dedicated `runLoop` example in `packages/examples` right now, but the design guide below explains how to adapt the Agent code to use `runLoop` directly.
 
 **Design References**:
 - [design/agent-lifecycle.md](../../design/agent-lifecycle.md) - Agent (multi-turn)
-- [design/agent-loop.md](../../design/agent-loop.md) - AgentLoop (single-turn)
+- [design/agent-loop.md](../../design/agent-loop.md) - runLoop (single-turn)
 
 ## OpenTelemetry Tracing
 

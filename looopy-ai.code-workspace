@@ -28,7 +28,8 @@
       "**/.DS_Store": true,
       "**/node_modules": true,
       "**/Thumbs.db": true,
-      "**/*.tsbuildinfo": true
+      "**/*.tsbuildinfo": true,
+      "**/dist": true
     },
 
     // Files to exclude from search
