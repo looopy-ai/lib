@@ -5,7 +5,7 @@
   "main": "src/core/index.ts",
   "type": "module",
   "scripts": {
-    "check:all": "pnpm check:types && pnpm lint && pnpm test",
+    "check:all": "pnpm -r prepare && pnpm check:types && pnpm lint:fix && pnpm test",
     "check:types": "pnpm -r check:types",
     "test": "pnpm -r test",
     "test:watch": "vitest --watch",
