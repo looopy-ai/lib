@@ -185,7 +185,7 @@ export class Agent<AuthContext> {
         setResumeAttributes(span, existingMessages.length);
       }
 
-      this._state.status = 'ready';
+      this._state.status = 'idle';
       this._state.lastActivity = new Date();
 
       await this.persistState();
@@ -475,7 +475,7 @@ export class Agent<AuthContext> {
                   // Update agent state
                   this._state.turnCount++;
                   this._state.lastActivity = new Date();
-                  this._state.status = 'ready';
+                  this._state.status = 'idle';
                   await this.persistState();
 
                   setTurnCountAttribute(turnSpan, this._state.turnCount);
