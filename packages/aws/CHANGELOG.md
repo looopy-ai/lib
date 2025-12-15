@@ -1,5 +1,14 @@
 # @looopy-ai/aws
 
+## 2.1.11
+
+### Patch Changes
+
+- 2800c13: rename Hono import to avoid naming conflict and improve clarity
+- Updated dependencies [9bcaab8]
+- Updated dependencies [b9bb667]
+  - @looopy-ai/core@2.1.10
+
 ## 2.1.10
 
 ### Patch Changes
