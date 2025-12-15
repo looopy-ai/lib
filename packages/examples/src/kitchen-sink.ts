@@ -88,17 +88,18 @@ const langfuse = new LangfuseClient();
 // Create agent academy plugin
 const agentAcademyPlugin = agentAcademy<MyContext>([diagrammerSkill], {
   learnSkillPrompt: async (skills) => {
-      const prompt = await langfuse.prompt.get(
-    'plugin:agent-academy',
-  );
-  const skillList = skills
-    .map((skill) => `- **${skill.name}**: ${typeof skill.instruction === 'string' ? skill.instruction : 'A useful skill.'}`)
-    .join('\n');
-  const compiledPrompt = prompt.compile({
-    skill_list: skillList,
-  });
-  return compiledPrompt;
-  }
+    const prompt = await langfuse.prompt.get('plugin:agent-academy');
+    const skillList = skills
+      .map(
+        (skill) =>
+          `- **${skill.name}**: ${typeof skill.instruction === 'string' ? skill.instruction : 'A useful skill.'}`,
+      )
+      .join('\n');
+    const compiledPrompt = prompt.compile({
+      skill_list: skillList,
+    });
+    return compiledPrompt;
+  },
 });
 
 const getSystemPrompt = asyncPrompt<MyContext>(async (context): Promise<SystemPrompt> => {

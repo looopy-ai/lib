@@ -141,8 +141,6 @@ export function createTaskCompleteEvent(
 // ============================================================================
 
 export interface CreateContentDeltaEventOptions {
-  contextId: string;
-  taskId: string;
   delta: string;
   index: number;
 }
@@ -159,8 +157,6 @@ export function createContentDeltaEvent(
 }
 
 export interface CreateContentCompleteEventOptions {
-  contextId: string;
-  taskId: string;
   content: string;
   finishReason?: FinishReason;
 }
@@ -181,8 +177,6 @@ export function createContentCompleteEvent(
 // ============================================================================
 
 export interface CreateToolStartEventOptions {
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   toolName: string;
   arguments: Record<string, unknown>;
@@ -205,8 +199,6 @@ export function createToolStartEvent(options: CreateToolStartEventOptions): Tool
 }
 
 export interface CreateToolProgressEventOptions {
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   progress: number;
   message?: string;
@@ -232,8 +224,6 @@ export function createToolProgressEvent(
 }
 
 export interface CreateToolCompleteEventOptions {
-  contextId: string;
-  taskId: string;
   toolCallId: string;
   toolName: string;
   success: boolean;
@@ -267,8 +257,6 @@ export function createToolCompleteEvent(
 // ============================================================================
 
 export interface CreateInputRequiredEventOptions {
-  contextId: string;
-  taskId: string;
   inputId: string;
   requireUser?: boolean;
   inputType: InputType;
@@ -295,8 +283,6 @@ export function createInputRequiredEvent(
 }
 
 export interface CreateInputReceivedEventOptions {
-  contextId: string;
-  taskId: string;
   inputId: string;
   providedBy: InputProvider;
   userId?: string;
@@ -326,8 +312,6 @@ export function createInputReceivedEvent(
 // ============================================================================
 
 export interface CreateAuthRequiredEventOptions {
-  contextId: string;
-  taskId: string;
   authId: string;
   authType: AuthType;
   provider?: string;
@@ -357,8 +341,6 @@ export function createAuthRequiredEvent(
 }
 
 export interface CreateAuthCompletedEventOptions {
-  contextId: string;
-  taskId: string;
   authId: string;
   userId: string;
   metadata?: {
@@ -384,8 +366,6 @@ export function createAuthCompletedEvent(
 // ============================================================================
 
 export interface CreateFileWriteEventOptions {
-  contextId: string;
-  taskId: string;
   artifactId: string;
   data: string;
   index: number;
@@ -418,8 +398,6 @@ export function createFileWriteEvent(options: CreateFileWriteEventOptions): File
 }
 
 export interface CreateDataWriteEventOptions {
-  contextId: string;
-  taskId: string;
   artifactId: string;
   data: Record<string, unknown>;
   name?: string;
@@ -444,8 +422,6 @@ export function createDataWriteEvent(options: CreateDataWriteEventOptions): Data
 }
 
 export interface CreateDatasetWriteEventOptions {
-  contextId: string;
-  taskId: string;
   artifactId: string;
   rows: Record<string, unknown>[];
   index: number;
@@ -483,8 +459,6 @@ export function createDatasetWriteEvent(
 // ============================================================================
 
 export interface CreateSubtaskCreatedEventOptions {
-  contextId: string;
-  taskId: string;
   subtaskId: string;
   agentId?: string;
   prompt: string;
@@ -507,8 +481,6 @@ export function createSubtaskCreatedEvent(
 // ============================================================================
 
 export interface CreateThoughtStreamEventOptions {
-  contextId: string;
-  taskId: string;
   thoughtId: string;
   thoughtType: ThoughtType;
   verbosity: ThoughtVerbosity;
@@ -538,8 +510,6 @@ export function createThoughtStreamEvent(
 }
 
 export interface CreateInternalThoughtProcessEventOptions {
-  contextId: string;
-  taskId: string;
   iteration: number;
   stage: 'pre-llm' | 'post-llm' | 'pre-tool' | 'post-tool';
   reasoning: string;
@@ -564,8 +534,6 @@ export function createInternalThoughtProcessEvent(
 // ============================================================================
 
 export interface CreateInternalLLMCallEventOptions {
-  contextId: string;
-  taskId: string;
   iteration: number;
   messageCount: number;
   toolCount: number;
@@ -584,8 +552,6 @@ export function createInternalLLMCallEvent(
 }
 
 export interface CreateInternalCheckpointEventOptions {
-  contextId: string;
-  taskId: string;
   iteration: number;
 }
 
