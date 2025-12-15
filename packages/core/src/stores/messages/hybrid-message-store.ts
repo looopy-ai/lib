@@ -9,7 +9,7 @@
  * - Best of both worlds
  */
 
-import type { Message } from '../../types/message';
+import type { LLMMessage } from '../../types/message';
 import type { CompactionOptions, CompactionResult, MessageStore } from './interfaces';
 
 export type SyncStrategy = 'immediate' | 'batch' | 'end-of-session';
@@ -52,7 +52,7 @@ export class HybridMessageStore implements MessageStore {
   /**
    * Append messages to both stores
    */
-  async append(contextId: string, messages: Message[]): Promise<void> {
+  async append(contextId: string, messages: LLMMessage[]): Promise<void> {
     // Always store raw messages locally
     await this.config.messageStore.append(contextId, messages);
 
@@ -70,7 +70,7 @@ export class HybridMessageStore implements MessageStore {
   async getRecent(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     // Get recent messages from local store
     const messages = await this.config.messageStore.getRecent(contextId, options);
 
@@ -96,7 +96,7 @@ export class HybridMessageStore implements MessageStore {
   /**
    * Get all messages (from local store only)
    */
-  async getAll(contextId: string): Promise<Message[]> {
+  async getAll(contextId: string): Promise<LLMMessage[]> {
     // Full history only available from local store
     return this.config.messageStore.getAll(contextId);
   }
@@ -105,7 +105,7 @@ export class HybridMessageStore implements MessageStore {
     return this.config.messageStore.getCount(contextId);
   }
 
-  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]> {
+  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
     return this.config.messageStore.getRange(contextId, startIndex, endIndex);
   }
 
@@ -157,7 +157,7 @@ export class HybridMessageStore implements MessageStore {
   /**
    * Get memory context only (from memory store)
    */
-  async getMemoryContext(contextId: string): Promise<Message[]> {
+  async getMemoryContext(contextId: string): Promise<LLMMessage[]> {
     return this.config.memoryStore.getRecent(contextId, { maxMessages: 10 });
   }
 
@@ -167,7 +167,7 @@ export class HybridMessageStore implements MessageStore {
   async getRawMessages(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     return this.config.messageStore.getRecent(contextId, options);
   }
 }

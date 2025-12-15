@@ -2,17 +2,29 @@ import pino from 'pino';
 import { lastValueFrom, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
+import type { IterationConfig, LoopContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
-import type { ToolProvider } from '../types/tools';
+import type { LLMMessage } from '../types/message';
 import { runIteration } from './iteration';
 import * as tools from './tools';
-import type { IterationConfig, LoopContext } from './types';
 
 const createTestLogger = () => pino.pino();
 type LoggerInstance = ReturnType<typeof createTestLogger>;
 type SpyInstance = ReturnType<typeof vi.fn>;
+
+const createContextWithPlugins = (
+  basePlugins: readonly Plugin<unknown>[],
+  additionalPlugins: readonly Plugin<unknown>[],
+): LoopContext<unknown> => ({
+  agentId: 'agent-123',
+  contextId: 'ctx-456',
+  taskId: 'task-789',
+  turnNumber: 1,
+  plugins: [...basePlugins, ...additionalPlugins],
+  logger: createTestLogger(),
+  parentContext: {} as import('@opentelemetry/api').Context,
+});
 
 const getChildLoggerAt = (logger: LoggerInstance, index: number): LoggerInstance | undefined => {
   const childSpy = logger.child as unknown as SpyInstance;
@@ -76,8 +88,9 @@ vi.mock('./tools', () => ({
 describe('iteration', () => {
   let mockContext: LoopContext<unknown>;
   let mockConfig: IterationConfig<unknown>;
-  let mockHistory: Message[];
+  let mockHistory: LLMMessage[];
   let mockLLMProvider: LLMProvider;
+  let mockSystemPrompt: string;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,13 +105,23 @@ describe('iteration', () => {
       ),
     };
 
+    const mockSystemPromptPlugin: Plugin<unknown> = {
+      name: 'mock-system-prompt',
+      generateSystemPrompts: async () => [
+        {
+          content: mockSystemPrompt,
+          position: 'before',
+        },
+      ],
+    };
+
+    mockSystemPrompt = 'You are a test assistant';
     mockContext = {
       agentId: 'agent-123',
       contextId: 'ctx-456',
       taskId: 'task-789',
       turnNumber: 1,
-      systemPrompt: 'You are a test assistant',
-      toolProviders: [],
+      plugins: [mockSystemPromptPlugin],
       logger: createTestLogger(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };
@@ -141,7 +164,7 @@ describe('iteration', () => {
 
     it('should call LLM provider with prepared messages and tools', async () => {
       const mockTool = {
-        name: 'test_tool',
+        id: 'test_tool',
         description: 'A test tool',
         parameters: {
           type: 'object' as const,
@@ -149,16 +172,16 @@ describe('iteration', () => {
         },
       };
 
-      const mockToolProvider: ToolProvider<unknown> = {
+      const mockToolProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        execute: vi.fn(() => of()),
+        executeTool: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
-        getTools: vi.fn(async () => [mockTool]),
+        listTools: vi.fn(async () => [mockTool]),
       };
 
-      mockContext.toolProviders = [mockToolProvider];
+      const testContext = createContextWithPlugins(mockContext.plugins, [mockToolProvider]);
 
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      const events$ = runIteration(testContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(mockLLMProvider.call).toHaveBeenCalledWith(
@@ -178,7 +201,7 @@ describe('iteration', () => {
     });
 
     it('should add system prompt to messages when present', async () => {
-      mockContext.systemPrompt = 'Custom system prompt';
+      mockSystemPrompt = 'Custom system prompt';
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -196,7 +219,7 @@ describe('iteration', () => {
     });
 
     it('should work without system prompt', async () => {
-      delete mockContext.systemPrompt;
+      mockSystemPrompt = undefined as unknown as string;
 
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -260,7 +283,7 @@ describe('iteration', () => {
 
     it('should emit tool events after LLM events', async () => {
       const toolDefinition = {
-        name: 'test_tool',
+        id: 'test_tool',
         description: 'Test tool',
         parameters: {
           type: 'object' as const,
@@ -268,13 +291,13 @@ describe('iteration', () => {
         },
       };
 
-      const mockProvider: ToolProvider<unknown> = {
+      const mockProvider: Plugin<unknown> = {
         name: 'mock-provider',
-        getTool: vi.fn(async (name: string) => (name === 'test_tool' ? toolDefinition : undefined)),
-        getTools: vi.fn(async () => [toolDefinition]),
-        execute: vi.fn(() => of()),
+        getTool: vi.fn(async (id: string) => (id === 'test_tool' ? toolDefinition : undefined)),
+        listTools: vi.fn(async () => [toolDefinition]),
+        executeTool: vi.fn(() => of()),
       };
-      mockContext.toolProviders = [mockProvider];
+      const testContext = createContextWithPlugins(mockContext.plugins, [mockProvider]);
 
       const llmEvent1 = {
         kind: 'content-delta',
@@ -300,7 +323,7 @@ describe('iteration', () => {
         of(llmEvent1 as AnyEvent, toolCallEvent as AnyEvent, llmEvent2 as AnyEvent),
       );
 
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      const events$ = runIteration(testContext, mockConfig, mockHistory);
       const events = await lastValueFrom<ContextAnyEvent[]>(events$.pipe(toArray()));
       // Debug output to verify event ordering during tool execution changes
       // console.log(events.map((e) => e.kind));
@@ -349,7 +372,7 @@ describe('iteration', () => {
 
     it('should collect tools from multiple providers', async () => {
       const tool1 = {
-        name: 'tool1',
+        id: 'tool1',
         description: 'Tool 1',
         parameters: {
           type: 'object' as const,
@@ -358,7 +381,7 @@ describe('iteration', () => {
       };
 
       const tool2 = {
-        name: 'tool2',
+        id: 'tool2',
         description: 'Tool 2',
         parameters: {
           type: 'object' as const,
@@ -366,23 +389,23 @@ describe('iteration', () => {
         },
       };
 
-      const provider1: ToolProvider<unknown> = {
+      const provider1: Plugin<unknown> = {
         name: 'provider-1',
-        execute: vi.fn(() => of()),
+        executeTool: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
-        getTools: vi.fn(async () => [tool1]),
+        listTools: vi.fn(async () => [tool1]),
       };
 
-      const provider2: ToolProvider<unknown> = {
+      const provider2: Plugin<unknown> = {
         name: 'provider-2',
-        execute: vi.fn(() => of()),
+        executeTool: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
-        getTools: vi.fn(async () => [tool2]),
+        listTools: vi.fn(async () => [tool2]),
       };
 
-      mockContext.toolProviders = [provider1, provider2];
+      const testContext = createContextWithPlugins(mockContext.plugins, [provider1, provider2]);
 
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      const events$ = runIteration(testContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(mockLLMProvider.call).toHaveBeenCalledWith(
@@ -393,8 +416,6 @@ describe('iteration', () => {
     });
 
     it('should handle empty tool providers array', async () => {
-      mockContext.toolProviders = [];
-
       const events$ = runIteration(mockContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
@@ -426,14 +447,14 @@ describe('iteration', () => {
     });
 
     it('should preserve message history order', async () => {
-      const complexHistory: Message[] = [
+      const complexHistory: LLMMessage[] = [
         { role: 'user', content: 'First message' },
         { role: 'assistant', content: 'First response' },
         { role: 'user', content: 'Second message' },
         { role: 'assistant', content: 'Second response' },
       ];
 
-      mockContext.systemPrompt = 'System';
+      mockSystemPrompt = 'System';
 
       const events$ = runIteration(mockContext, mockConfig, complexHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -486,7 +507,7 @@ describe('iteration', () => {
     });
 
     it('should handle empty message history', async () => {
-      const emptyHistory: Message[] = [];
+      const emptyHistory: LLMMessage[] = [];
 
       const events$ = runIteration(mockContext, mockConfig, emptyHistory);
       await lastValueFrom(events$.pipe(toArray()));
@@ -533,16 +554,16 @@ describe('iteration', () => {
     });
 
     it('should handle tool provider that returns empty tools', async () => {
-      const emptyProvider: ToolProvider<unknown> = {
+      const emptyProvider: Plugin<unknown> = {
         name: 'empty-provider',
-        execute: vi.fn(() => of()),
+        executeTool: vi.fn(() => of()),
         getTool: vi.fn(async () => undefined),
-        getTools: vi.fn(async () => []),
+        listTools: vi.fn(async () => []),
       };
 
-      mockContext.toolProviders = [emptyProvider];
+      const testContext = createContextWithPlugins(mockContext.plugins, [emptyProvider]);
 
-      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      const events$ = runIteration(testContext, mockConfig, mockHistory);
       await lastValueFrom(events$.pipe(toArray()));
 
       expect(mockLLMProvider.call).toHaveBeenCalledWith(

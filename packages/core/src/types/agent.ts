@@ -5,7 +5,7 @@ import type { SerializedError } from '../utils/error';
  */
 export interface AgentState {
   /** Agent lifecycle status */
-  status: 'created' | 'ready' | 'busy' | 'shutdown' | 'error';
+  status: 'created' | 'idle' | 'busy' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;

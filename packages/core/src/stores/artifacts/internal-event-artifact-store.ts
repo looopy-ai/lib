@@ -19,13 +19,13 @@ import {
   createFileWriteEvent,
 } from '../../events';
 import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../types/artifact';
-import type { ContextAnyEvent } from '../../types/event';
+import type { AnyEvent } from '../../types/event';
 
 /**
  * Event emitter interface
  */
 export interface InternalEventEmitter {
-  emit(event: ContextAnyEvent): void;
+  emit(event: AnyEvent): void;
 }
 
 /**
@@ -110,8 +110,6 @@ export class InternalEventArtifactStore implements ArtifactStore {
         const chunkIndex = artifact.chunks.length - 1; // Last chunk index
 
         const eventOptions: CreateFileWriteEventOptions = {
-          contextId: artifact.contextId,
-          taskId: artifact.taskId,
           artifactId,
           data: chunk,
           index: chunkIndex,
@@ -163,8 +161,6 @@ export class InternalEventArtifactStore implements ArtifactStore {
       const artifact = await this.delegate.getArtifact(contextId, artifactId);
       if (artifact && artifact.type === 'data') {
         const eventOptions: CreateDataWriteEventOptions = {
-          contextId: artifact.contextId,
-          taskId: artifact.taskId,
           artifactId,
           data,
           name: artifact.name,
@@ -217,8 +213,6 @@ export class InternalEventArtifactStore implements ArtifactStore {
         const batchIndex = artifact.totalChunks - 1; // Last batch index
 
         const eventOptions: CreateDatasetWriteEventOptions = {
-          contextId: artifact.contextId,
-          taskId: artifact.taskId,
           artifactId,
           rows,
           index: batchIndex,

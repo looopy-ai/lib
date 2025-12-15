@@ -4,8 +4,7 @@
  * Get current weather for a city (simulated)
  */
 
-import { getLogger } from '@looopy-ai/core';
-import { tool } from '@looopy-ai/core/ts';
+import { getLogger, tool } from '@looopy-ai/core';
 import { z } from 'zod';
 
 // Simulated weather data
@@ -20,7 +19,7 @@ const weatherData: Record<string, { temp: number; condition: string }> = {
 };
 
 export const weatherTool = tool({
-  name: 'get_weather',
+  id: 'get_weather',
   icon: 'lucide:cloud-sun',
   description: 'Get current weather for a city (simulated)',
   schema: z.object({

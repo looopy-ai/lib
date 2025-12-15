@@ -10,8 +10,8 @@
 import { z } from 'zod';
 import { ArtifactScheduler } from '../stores';
 import type { ArtifactStore, StoredArtifact } from '../types/artifact';
+import type { Plugin } from '../types/core';
 import type { TaskStateStore } from '../types/state';
-import type { ToolProvider } from '../types/tools';
 import { localTools, tool } from './local-tools';
 
 /**
@@ -48,7 +48,7 @@ async function trackArtifactInState(
 export function createArtifactTools<AuthContext>(
   artifactStore: ArtifactStore,
   taskStateStore: TaskStateStore,
-): ToolProvider<AuthContext> {
+): Plugin<AuthContext> {
   const scheduledStore = new ArtifactScheduler(artifactStore);
   return localTools([
     // ============================================================================
@@ -56,7 +56,7 @@ export function createArtifactTools<AuthContext>(
     // ============================================================================
 
     tool({
-      name: 'create_file_artifact',
+      id: 'create_file_artifact',
       description:
         'Create a new file artifact for streaming text or binary content. Use append_file_chunk to add content. Set override=true to replace existing artifact.',
       schema: z.object({
@@ -111,7 +111,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'append_file_chunk',
+      id: 'append_file_chunk',
       description:
         'Append a chunk of content to a file artifact. Call multiple times to stream content.',
       schema: z.object({
@@ -148,7 +148,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'get_file_content',
+      id: 'get_file_content',
       description: 'Get the complete content of a file artifact',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
@@ -170,7 +170,7 @@ export function createArtifactTools<AuthContext>(
     // ============================================================================
 
     tool({
-      name: 'create_data_artifact',
+      id: 'create_data_artifact',
       description:
         'Create a data artifact with structured JSON data. Set override=true to replace existing artifact.',
       schema: z.object({
@@ -216,7 +216,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'update_data_artifact',
+      id: 'update_data_artifact',
       description: 'Update the data content of an existing data artifact',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to update'),
@@ -238,7 +238,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'get_data_content',
+      id: 'get_data_content',
       description: 'Get the content of a data artifact',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
@@ -256,7 +256,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'get_data_artifact',
+      id: 'get_data_artifact',
       description: 'Get the data content of a data artifact',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
@@ -278,7 +278,7 @@ export function createArtifactTools<AuthContext>(
     // ============================================================================
 
     tool({
-      name: 'create_dataset_artifact',
+      id: 'create_dataset_artifact',
       description:
         'Create a dataset artifact for tabular data with a schema. Set override=true to replace existing artifact.',
       schema: z.object({
@@ -329,7 +329,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'append_dataset_row',
+      id: 'append_dataset_row',
       description: 'Append a single row to a dataset artifact',
       schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
@@ -351,7 +351,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'append_dataset_rows',
+      id: 'append_dataset_rows',
       description: 'Append multiple rows to a dataset artifact',
       schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
@@ -375,7 +375,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'get_dataset_rows',
+      id: 'get_dataset_rows',
       description: 'Get all rows from a dataset artifact',
       schema: z.object({
         artifactId: z.string().describe('The dataset artifact ID'),
@@ -398,7 +398,7 @@ export function createArtifactTools<AuthContext>(
     // ============================================================================
 
     tool({
-      name: 'list_artifacts',
+      id: 'list_artifacts',
       description: 'List all artifacts in the current context, optionally filtered by task',
       schema: z.object({
         taskId: z.string().optional().describe('Filter artifacts by task ID'),
@@ -430,7 +430,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'get_artifact',
+      id: 'get_artifact',
       description: 'Get metadata for a specific artifact by ID',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to retrieve'),
@@ -470,7 +470,7 @@ export function createArtifactTools<AuthContext>(
     }),
 
     tool({
-      name: 'delete_artifact',
+      id: 'delete_artifact',
       description: 'Delete an artifact by ID',
       schema: z.object({
         artifactId: z.string().describe('The artifact ID to delete'),

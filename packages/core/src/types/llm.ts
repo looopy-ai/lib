@@ -1,6 +1,6 @@
 import type { Observable } from 'rxjs';
 import type { AnyEvent } from './event';
-import type { Message } from './message';
+import type { LLMMessage } from './message';
 import type { ToolCall, ToolDefinition } from './tools';
 
 /**
@@ -8,7 +8,7 @@ import type { ToolCall, ToolDefinition } from './tools';
  */
 export interface LLMProvider {
   call(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
@@ -19,7 +19,7 @@ export interface LLMProvider {
  * LLM response
  */
 export interface LLMResponse {
-  message: Message;
+  message: LLMMessage;
   toolCalls?: ToolCall[];
   finished: boolean;
   finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter';

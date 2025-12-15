@@ -6,8 +6,8 @@
 
 import { context as otelContext, SpanStatusCode, trace } from '@opentelemetry/api';
 import { tap } from 'rxjs';
-import type { IterationContext } from '../../core/types';
 import { isChildTaskEvent } from '../../events/utils';
+import type { IterationContext } from '../../types/core';
 import type {
   AnyEvent,
   ContextAnyEvent,
@@ -53,7 +53,7 @@ export const startToolExecuteSpan = <AuthContext>(
   return {
     span,
     traceContext,
-    tapFinish: tap<ContextAnyEvent>({
+    tapFinish: tap<ContextAnyEvent | AnyEvent>({
       next: (event) => {
         if (isChildTaskEvent(event) || !isToolCompleteEvent(event)) {
           return;

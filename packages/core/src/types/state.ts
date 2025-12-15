@@ -1,5 +1,5 @@
 import type { LLMResponse } from './llm';
-import type { Message } from './message';
+import type { LLMMessage } from './message';
 import type { ToolCall, ToolDefinition, ToolResult } from './tools';
 
 /**
@@ -11,7 +11,7 @@ export interface PersistedLoopState {
   parentTaskId?: string;
   contextId: string;
 
-  messages: Message[];
+  messages: LLMMessage[];
   systemPrompt: string;
   iteration: number;
   completed: boolean;

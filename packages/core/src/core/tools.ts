@@ -1,15 +1,16 @@
-import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'rxjs';
+import { catchError, concat, defer, map, mergeMap, type Observable, of, tap } from 'rxjs';
 import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
+import { type IterationContext, isToolPlugin } from '../types/core';
 import type {
+  AnyEvent,
   ContextAnyEvent,
   ContextEvent,
   ToolCallEvent,
   ToolExecutionEvent,
 } from '../types/event';
-import type { ToolCall, ToolDefinition, ToolProvider } from '../types/tools';
-import type { IterationContext } from './types';
+import type { ToolCall } from '../types/tools';
 
 /**
  * Execute a tool call and return an observable stream of tool execution events
@@ -71,33 +72,28 @@ export const runToolCall = <AuthContext>(
   });
 
   return defer(async () => {
-    const matchingProviders = await Promise.all(
-      context.toolProviders.map(async (p) => ({
-        provider: p,
-        tool: await p.getTool(toolCall.toolName),
+    const matchingPlugins = await Promise.all(
+      context.plugins.filter(isToolPlugin).map(async (p) => ({
+        plugin: p,
+        tool: await p.getTool?.(toolCall.toolName),
       })),
     );
 
-    const matchingProvider = matchingProviders.find(
-      (p): p is { provider: ToolProvider<AuthContext>; tool: ToolDefinition } =>
-        p.tool !== undefined,
-    );
-    if (!matchingProvider) {
-      logger.warn('No tool provider found for tool');
+    const matchingPlugin = matchingPlugins.find((p) => p.tool !== undefined);
+    if (!matchingPlugin?.tool) {
+      logger.warn('No plugin found for tool');
       return of(toolCall);
     }
 
-    const { provider, tool } = matchingProvider;
+    const { plugin, tool } = matchingPlugin;
     logger.debug(
-      { providerName: provider.name, toolIcon: tool.icon },
+      { providerName: plugin.name, toolIcon: tool.icon },
       'Found tool provider for tool',
     );
 
     // Create tool-start event
-    const toolStartEvent: ContextEvent<ToolExecutionEvent> = {
+    const toolStartEvent: ToolExecutionEvent = {
       kind: 'tool-start',
-      contextId: context.contextId,
-      taskId: context.taskId,
       toolCallId: toolCall.toolCallId,
       icon: tool.icon,
       toolName: toolCall.toolName,
@@ -117,18 +113,22 @@ export const runToolCall = <AuthContext>(
     // Start tool execution span
     const { tapFinish } = startToolExecuteSpan(context, toolCall);
 
-    const execution$ = defer(() => {
+    const execution$ = defer<Observable<ContextAnyEvent | AnyEvent>>(() => {
       try {
-        logger.trace({ providerName: provider.name }, 'Executing tool');
+        logger.trace({ providerName: plugin.name }, 'Executing tool');
 
-        return provider.execute(toolCallInput, context).pipe(
+        if (!isToolPlugin(plugin)) {
+          return of(toolErrorEvent(toolCallInput, 'Plugin does not implement tools'));
+        }
+
+        return plugin.executeTool(toolCallInput, context).pipe(
           tap((event) => {
             if (isChildTaskEvent(event)) return;
             if (event.kind !== 'tool-complete') {
               return;
             }
             logger.trace(
-              { providerName: provider.name, success: event.success },
+              { providerName: plugin.name, success: event.success },
               'Tool execution complete',
             );
           }),
@@ -137,29 +137,37 @@ export const runToolCall = <AuthContext>(
             const err = error instanceof Error ? error : new Error(String(error));
             logger.error(
               {
-                providerName: provider.name,
+                providerName: plugin.name,
                 error: err.message,
                 stack: err.stack,
               },
               'Tool execution error',
             );
-            return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+            return of(toolErrorEvent(toolCallInput, err.message));
           }),
         );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
           {
-            providerName: provider.name,
+            providerName: plugin.name,
             error: err.message,
             stack: err.stack,
           },
           'Tool execution error',
         );
-        return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+        return of(toolErrorEvent(toolCallInput, err.message));
       }
     });
 
-    return concat(of<ContextAnyEvent>(toolStartEvent), execution$);
-  }).pipe(mergeMap((obs) => obs));
+    return concat(of(toolStartEvent), execution$);
+  }).pipe(
+    mergeMap((obs) => obs),
+    map<ContextAnyEvent | AnyEvent, ContextAnyEvent>((event) => ({
+      contextId: context.contextId,
+      taskId: context.taskId,
+      path: [`tool:${toolCall.toolName}`],
+      ...event,
+    })),
+  );
 };

@@ -4,13 +4,12 @@
  * Evaluates mathematical expressions
  */
 
-import { getLogger } from '@looopy-ai/core';
-import { tool } from '@looopy-ai/core/ts';
+import { getLogger, tool } from '@looopy-ai/core';
 import { evaluate } from 'mathjs';
 import { z } from 'zod';
 
 export const calculateTool = tool({
-  name: 'calculate',
+  id: 'calculate',
   icon: 'lucide:calculator',
   description: 'Evaluate a mathematical expression. Supports +, -, *, /, parentheses.',
   schema: z.object({

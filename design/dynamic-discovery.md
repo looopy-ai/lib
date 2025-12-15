@@ -4,11 +4,13 @@
 
 Dynamic discovery enables Looopy to automatically find and integrate tools and agents at runtime without manual configuration. This allows for:
 
-- **Elastic scaling**: Add/remove tool providers as needed
+- **Elastic scaling**: Add/remove tool plugins as needed
 - **Service mesh integration**: Discover services via service registry
 - **Plugin systems**: Load tools from external packages
 - **Multi-tenant isolation**: Per-tenant tool availability
 - **A/B testing**: Route to different tool versions
+
+> Note: Tool discovery now registers plugins (with `listTools`/`executeTool`) rather than a dedicated `toolProviders` array. The provider language below refers to these plugins.
 
 ## Architecture
 

@@ -38,10 +38,12 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { LangfuseClient } from '@langfuse/client';
-import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core/ts';
+import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core';
 import {
   Agent,
   AgentToolProvider,
+  agentAcademy,
+  asyncPrompt,
   createArtifactTools,
   FileSystemArtifactStore,
   FileSystemContextStore,
@@ -52,13 +54,14 @@ import {
   LiteLLM,
   localTools,
   ShutdownManager,
-  SkillRegistry,
+  type SystemPrompt,
   setDefaultLogger,
   shutdownTracing,
-} from '@looopy-ai/core/ts';
+} from '@looopy-ai/core';
 import chalk from 'chalk';
 import * as dotenv from 'dotenv';
 import pino from 'pino';
+import type { MyContext } from './configs/basic';
 import { diagrammerSkill } from './skills/diagrammer';
 import { calculateTool, randomNumberTool, weatherTool } from './tools';
 
@@ -80,22 +83,40 @@ const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
 
-// Create skill registry
-const skillRegistry = new SkillRegistry([diagrammerSkill]);
-
 const langfuse = new LangfuseClient();
 
-const getSystemPrompt = async () => {
+// Create agent academy plugin
+const agentAcademyPlugin = agentAcademy<MyContext>([diagrammerSkill], {
+  learnSkillPrompt: async (skills) => {
+    const prompt = await langfuse.prompt.get('plugin:agent-academy');
+    const skillList = skills
+      .map(
+        (skill) =>
+          `- **${skill.name}**: ${typeof skill.instruction === 'string' ? skill.instruction : 'A useful skill.'}`,
+      )
+      .join('\n');
+    const compiledPrompt = prompt.compile({
+      skill_list: skillList,
+    });
+    return compiledPrompt;
+  },
+});
+
+const getSystemPrompt = asyncPrompt<MyContext>(async (context): Promise<SystemPrompt> => {
   const prompt = await langfuse.prompt.get(
     process.env.LANGFUSE_PROMPT_NAME || 'looopy-kitchen-sink',
   );
-  getLogger({ component: 'kitchen-sink' }).debug(
+  getLogger({ contextId: context.contextId, component: 'kitchen-sink' }).debug(
     { name: prompt.name, version: prompt.version },
     'Fetched system prompt from Langfuse',
   );
   const compiledPrompt = prompt.compile({});
-  return { prompt: compiledPrompt, name: prompt.name, version: prompt.version };
-};
+  return {
+    content: compiledPrompt,
+    position: 'before',
+    source: { providerName: 'langfuse', promptName: prompt.name, promptVersion: prompt.version },
+  };
+});
 
 // Parse command line arguments
 function parseArgs(): { agentId: string; contextId: string | null } {
@@ -179,15 +200,10 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools([
-    calculateTool,
-    randomNumberTool,
-    weatherTool,
-    skillRegistry.tool(),
-  ]);
+  const localToolProvider = localTools<MyContext>([calculateTool, randomNumberTool, weatherTool]);
 
   // Artifact tools provider
-  const artifactToolProvider = createArtifactTools(artifactStore, taskStateStore);
+  const artifactToolProvider = createArtifactTools<MyContext>(artifactStore, taskStateStore);
 
   const remoteAgent = AgentToolProvider.from({
     name: 'RemoteAgent',
@@ -198,14 +214,18 @@ async function main() {
 
   // Create agent
   console.log('🎯 Creating agent...\n');
-  const agent = new Agent({
+  const agent = new Agent<MyContext>({
     contextId,
     agentId,
     llmProvider,
-    toolProviders: [localToolProvider, artifactToolProvider, remoteAgent],
     messageStore,
-    systemPrompt: getSystemPrompt,
-    skillRegistry,
+    plugins: [
+      getSystemPrompt,
+      localToolProvider,
+      artifactToolProvider,
+      remoteAgent,
+      agentAcademyPlugin,
+    ],
     logger,
   });
 

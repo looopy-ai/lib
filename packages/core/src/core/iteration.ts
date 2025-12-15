@@ -1,12 +1,10 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { SkillRegistry } from '../skills';
+import type { IterationConfig, IterationContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
-import type { Message } from '../types/message';
-import type { ToolProvider } from '../types/tools';
-import { getSystemPrompt, type SystemPrompt } from '../utils/prompt';
+import type { LLMMessage } from '../types/message';
+import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
 import { runToolCall } from './tools';
-import type { IterationConfig, LoopContext } from './types';
 
 /**
  * Execute a single agent loop iteration with LLM call and tool execution
@@ -71,9 +69,9 @@ import type { IterationConfig, LoopContext } from './types';
  * - Logs iteration start at info level with full context
  */
 export const runIteration = <AuthContext>(
-  context: LoopContext<AuthContext>,
+  context: IterationContext<AuthContext>,
   config: IterationConfig<AuthContext>,
-  history: Message[],
+  history: LLMMessage[],
 ): Observable<ContextAnyEvent> => {
   const logger = context.logger.child({
     component: 'iteration',
@@ -85,28 +83,37 @@ export const runIteration = <AuthContext>(
   );
 
   const llmEvents$ = defer(async () => {
-    const systemPrompt = await getSystemPrompt(context.systemPrompt, context);
-    const messages = await prepareMessages(systemPrompt, context.skillRegistry, history);
-    const tools = await prepareTools(context.toolProviders);
+    // const systemPrompt = await getSystemPrompt(context.systemPrompt, context);
+    const systemPrompts = await getSystemPrompts(context.plugins, context);
+    const messages = await prepareMessages(systemPrompts, history);
+    const tools = await prepareTools(context.plugins);
     logger.debug(
-      {
-        messages: messages.length,
-        tools: tools.map((t) => t.name).join(', '),
-      },
+      { systemPrompts, messages: messages.length, tools: tools.map((t) => t.id).join(', ') },
       'Prepared messages and tools for LLM call',
     );
-    return { messages, tools, systemPrompt };
+    return { messages, tools, systemPrompts };
   }).pipe(
-    mergeMap(({ messages, tools, systemPrompt }) => {
+    mergeMap(({ messages, tools, systemPrompts }) => {
       const { tapFinish: finishLLMCallSpan } = startLLMCallSpan(
         { ...context, parentContext: iterationContext },
-        systemPrompt,
+        systemPrompts,
         messages,
         tools,
       );
+
+      const metadata = systemPrompts.before
+        .concat(systemPrompts.after)
+        .reverse()
+        .reduce<Record<string, unknown>>((acc, sp) => {
+          if (sp.metadata) {
+            // biome-ignore lint/performance/noAccumulatingSpread: gotta do it
+            return Object.assign(acc, sp.metadata);
+          }
+          return acc;
+        }, {});
       const llmProvider =
         typeof config.llmProvider === 'function'
-          ? config.llmProvider(context, systemPrompt?.metadata)
+          ? config.llmProvider(context, metadata)
           : config.llmProvider;
 
       return llmProvider
@@ -122,6 +129,7 @@ export const runIteration = <AuthContext>(
             (event): ContextAnyEvent => ({
               contextId: context.contextId,
               taskId: context.taskId,
+              path: undefined,
               ...event,
             }),
           ),
@@ -155,33 +163,21 @@ export const runIteration = <AuthContext>(
 };
 
 const prepareMessages = async (
-  systemPrompt: SystemPrompt | undefined,
-  skillRegistry: SkillRegistry | undefined,
-  history: Message[],
-): Promise<Message[]> => {
-  const messages: Message[] = [];
+  systemPrompts: SystemPrompts,
+  history: LLMMessage[],
+): Promise<LLMMessage[]> => {
+  const messages: LLMMessage[] = systemPrompts.before.map((sp) => ({
+    role: 'system',
+    content: sp.content,
+  }));
 
-  // Add system prompt if available
-  if (systemPrompt) {
-    messages.push({
+  return messages.concat(
+    history,
+    systemPrompts.after.map((sp) => ({
       role: 'system',
-      content: systemPrompt.prompt,
-    });
-  }
-
-  if (skillRegistry) {
-    const skills = skillRegistry.list();
-    if (skills.length > 0) {
-      const skillList = skills.map((s) => `- **${s.name}**: ${s.description}`).join('\n');
-      const skillMessage: Message = {
-        role: 'system',
-        content: `You can learn new skills by using the 'learn_skill' tool. Available skills:\n\n${skillList}`,
-      };
-      messages.push(skillMessage);
-    }
-  }
-
-  return messages.concat(history);
+      content: sp.content,
+    })),
+  );
 };
 
 /**
@@ -212,8 +208,8 @@ const prepareMessages = async (
  * - If a provider fails to return tools, the promise will reject
  * - Duplicate tool names from different providers are not filtered
  */
-const prepareTools = async <AuthContext>(toolProviders: ToolProvider<AuthContext>[]) => {
-  const toolPromises = toolProviders.map((p) => p.getTools());
+const prepareTools = async <AuthContext>(toolProviders: readonly Plugin<AuthContext>[]) => {
+  const toolPromises = toolProviders.map((p) => p.listTools?.());
   const toolArrays = await Promise.all(toolPromises);
-  return toolArrays.flat();
+  return toolArrays.filter(Boolean).flat();
 };

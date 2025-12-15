@@ -11,7 +11,7 @@
  * - Progress tracking
  */
 
-import type { ContextAnyEvent } from '@looopy-ai/core/ts';
+import type { ContextAnyEvent } from '@looopy-ai/core';
 import { EventSource } from 'eventsource';
 
 // Example 1: Basic SSE Client

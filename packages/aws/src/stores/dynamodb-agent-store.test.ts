@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DynamoDBAgentStore } from './dynamodb-agent-store';
 
 const baseState: AgentState = {
-  status: 'ready',
+  status: 'idle',
   turnCount: 3,
   createdAt: new Date('2024-05-01T00:00:00.000Z'),
   lastActivity: new Date('2024-05-02T10:00:00.000Z'),
@@ -41,7 +41,7 @@ describe('DynamoDBAgentStore', () => {
         sk: 'context#ctx-1',
         entityType: 'agent-state',
         state: {
-          status: 'ready',
+          status: 'idle',
           turnCount: 3,
           createdAt: baseState.createdAt.toISOString(),
           lastActivity: baseState.lastActivity.toISOString(),

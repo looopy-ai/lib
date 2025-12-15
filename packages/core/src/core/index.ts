@@ -13,4 +13,3 @@ export {
   type LogLevel,
   setDefaultLogger,
 } from './logger';
-export * from './types';

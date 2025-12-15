@@ -19,6 +19,13 @@ export interface FileSystemStateStoreConfig {
   defaultTTL?: number;
 }
 
+type StateWithMeta = PersistedLoopState & {
+  _metadata?: {
+    savedAt?: string;
+    expiresAt: string;
+  };
+};
+
 export class FileSystemStateStore implements TaskStateStore {
   private basePath: string;
   private defaultTTL: number;
@@ -55,7 +62,7 @@ export class FileSystemStateStore implements TaskStateStore {
       }
 
       const content = await readFile(filePath, 'utf-8');
-      const stateWithMeta = JSON.parse(content);
+      const stateWithMeta = JSON.parse(content) as StateWithMeta;
 
       // Check if expired
       if (stateWithMeta._metadata?.expiresAt) {
@@ -86,7 +93,7 @@ export class FileSystemStateStore implements TaskStateStore {
 
     try {
       const content = await readFile(filePath, 'utf-8');
-      const stateWithMeta = JSON.parse(content);
+      const stateWithMeta = JSON.parse(content) as StateWithMeta;
 
       // Check if expired
       if (stateWithMeta._metadata?.expiresAt) {
@@ -166,7 +173,7 @@ export class FileSystemStateStore implements TaskStateStore {
   ): Promise<string | null> {
     try {
       const content = await readFile(filePath, 'utf-8');
-      const stateWithMeta = JSON.parse(content);
+      const stateWithMeta = JSON.parse(content) as StateWithMeta;
 
       // Check expiration
       if (stateWithMeta._metadata?.expiresAt) {
@@ -198,7 +205,7 @@ export class FileSystemStateStore implements TaskStateStore {
     }
 
     const content = await readFile(filePath, 'utf-8');
-    const stateWithMeta = JSON.parse(content);
+    const stateWithMeta = JSON.parse(content) as StateWithMeta;
 
     stateWithMeta._metadata = {
       ...stateWithMeta._metadata,

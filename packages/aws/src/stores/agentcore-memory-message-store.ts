@@ -8,10 +8,10 @@ import {
   RetrieveMemoryRecordsCommand,
 } from '@aws-sdk/client-bedrock-agentcore';
 import type {
-  AssistantMessage,
+  AssistantLLMMessage,
   CompactionOptions,
   CompactionResult,
-  Message,
+  LLMMessage,
   MessageStore,
 } from '@looopy-ai/core';
 import { trimToTokenBudget } from '@looopy-ai/core';
@@ -51,7 +51,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
       });
   }
 
-  async append(contextId: string, messages: Message[]): Promise<void> {
+  async append(contextId: string, messages: LLMMessage[]): Promise<void> {
     for (const message of messages) {
       const command = new CreateEventCommand({
         memoryId: this.memoryId,
@@ -88,7 +88,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   async getRecent(
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
-  ): Promise<Message[]> {
+  ): Promise<LLMMessage[]> {
     const command = new ListEventsCommand({
       memoryId: this.memoryId,
       actorId: this.actorId,
@@ -116,7 +116,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return messages;
   }
 
-  async getAll(contextId: string): Promise<Message[]> {
+  async getAll(contextId: string): Promise<LLMMessage[]> {
     return this.getRecent(contextId, { maxMessages: 1000 });
   }
 
@@ -125,7 +125,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return messages.length;
   }
 
-  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<Message[]> {
+  async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
     const all = await this.getAll(contextId);
     return all.slice(startIndex, endIndex);
   }
@@ -165,8 +165,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return this.retrieveLongTermMemories(this.actorId, query, options?.maxResults ?? 10);
   }
 
-  private convertEventsToMessages(events: Event[]): Message[] {
-    const messages: Message[] = [];
+  private convertEventsToMessages(events: Event[]): LLMMessage[] {
+    const messages: LLMMessage[] = [];
 
     events.sort((a, b) => {
       const dateA = a.eventTimestamp?.getTime() ?? 0;
@@ -175,10 +175,10 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     });
 
     for (const event of events) {
-      const message = { role: 'assistant', content: '' } as Message;
+      const message = { role: 'assistant', content: '' } as LLMMessage;
       for (const payload of event.payload ?? []) {
         if (payload.conversational) {
-          message.role = this.fromAgentCoreRole(payload.conversational.role) as Message['role'];
+          message.role = this.fromAgentCoreRole(payload.conversational.role) as LLMMessage['role'];
           message.content = payload.conversational.content?.text ?? '';
         }
         const blob = payload.blob as { toolCallId?: string; toolCalls?: unknown[] } | undefined;
@@ -186,7 +186,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
           message.toolCallId = blob.toolCallId;
         }
         if (blob?.toolCalls && message.role === 'assistant') {
-          message.toolCalls = blob.toolCalls as unknown as AssistantMessage['toolCalls'];
+          message.toolCalls = blob.toolCalls as unknown as AssistantLLMMessage['toolCalls'];
         }
       }
       messages.push(message);
@@ -226,7 +226,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return `Relevant context from previous sessions:\n${lines.join('\n')}`;
   }
 
-  private toAgentCoreRole(role: Message['role']): 'USER' | 'ASSISTANT' | 'TOOL' | 'OTHER' {
+  private toAgentCoreRole(role: LLMMessage['role']): 'USER' | 'ASSISTANT' | 'TOOL' | 'OTHER' {
     switch (role) {
       case 'user':
         return 'USER';
@@ -239,7 +239,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     }
   }
 
-  private fromAgentCoreRole(role?: string): Message['role'] {
+  private fromAgentCoreRole(role?: string): LLMMessage['role'] {
     switch (role) {
       case 'USER':
         return 'user';

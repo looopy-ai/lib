@@ -2,12 +2,12 @@ import pino from 'pino';
 import { lastValueFrom, type Observable, of, throwError, toArray } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as spans from '../observability/spans';
+import type { LoopConfig, TurnContext } from '../types/core';
 import type { ContextAnyEvent } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import * as iteration from './iteration';
 import { runLoop } from './loop';
-import type { LoopConfig, TurnContext } from './types';
 
 // Mock the 'pino' module using the shared manual mock
 vi.mock('pino');
@@ -44,7 +44,7 @@ vi.mock('./iteration', () => ({
 describe('loop', () => {
   let mockContext: TurnContext<unknown>;
   let mockConfig: LoopConfig;
-  let mockMessages: Message[];
+  let mockMessages: LLMMessage[];
   let mockLLMProvider: LLMProvider;
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('loop', () => {
       contextId: 'ctx-456',
       taskId: 'task-789',
       turnNumber: 1,
-      toolProviders: [],
+      plugins: [],
       logger: pino.pino(),
       parentContext: {} as import('@opentelemetry/api').Context,
     };
@@ -100,6 +100,7 @@ describe('loop', () => {
         contextId: 'ctx-456',
         taskId: 'task-789',
         status: 'working',
+        message: undefined,
         timestamp: expect.any(String),
         metadata: {},
       });
@@ -119,7 +120,7 @@ describe('loop', () => {
     });
 
     it('should extract prompt from last user message', async () => {
-      const messagesWithHistory: Message[] = [
+      const messagesWithHistory: LLMMessage[] = [
         { role: 'user', content: 'First message' },
         { role: 'assistant', content: 'First response' },
         { role: 'user', content: 'Second message' },
@@ -136,7 +137,9 @@ describe('loop', () => {
     });
 
     it('should handle empty prompt when no user messages', async () => {
-      const noUserMessages: Message[] = [{ role: 'assistant', content: 'Only assistant message' }];
+      const noUserMessages: LLMMessage[] = [
+        { role: 'assistant', content: 'Only assistant message' },
+      ];
 
       const events$ = runLoop(mockContext, mockConfig, noUserMessages);
       await lastValueFrom(events$.pipe(toArray()));

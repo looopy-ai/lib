@@ -9,7 +9,8 @@
 import { catchError, defer, mergeMap, of } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from '../types/context';
-import type { ToolCall, ToolDefinition, ToolProvider, ToolResult } from '../types/tools';
+import type { Plugin } from '../types/core';
+import type { ToolCall, ToolDefinition, ToolResult } from '../types/tools';
 import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
 type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
@@ -26,7 +27,7 @@ export type ToolHandler<TParams, AuthContext> = (
  * Tool definition with Zod schema and handler
  */
 export interface LocalToolDefinition<TSchema extends z.ZodObject, AuthContext> {
-  name: string;
+  id: string;
   description: string;
   icon?: string;
   schema: TSchema;
@@ -111,21 +112,21 @@ const zodToJsonSchema = (
  */
 export function localTools<AuthContext>(
   tools: LocalToolDefinition<z.ZodObject, AuthContext>[],
-): ToolProvider<AuthContext> {
+): Plugin<AuthContext> {
   const toolMap = new Map<string, LocalToolDefinition<z.ZodObject, AuthContext>>();
 
   for (const tool of tools) {
-    if (toolMap.has(tool.name)) {
-      throw new Error(`Duplicate tool name: ${tool.name}`);
+    if (toolMap.has(tool.id)) {
+      throw new Error(`Duplicate tool name: ${tool.id}`);
     }
-    toolMap.set(tool.name, tool);
+    toolMap.set(tool.id, tool);
   }
 
   return {
     name: 'local-tool-provider',
-    getTools: async (): Promise<ToolDefinition[]> =>
+    listTools: async (): Promise<ToolDefinition[]> =>
       tools.map((t) => ({
-        name: t.name,
+        id: t.id,
         description: t.description,
         icon: t.icon,
         parameters: zodToJsonSchema(t.schema),
@@ -137,14 +138,14 @@ export function localTools<AuthContext>(
         return undefined;
       }
       return {
-        name: toolDef.name,
+        id: toolDef.id,
         description: toolDef.description,
         icon: toolDef.icon,
         parameters: zodToJsonSchema(toolDef.schema),
       };
     },
 
-    execute: (toolCall: ToolCall, context: ExecutionContext<AuthContext>) =>
+    executeTool: (toolCall: ToolCall, context: ExecutionContext<AuthContext>) =>
       defer(async () => {
         const toolDef = toolMap.get(toolCall.function.name);
 
@@ -196,15 +197,9 @@ export function localTools<AuthContext>(
           } satisfies ToolResult;
         }
       }).pipe(
-        mergeMap((result) => toolResultToEvents(context, toolCall, result)),
+        mergeMap((result) => toolResultToEvents(result)),
         catchError((error) =>
-          of(
-            toolErrorEvent(
-              context,
-              toolCall,
-              error instanceof Error ? error.message : String(error),
-            ),
-          ),
+          of(toolErrorEvent(toolCall, error instanceof Error ? error.message : String(error))),
         ),
       ),
   };

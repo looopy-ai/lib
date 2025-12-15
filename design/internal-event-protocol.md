@@ -100,7 +100,7 @@ type ContextEvent<T> = T & { contextId: string; taskId: string };
 type ContextAnyEvent = ContextEvent<AnyEvent>;
 ```
 
-LLM and tool providers emit contextless events; the agent loop wraps them with `contextId` and `taskId` before streaming to clients. The interface examples below illustrate the external shape (with context fields) that consumers receive.
+LLM providers and tool-executing plugins emit contextless events; the agent loop wraps them with `contextId` and `taskId` before streaming to clients. The interface examples below illustrate the external shape (with context fields) that consumers receive.
 
 ## Event Types
 

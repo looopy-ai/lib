@@ -6,11 +6,8 @@
  * Design Reference: design/tool-integration.md
  */
 
-import type { Observable } from 'rxjs';
 import { z } from 'zod';
-import type { ExecutionContext } from './context';
-import type { ContextAnyEvent } from './event';
-import type { SystemMessage } from './message';
+import type { SystemLLMMessage } from './message';
 
 /**
  * Tool call from LLM
@@ -33,7 +30,7 @@ export interface ToolResult {
   success: boolean;
   result: unknown;
   error?: string;
-  messages?: SystemMessage[];
+  messages?: SystemLLMMessage[];
 }
 
 /**
@@ -87,13 +84,13 @@ export type FunctionParameters = z.infer<typeof FunctionParametersSchema>;
  * should wrap this format in their implementation.
  */
 export const ToolDefinitionSchema = z.object({
-  name: z
+  id: z
     .string()
     .min(1)
     .max(64)
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Tool name must contain only alphanumeric characters, underscores, and hyphens',
+      'Tool ID must contain only alphanumeric characters, underscores, and hyphens',
     ),
   description: z.string().min(1).max(1024),
   icon: z.string().optional(),
@@ -137,30 +134,3 @@ export const ToolCallSchema = z.object({
     arguments: z.record(z.string(), z.unknown()), // object
   }),
 });
-
-/**
- * Tool provider type
- *
- * Implementations:
- * - LocalToolProvider: Execute local TypeScript functions
- * - MCPToolProvider: Execute MCP server tools
- * - ClientToolProvider: Delegate to client via input-required
- */
-export type ToolProvider<AuthContext> = {
-  get name(): string;
-
-  /**
-   * Get tool definition by name
-   */
-  getTool(toolName: string): Promise<ToolDefinition | undefined>;
-
-  /**
-   * Get available tools from this provider
-   */
-  getTools(): Promise<ToolDefinition[]>;
-
-  /**
-   * Execute a tool call
-   */
-  execute(toolCall: ToolCall, context: ExecutionContext<AuthContext>): Observable<ContextAnyEvent>;
-};

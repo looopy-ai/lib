@@ -28,7 +28,7 @@ import type {
   ToolCallEvent,
 } from '../types/event';
 import type { LLMProvider } from '../types/llm';
-import type { Message } from '../types/message';
+import type { LLMMessage } from '../types/message';
 import type { ToolDefinition } from '../types/tools';
 import {
   aggregateChoice,
@@ -184,7 +184,7 @@ export class LiteLLMProvider implements LLMProvider {
    * Returns an Observable of LLMEvent (without contextId/taskId - those are added by agent-loop)
    */
   call(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     sessionId?: string;
     metadata?: Record<string, unknown>;
@@ -279,7 +279,7 @@ export class LiteLLMProvider implements LLMProvider {
               name: tc.function?.name as string,
               arguments:
                 (typeof tc.function?.arguments === 'string'
-                  ? JSON.parse(tc.function?.arguments)
+                  ? (JSON.parse(tc.function?.arguments) as Record<string, unknown>)
                   : tc.function?.arguments) || {},
             },
           }));
@@ -419,7 +419,7 @@ export class LiteLLMProvider implements LLMProvider {
    * Create the raw SSE stream from LiteLLM
    */
   private createSSEStream(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     sessionId?: string;
     metadata?: Record<string, unknown>;
@@ -473,7 +473,7 @@ export class LiteLLMProvider implements LLMProvider {
         litellmRequest.tools = request.tools.map((tool) => ({
           type: 'function',
           function: {
-            name: tool.name,
+            name: tool.id,
             description: tool.description,
             parameters: tool.parameters as Record<string, unknown>,
           },
@@ -534,7 +534,7 @@ export class LiteLLMProvider implements LLMProvider {
               if (data === '[DONE]') continue;
 
               try {
-                const chunk: LiteLLMStreamChunk = JSON.parse(data);
+                const chunk = JSON.parse(data) as LiteLLMStreamChunk;
                 subscriber.next(chunk);
               } catch (error) {
                 this.logger.warn({ error, line }, 'Failed to parse SSE chunk');

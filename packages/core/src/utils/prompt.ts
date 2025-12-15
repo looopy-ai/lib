@@ -1,29 +1,28 @@
-import type { LoopContext } from '../core/types';
+import type { IterationContext, Plugin, SystemPrompt } from '../types/core';
 
-export type SystemPrompt = {
-  prompt: string;
-  name?: string;
-  version?: number;
-  metadata?: Record<string, unknown>;
+export type SystemPrompts = {
+  before: readonly SystemPrompt[];
+  after: readonly SystemPrompt[];
 };
 
-export type SystemPromptProp<AuthContext> =
-  | string
-  | SystemPrompt
-  | ((loopContext: LoopContext<AuthContext>) => Promise<SystemPrompt> | SystemPrompt);
-
-export const getSystemPrompt = async <AuthContext>(
-  systemPrompt: SystemPromptProp<AuthContext> | undefined,
-  loopContext: LoopContext<AuthContext>,
-): Promise<SystemPrompt | undefined> => {
-  if (!systemPrompt) {
-    return undefined;
+export const getSystemPrompts = async <AuthContext>(
+  plugins: readonly Plugin<AuthContext>[] | undefined,
+  loopContext: IterationContext<AuthContext>,
+): Promise<SystemPrompts> => {
+  if (!plugins?.length) {
+    return { before: [], after: [] };
   }
-  if (typeof systemPrompt === 'string') {
-    return { prompt: systemPrompt };
-  }
-  if (typeof systemPrompt === 'function') {
-    return await systemPrompt(loopContext);
-  }
-  return systemPrompt;
+  const prompts = await Promise.all(plugins.map((p) => p.generateSystemPrompts?.(loopContext)));
+  const flattened = prompts.flat().filter((p): p is SystemPrompt => p !== undefined);
+  const before = Object.freeze(
+    flattened
+      .filter((p) => p.position === 'before')
+      .sort((a, b) => (a.positionSequence ?? 0) - (b.positionSequence ?? 0)),
+  );
+  const after = Object.freeze(
+    flattened
+      .filter((p) => p.position === 'after')
+      .sort((a, b) => (a.positionSequence ?? 0) - (b.positionSequence ?? 0)),
+  );
+  return { before, after };
 };

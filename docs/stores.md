@@ -43,7 +43,7 @@ Provide the store to `new Agent({ agentStore, ... })` to enable automatic persis
 
 Message stores keep the conversation history. The core package ships with:
 
-- `MemoryMessageStore` – simple in-memory storage for tests
+- `InMemoryMessageStore` – simple in-memory storage for tests
 - `FileSystemMessageStore` – filesystem-based JSON per message
 - `HybridMessageStore`, `BedrockMemoryStore`, and `Mem0MessageStore` – integrations with external memory systems
 
@@ -70,4 +70,4 @@ Artifact stores manage generated artifacts (files, datasets, structured data). T
 
 ## Task State Stores
 
-Task state stores keep per-turn checkpoints produced by `AgentLoop`. Use `InMemoryStateStore` for tests or `FileSystemStateStore` for resilience across crashes. A custom store implements the `TaskStateStore` interface (`save`, `load`, `exists`, `delete`, `listTasks`, and `setTTL`).
+Task state stores keep per-turn checkpoints produced by the agent loop. Use `InMemoryStateStore` for tests or `FileSystemStateStore` for resilience across crashes. A custom store implements the `TaskStateStore` interface (`save`, `load`, `exists`, `delete`, `listTasks`, and `setTTL`).

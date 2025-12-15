@@ -8,7 +8,7 @@
  * Design: design/internal-event-protocol.md
  */
 
-import type { Message, SystemMessage } from './message';
+import type { LLMMessage, SystemLLMMessage } from './message';
 import type { ToolCall } from './tools';
 
 // ============================================================================
@@ -48,12 +48,7 @@ export type ThoughtType =
 /**
  * Input types for input-required events
  */
-export type InputType =
-  | 'tool-execution'
-  | 'confirmation'
-  | 'clarification'
-  | 'selection'
-  | 'custom';
+export type InputType = 'confirmation' | 'clarification' | 'selection' | 'data';
 
 /**
  * Authentication types
@@ -68,7 +63,7 @@ export type TaskInitiator = 'user' | 'agent';
 /**
  * Input provider type
  */
-export type InputProvider = 'user' | 'agent';
+export type InputProvider = 'user' | 'any';
 
 /**
  * JSON Schema type (simplified)
@@ -493,7 +488,7 @@ export interface InternalLLMCallEvent {
  */
 export interface InternalToolMessageEvent {
   kind: 'internal:tool-message';
-  message: SystemMessage;
+  message: SystemLLMMessage;
   timestamp: string;
 }
 
@@ -580,7 +575,7 @@ export type UsageEvent = LLMUsageEvent;
  */
 export interface MessageEvent {
   kind: 'message';
-  message: Message;
+  message: LLMMessage;
   timestamp: string;
 }
 
@@ -603,6 +598,7 @@ export type AnyEvent =
 export type ContextEvent<T> = T & {
   contextId: string;
   taskId: string;
+  path?: string[];
 };
 
 /**

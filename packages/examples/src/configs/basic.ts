@@ -4,11 +4,16 @@ import {
   FileSystemContextStore,
   FileSystemMessageStore,
   FileSystemStateStore,
+  literalPrompt,
   localTools,
-} from '@looopy-ai/core/ts';
+} from '@looopy-ai/core';
 import { calculateTool } from '../tools/calculate';
 import { randomNumberTool } from '../tools/random-number';
 import { weatherTool } from '../tools/weather';
+
+export type MyContext = {
+  accessToken: string;
+};
 
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
 
@@ -20,14 +25,19 @@ export const artifactStore = (agentId: string) =>
 export const contextStore = new FileSystemContextStore({ basePath: BASE_PATH });
 
 // Local tools provider
-export const localToolProvider = localTools([calculateTool, randomNumberTool, weatherTool]);
+export const localToolProvider = localTools<MyContext>([
+  calculateTool,
+  randomNumberTool,
+  weatherTool,
+]);
 
 // Artifact tools provider
 export const artifactToolProvider = (agentId: string) =>
-  createArtifactTools(artifactStore(agentId), taskStateStore);
+  createArtifactTools<MyContext>(artifactStore(agentId), taskStateStore);
 
 // System prompt
-export const systemPrompt = `You are a helpful AI assistant with access to various tools.
+export const systemPrompt =
+  literalPrompt<MyContext>(`You are a helpful AI assistant with access to various tools.
 
 Available capabilities:
 - Mathematical calculations (calculate)
@@ -86,4 +96,4 @@ When creating artifacts:
 - Data artifacts: Use create_data_artifact with JSON data object
 - Dataset artifacts: Use create_dataset_artifact with schema, then append_dataset_row or append_dataset_rows
 
-Be concise and helpful in your responses.`;
+Be concise and helpful in your responses.`);

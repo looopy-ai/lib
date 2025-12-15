@@ -6,7 +6,7 @@ Looopy AI provides a powerful, stream-based architecture for creating advanced A
 
 ## Core Packages
 
-- **`@looopy-ai/core`**: The heart of the framework, providing the core `Agent` and `AgentLoop` classes, along with tools for building custom agents.
+- **`@looopy-ai/core`**: The heart of the framework, providing the core `Agent` class and `runLoop` function, along with tools for building custom agents.
 - **`@looopy-ai/aws`**: Integrations for AWS services, including Bedrock for LLM providers and S3 for artifact storage.
 - **`@looopy-ai/examples`**: A collection of examples to help you get started with the framework.
 
@@ -21,7 +21,15 @@ pnpm install
 Here's a basic example of how to create and use an agent:
 
 ```typescript
-import { Agent, InMemoryMessageStore, LiteLLMProvider, localTools, tool } from '@looopy-ai/core';
+import {
+  Agent,
+  asyncPrompt,
+  InMemoryMessageStore,
+  LiteLLMProvider,
+  literalPrompt,
+  localTools,
+  tool,
+} from '@looopy-ai/core';
 import { z } from 'zod';
 
 // LLM provider that points at your LiteLLM proxy
@@ -33,21 +41,28 @@ const llmProvider = new LiteLLMProvider({
 // Optional: add local tools with typed schemas
 const tools = localTools([
   tool({
-    name: 'echo',
+    id: 'echo',
     description: 'Echo text back to the caller',
     schema: z.object({ text: z.string() }),
-    handler: ({ text }) => text,
+    handler: ({ text }) => ({ success: true, result: text }),
   }),
 ]);
+
+const promptPlugin = literalPrompt('You are a helpful assistant.');
+// or
+const promptPlugin = asyncPrompt(async ({authContext}) => {
+// load prompt from langfuse or similar prompt manager
+// inject user's name from authContext
+return prompt;
+});
 
 // Create a new agent
 const agent = new Agent({
   agentId: 'my-first-agent',
   contextId: 'demo-session',
   llmProvider,
-  toolProviders: [tools],
   messageStore: new InMemoryMessageStore(),
-  systemPrompt: { prompt: 'You are a helpful assistant.' },
+  plugins: [promptPlugin, tools],
 });
 
 // Start a conversation
