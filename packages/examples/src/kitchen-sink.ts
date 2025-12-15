@@ -92,7 +92,7 @@ const agentAcademyPlugin = agentAcademy<MyContext>([diagrammerSkill], {
     'plugin:agent-academy',
   );
   const skillList = skills
-    .map((skill) => `- ${skill.name}: ${skill.description || 'No description'}`)
+    .map((skill) => `- **${skill.name}**: ${typeof skill.instruction === 'string' ? skill.instruction : 'A useful skill.'}`)
     .join('\n');
   const compiledPrompt = prompt.compile({
     skill_list: skillList,

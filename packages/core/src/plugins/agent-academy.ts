@@ -83,7 +83,7 @@ export function agentAcademy<AuthContext>(
     },
   };
 
-  const learnSkillPromptFn = options?.learnSkillPrompt;
+  const learnSkillPromptFn = options?.learnSkillPrompt ?? defaultPrompt;
 
   return {
     name: 'agent-academy',
@@ -200,3 +200,11 @@ export function agentAcademy<AuthContext>(
       ),
   };
 }
+
+const defaultPrompt = (skills: Skill[]): string => {
+  const skillList = skills
+    .map((skill) => `- **${skill.name}**: ${typeof skill.instruction === 'string' ? skill.instruction : 'A useful skill.'}`)
+    .join('\n');
+
+  return `You can learn new skills using the learn_skill tool. The available skills are:\n\n${skillList}\n\nTo learn a skill, call the learn_skill tool with the name of the skill you want to learn.`;
+};
