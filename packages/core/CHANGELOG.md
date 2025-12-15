@@ -1,5 +1,12 @@
 # @looopy-ai/core
 
+## 2.1.10
+
+### Patch Changes
+
+- 9bcaab8: System prompt plugins and update examples to use `literalPrompt`.
+- b9bb667: Update documentation to reflect tools now flowing through plugins instead of `toolProviders`, including refreshed guides, API reference, and examples copy.
+
 ## 2.1.9
 
 ### Patch Changes
