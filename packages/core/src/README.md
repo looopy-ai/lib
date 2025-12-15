@@ -9,7 +9,7 @@ src/
 ├── core/                      # Agent orchestration (Agent, loop, logger, iteration)
 ├── events/                    # Event factories and utilities
 ├── observability/             # OpenTelemetry spans and logging helpers
-├── plugins/                   # Plugin system (system prompts)
+├── plugins/                   # Plugin system (system prompts, agent academy)
 ├── providers/                 # LLM providers (LiteLLM) and chat-completion helpers
 ├── server/                    # HTTP runtime helpers (SSE, event routing, shutdown)
 ├── skills/                    # Agent skills registry and management
@@ -79,6 +79,6 @@ The main exports from this package include:
 - **Stores**: `FileSystemAgentStore`, `FileSystemMessageStore`, `FileSystemArtifactStore`, `FileSystemContextStore`, `FileSystemStateStore`, and in-memory alternatives
 - **Providers**: `LiteLLMProvider` for LLM integration
 - **Tools**: `localTools`, `mcp`, `AgentToolProvider`, `createArtifactTools` for tool plugins
-- **Plugins**: `literalPrompt`, `asyncPrompt` for system prompt injection
+- **Plugins**: `literalPrompt`, `asyncPrompt` for system prompt injection, `agentAcademy` for skill learning
 - **Server**: `SSEServer`, `EventRouter`, `EventBuffer` for HTTP/SSE streaming
 - **Observability**: OpenTelemetry tracing and structured logging via pino

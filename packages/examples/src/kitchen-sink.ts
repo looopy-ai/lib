@@ -42,6 +42,7 @@ import type { ContextAnyEvent, StoredArtifact } from '@looopy-ai/core';
 import {
   Agent,
   AgentToolProvider,
+  agentAcademy,
   asyncPrompt,
   createArtifactTools,
   FileSystemArtifactStore,
@@ -53,7 +54,6 @@ import {
   LiteLLM,
   localTools,
   ShutdownManager,
-  SkillRegistry,
   type SystemPrompt,
   setDefaultLogger,
   shutdownTracing,
@@ -83,10 +83,23 @@ const LITELLM_URL = process.env.LITELLM_URL || 'http://localhost:4000';
 const LITELLM_API_KEY = process.env.LITELLM_API_KEY;
 const BASE_PATH = process.env.AGENT_STORE_PATH || './_agent_store';
 
-// Create skill registry
-const skillRegistry = new SkillRegistry([diagrammerSkill]);
-
 const langfuse = new LangfuseClient();
+
+// Create agent academy plugin
+const agentAcademyPlugin = agentAcademy<MyContext>([diagrammerSkill], {
+  learnSkillPrompt: async (skills) => {
+      const prompt = await langfuse.prompt.get(
+    'plugin:agent-academy',
+  );
+  const skillList = skills
+    .map((skill) => `- ${skill.name}: ${skill.description || 'No description'}`)
+    .join('\n');
+  const compiledPrompt = prompt.compile({
+    skill_list: skillList,
+  });
+  return compiledPrompt;
+  }
+});
 
 const getSystemPrompt = asyncPrompt<MyContext>(async (context): Promise<SystemPrompt> => {
   const prompt = await langfuse.prompt.get(
@@ -186,12 +199,7 @@ async function main() {
   console.log('🔧 Setting up tools...');
 
   // Local tools provider
-  const localToolProvider = localTools<MyContext>([
-    calculateTool,
-    randomNumberTool,
-    weatherTool,
-    skillRegistry.tool(),
-  ]);
+  const localToolProvider = localTools<MyContext>([calculateTool, randomNumberTool, weatherTool]);
 
   // Artifact tools provider
   const artifactToolProvider = createArtifactTools<MyContext>(artifactStore, taskStateStore);
@@ -210,8 +218,13 @@ async function main() {
     agentId,
     llmProvider,
     messageStore,
-    plugins: [getSystemPrompt, localToolProvider, artifactToolProvider, remoteAgent],
-    skillRegistry,
+    plugins: [
+      getSystemPrompt,
+      localToolProvider,
+      artifactToolProvider,
+      remoteAgent,
+      agentAcademyPlugin,
+    ],
     logger,
   });
 

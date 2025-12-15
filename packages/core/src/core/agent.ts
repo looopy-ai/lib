@@ -24,7 +24,6 @@ import {
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
-import type { SkillRegistry } from '../skills';
 import type { MessageStore } from '../stores/messages/interfaces';
 import type { AgentState, AgentStore } from '../types/agent';
 import type { Plugin } from '../types/core';
@@ -62,9 +61,6 @@ export interface AgentConfig<AuthContext> {
 
   /** Plugins */
   plugins?: Plugin<AuthContext>[];
-
-  /** Skill registry */
-  skillRegistry?: SkillRegistry;
 
   /** Logger */
   logger?: import('pino').Logger;
@@ -397,7 +393,6 @@ export class Agent<AuthContext> {
                 taskId,
                 authContext,
                 parentContext: turnContext,
-                skillRegistry: this.config.skillRegistry,
                 logger: this.config.logger.child({ taskId, turnNumber }),
                 plugins: this.config.plugins || [],
                 turnNumber,

@@ -4,7 +4,6 @@ export * from './observability';
 export * from './plugins';
 export * from './providers';
 export * from './server';
-export * from './skills';
 export * from './stores';
 export * from './tools';
 export * from './types';

@@ -1,6 +1,5 @@
 import type pino from 'pino';
 import type { Observable } from 'rxjs';
-import type { SkillRegistry } from '../skills';
 import type { LLMProvider } from '../types/llm';
 import type { AnyEvent, ContextAnyEvent } from './event';
 import type { ToolCall, ToolDefinition } from './tools';
@@ -14,7 +13,6 @@ export type AgentContext<AuthContext> = Readonly<{
   logger: pino.Logger;
   /** Plugins */
   plugins: readonly Plugin<AuthContext>[];
-  skillRegistry?: SkillRegistry;
   metadata?: Record<string, unknown>;
 }>;
 
