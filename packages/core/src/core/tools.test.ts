@@ -81,6 +81,7 @@ describe('tools', () => {
       kind: 'tool-call',
       contextId: 'ctx-456',
       taskId: 'task-789',
+      path: ['tool:test_tool'],
       toolCallId: 'call-abc',
       toolName: 'test_tool',
       arguments: { param: 'value' },
@@ -100,8 +101,8 @@ describe('tools', () => {
     };
 
     const createSuccessExecute = (result: unknown) =>
-      vi.fn((toolCall: ToolCall, execContext: IterationContext<unknown>) =>
-        toolResultToEvents(execContext, toolCall, {
+      vi.fn((toolCall: ToolCall, _execContext: IterationContext<unknown>) =>
+        toolResultToEvents({
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           success: true,

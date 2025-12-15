@@ -149,11 +149,9 @@ export interface CreateContentDeltaEventOptions {
 
 export function createContentDeltaEvent(
   options: CreateContentDeltaEventOptions,
-): ContextEvent<ContentDeltaEvent> {
+): ContentDeltaEvent {
   return {
     kind: 'content-delta',
-    contextId: options.contextId,
-    taskId: options.taskId,
     delta: options.delta,
     index: options.index,
     timestamp: new Date().toISOString(),
@@ -169,11 +167,9 @@ export interface CreateContentCompleteEventOptions {
 
 export function createContentCompleteEvent(
   options: CreateContentCompleteEventOptions,
-): ContextEvent<ContentCompleteEvent> {
+): ContentCompleteEvent {
   return {
     kind: 'content-complete',
-    contextId: options.contextId,
-    taskId: options.taskId,
     content: options.content,
     finishReason: options.finishReason || 'stop',
     timestamp: new Date().toISOString(),
@@ -197,13 +193,9 @@ export interface CreateToolStartEventOptions {
   };
 }
 
-export function createToolStartEvent(
-  options: CreateToolStartEventOptions,
-): ContextEvent<ToolStartEvent> {
+export function createToolStartEvent(options: CreateToolStartEventOptions): ToolStartEvent {
   return {
     kind: 'tool-start',
-    contextId: options.contextId,
-    taskId: options.taskId,
     toolCallId: options.toolCallId,
     toolName: options.toolName,
     arguments: options.arguments,
@@ -228,11 +220,9 @@ export interface CreateToolProgressEventOptions {
 
 export function createToolProgressEvent(
   options: CreateToolProgressEventOptions,
-): ContextEvent<ToolProgressEvent> {
+): ToolProgressEvent {
   return {
     kind: 'tool-progress',
-    contextId: options.contextId,
-    taskId: options.taskId,
     toolCallId: options.toolCallId,
     progress: options.progress,
     message: options.message,
@@ -259,11 +249,9 @@ export interface CreateToolCompleteEventOptions {
 
 export function createToolCompleteEvent(
   options: CreateToolCompleteEventOptions,
-): ContextEvent<ToolCompleteEvent> {
+): ToolCompleteEvent {
   return {
     kind: 'tool-complete',
-    contextId: options.contextId,
-    taskId: options.taskId,
     toolCallId: options.toolCallId,
     toolName: options.toolName,
     success: options.success,
@@ -292,11 +280,9 @@ export interface CreateInputRequiredEventOptions {
 
 export function createInputRequiredEvent(
   options: CreateInputRequiredEventOptions,
-): ContextEvent<InputRequiredEvent> {
+): InputRequiredEvent {
   return {
     kind: 'input-required',
-    contextId: options.contextId,
-    taskId: options.taskId,
     inputId: options.inputId,
     requireUser: options.requireUser,
     inputType: options.inputType,
@@ -323,11 +309,9 @@ export interface CreateInputReceivedEventOptions {
 
 export function createInputReceivedEvent(
   options: CreateInputReceivedEventOptions,
-): ContextEvent<InputReceivedEvent> {
+): InputReceivedEvent {
   return {
     kind: 'input-received',
-    contextId: options.contextId,
-    taskId: options.taskId,
     inputId: options.inputId,
     providedBy: options.providedBy,
     userId: options.userId,
@@ -358,11 +342,9 @@ export interface CreateAuthRequiredEventOptions {
 
 export function createAuthRequiredEvent(
   options: CreateAuthRequiredEventOptions,
-): ContextEvent<AuthRequiredEvent> {
+): AuthRequiredEvent {
   return {
     kind: 'auth-required',
-    contextId: options.contextId,
-    taskId: options.taskId,
     authId: options.authId,
     authType: options.authType,
     provider: options.provider,
@@ -387,11 +369,9 @@ export interface CreateAuthCompletedEventOptions {
 
 export function createAuthCompletedEvent(
   options: CreateAuthCompletedEventOptions,
-): ContextEvent<AuthCompletedEvent> {
+): AuthCompletedEvent {
   return {
     kind: 'auth-completed',
-    contextId: options.contextId,
-    taskId: options.taskId,
     authId: options.authId,
     userId: options.userId,
     timestamp: new Date().toISOString(),
@@ -421,13 +401,9 @@ export interface CreateFileWriteEventOptions {
   };
 }
 
-export function createFileWriteEvent(
-  options: CreateFileWriteEventOptions,
-): ContextEvent<FileWriteEvent> {
+export function createFileWriteEvent(options: CreateFileWriteEventOptions): FileWriteEvent {
   return {
     kind: 'file-write',
-    contextId: options.contextId,
-    taskId: options.taskId,
     artifactId: options.artifactId,
     data: options.data,
     index: options.index,
@@ -455,13 +431,9 @@ export interface CreateDataWriteEventOptions {
   };
 }
 
-export function createDataWriteEvent(
-  options: CreateDataWriteEventOptions,
-): ContextEvent<DataWriteEvent> {
+export function createDataWriteEvent(options: CreateDataWriteEventOptions): DataWriteEvent {
   return {
     kind: 'data-write',
-    contextId: options.contextId,
-    taskId: options.taskId,
     artifactId: options.artifactId,
     data: options.data,
     name: options.name,
@@ -491,11 +463,9 @@ export interface CreateDatasetWriteEventOptions {
 
 export function createDatasetWriteEvent(
   options: CreateDatasetWriteEventOptions,
-): ContextEvent<DatasetWriteEvent> {
+): DatasetWriteEvent {
   return {
     kind: 'dataset-write',
-    contextId: options.contextId,
-    taskId: options.taskId,
     artifactId: options.artifactId,
     rows: options.rows,
     index: options.index,
@@ -522,11 +492,9 @@ export interface CreateSubtaskCreatedEventOptions {
 
 export function createSubtaskCreatedEvent(
   options: CreateSubtaskCreatedEventOptions,
-): ContextEvent<SubtaskCreatedEvent> {
+): SubtaskCreatedEvent {
   return {
     kind: 'subtask-created',
-    contextId: options.contextId,
-    taskId: options.taskId,
     subtaskId: options.subtaskId,
     agentId: options.agentId,
     prompt: options.prompt,
@@ -556,11 +524,9 @@ export interface CreateThoughtStreamEventOptions {
 
 export function createThoughtStreamEvent(
   options: CreateThoughtStreamEventOptions,
-): ContextEvent<ThoughtStreamEvent> {
+): ThoughtStreamEvent {
   return {
     kind: 'thought-stream',
-    contextId: options.contextId,
-    taskId: options.taskId,
     thoughtId: options.thoughtId,
     thoughtType: options.thoughtType,
     verbosity: options.verbosity,
@@ -582,11 +548,9 @@ export interface CreateInternalThoughtProcessEventOptions {
 
 export function createInternalThoughtProcessEvent(
   options: CreateInternalThoughtProcessEventOptions,
-): ContextEvent<InternalThoughtProcessEvent> {
+): InternalThoughtProcessEvent {
   return {
     kind: 'internal:thought-process',
-    contextId: options.contextId,
-    taskId: options.taskId,
     iteration: options.iteration,
     stage: options.stage,
     reasoning: options.reasoning,
@@ -609,11 +573,9 @@ export interface CreateInternalLLMCallEventOptions {
 
 export function createInternalLLMCallEvent(
   options: CreateInternalLLMCallEventOptions,
-): ContextEvent<InternalLLMCallEvent> {
+): InternalLLMCallEvent {
   return {
     kind: 'internal:llm-call',
-    contextId: options.contextId,
-    taskId: options.taskId,
     iteration: options.iteration,
     messageCount: options.messageCount,
     toolCount: options.toolCount,
@@ -629,11 +591,9 @@ export interface CreateInternalCheckpointEventOptions {
 
 export function createInternalCheckpointEvent(
   options: CreateInternalCheckpointEventOptions,
-): ContextEvent<InternalCheckpointEvent> {
+): InternalCheckpointEvent {
   return {
     kind: 'internal:checkpoint',
-    contextId: options.contextId,
-    taskId: options.taskId,
     iteration: options.iteration,
     timestamp: new Date().toISOString(),
   };

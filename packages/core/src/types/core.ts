@@ -2,7 +2,7 @@ import type pino from 'pino';
 import type { Observable } from 'rxjs';
 import type { SkillRegistry } from '../skills';
 import type { LLMProvider } from '../types/llm';
-import type { ContextAnyEvent } from './event';
+import type { AnyEvent, ContextAnyEvent } from './event';
 import type { ToolCall, ToolDefinition } from './tools';
 
 export type AgentContext<AuthContext> = Readonly<{
@@ -89,7 +89,7 @@ export type ToolPlugin<AuthContext> = {
   executeTool: (
     toolCall: ToolCall,
     context: IterationContext<AuthContext>,
-  ) => Observable<ContextAnyEvent>;
+  ) => Observable<ContextAnyEvent | AnyEvent>;
 };
 
 export const isToolPlugin = <AuthContext>(

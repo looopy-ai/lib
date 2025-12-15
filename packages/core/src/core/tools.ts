@@ -1,9 +1,10 @@
-import { catchError, concat, defer, mergeMap, type Observable, of, tap } from 'rxjs';
+import { catchError, concat, defer, map, mergeMap, type Observable, of, tap } from 'rxjs';
 import { isChildTaskEvent } from '../events/utils';
 import { startToolExecuteSpan } from '../observability/spans';
 import { toolErrorEvent } from '../tools/tool-result-events';
 import { type IterationContext, isToolPlugin } from '../types/core';
 import type {
+  AnyEvent,
   ContextAnyEvent,
   ContextEvent,
   ToolCallEvent,
@@ -91,10 +92,8 @@ export const runToolCall = <AuthContext>(
     );
 
     // Create tool-start event
-    const toolStartEvent: ContextEvent<ToolExecutionEvent> = {
+    const toolStartEvent: ToolExecutionEvent = {
       kind: 'tool-start',
-      contextId: context.contextId,
-      taskId: context.taskId,
       toolCallId: toolCall.toolCallId,
       icon: tool.icon,
       toolName: toolCall.toolName,
@@ -114,14 +113,12 @@ export const runToolCall = <AuthContext>(
     // Start tool execution span
     const { tapFinish } = startToolExecuteSpan(context, toolCall);
 
-    const execution$ = defer(() => {
+    const execution$ = defer<Observable<ContextAnyEvent | AnyEvent>>(() => {
       try {
         logger.trace({ providerName: plugin.name }, 'Executing tool');
 
         if (!isToolPlugin(plugin)) {
-          return of<ContextAnyEvent>(
-            toolErrorEvent(context, toolCallInput, 'Plugin does not implement tools'),
-          );
+          return of(toolErrorEvent(toolCallInput, 'Plugin does not implement tools'));
         }
 
         return plugin.executeTool(toolCallInput, context).pipe(
@@ -146,7 +143,7 @@ export const runToolCall = <AuthContext>(
               },
               'Tool execution error',
             );
-            return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+            return of(toolErrorEvent(toolCallInput, err.message));
           }),
         );
       } catch (error) {
@@ -159,10 +156,18 @@ export const runToolCall = <AuthContext>(
           },
           'Tool execution error',
         );
-        return of<ContextAnyEvent>(toolErrorEvent(context, toolCallInput, err.message));
+        return of(toolErrorEvent(toolCallInput, err.message));
       }
     });
 
-    return concat(of<ContextAnyEvent>(toolStartEvent), execution$);
-  }).pipe(mergeMap((obs) => obs));
+    return concat(of(toolStartEvent), execution$);
+  }).pipe(
+    mergeMap((obs) => obs),
+    map<ContextAnyEvent | AnyEvent, ContextAnyEvent>((event) => ({
+      contextId: context.contextId,
+      taskId: context.taskId,
+      path: [`tool:${toolCall.toolName}`],
+      ...event,
+    })),
+  );
 };

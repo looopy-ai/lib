@@ -53,7 +53,7 @@ export const startToolExecuteSpan = <AuthContext>(
   return {
     span,
     traceContext,
-    tapFinish: tap<ContextAnyEvent>({
+    tapFinish: tap<ContextAnyEvent | AnyEvent>({
       next: (event) => {
         if (isChildTaskEvent(event) || !isToolCompleteEvent(event)) {
           return;

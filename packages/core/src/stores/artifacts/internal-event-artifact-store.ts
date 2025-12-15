@@ -19,13 +19,13 @@ import {
   createFileWriteEvent,
 } from '../../events';
 import type { ArtifactStore, DatasetSchema, StoredArtifact } from '../../types/artifact';
-import type { ContextAnyEvent } from '../../types/event';
+import type { AnyEvent } from '../../types/event';
 
 /**
  * Event emitter interface
  */
 export interface InternalEventEmitter {
-  emit(event: ContextAnyEvent): void;
+  emit(event: AnyEvent): void;
 }
 
 /**

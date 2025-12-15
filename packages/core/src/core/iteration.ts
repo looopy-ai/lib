@@ -129,6 +129,7 @@ export const runIteration = <AuthContext>(
             (event): ContextAnyEvent => ({
               contextId: context.contextId,
               taskId: context.taskId,
+              path: undefined,
               ...event,
             }),
           ),

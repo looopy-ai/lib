@@ -8,12 +8,12 @@ import {
   InternalEventArtifactStore,
   type InternalEventEmitter,
 } from '../src/stores/artifacts';
-import type { ContextAnyEvent } from '../src/types/event';
+import type { AnyEvent } from '../src/types/event';
 
 describe('InternalEventArtifactStore', () => {
   describe('File Artifacts', () => {
     it('should emit file-write events when appending chunks', async () => {
-      const events: ContextAnyEvent[] = [];
+      const events: AnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -40,8 +40,6 @@ describe('InternalEventArtifactStore', () => {
       expect(events[0]).toMatchObject({
         kind: 'file-write',
         artifactId: 'test-file',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
         data: '# Hello\n',
         index: 0,
         complete: false,
@@ -62,7 +60,7 @@ describe('InternalEventArtifactStore', () => {
     });
 
     it('should not emit events when disabled', async () => {
-      const events: ContextAnyEvent[] = [];
+      const events: AnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -88,7 +86,7 @@ describe('InternalEventArtifactStore', () => {
 
   describe('Data Artifacts', () => {
     it('should emit data-write events when writing data', async () => {
-      const events: ContextAnyEvent[] = [];
+      const events: AnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -115,8 +113,6 @@ describe('InternalEventArtifactStore', () => {
       expect(events[0]).toMatchObject({
         kind: 'data-write',
         artifactId: 'test-data',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
         data: testData,
       });
     });
@@ -124,7 +120,7 @@ describe('InternalEventArtifactStore', () => {
 
   describe('Dataset Artifacts', () => {
     it('should emit dataset-write events when appending batches', async () => {
-      const events: ContextAnyEvent[] = [];
+      const events: AnyEvent[] = [];
       const eventEmitter: InternalEventEmitter = {
         emit: (event) => events.push(event),
       };
@@ -160,8 +156,6 @@ describe('InternalEventArtifactStore', () => {
       expect(events[0]).toMatchObject({
         kind: 'dataset-write',
         artifactId: 'test-dataset',
-        taskId: 'task-1',
-        contextId: 'ctx-1',
         rows: batch1,
         index: 0,
         complete: false,

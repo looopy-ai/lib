@@ -5,8 +5,8 @@ import { Observable } from 'rxjs';
 import z from 'zod';
 import { getLogger } from '../core';
 import type {
+  AnyEvent,
   ContextAnyEvent,
-  ContextEvent,
   ExecutionContext,
   Plugin,
   ToolCompleteEvent,
@@ -116,16 +116,14 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
     });
     logger.debug({ toolCallId: toolCall.id }, 'Executing agent tool call');
 
-    return new Observable<ContextAnyEvent>((subscriber) => {
+    return new Observable<AnyEvent>((subscriber) => {
       const abortController = new AbortController();
 
       const run = async () => {
         const tool = await this.getTool(toolCall.function.name);
         if (!tool) {
           logger.error({ toolName: toolCall.function.name }, 'Tool not found');
-          subscriber.next(
-            toolErrorEvent(context, toolCall, `Tool not found: ${toolCall.function.name}`),
-          );
+          subscriber.next(toolErrorEvent(toolCall, `Tool not found: ${toolCall.function.name}`));
           subscriber.complete();
           return;
         }
@@ -134,11 +132,7 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
         if (!prompt || typeof prompt !== 'string') {
           logger.error('Invalid tool call arguments');
           subscriber.next(
-            toolErrorEvent(
-              context,
-              toolCall,
-              'Tool argument must include "prompt" and it must be a string',
-            ),
+            toolErrorEvent(toolCall, 'Tool argument must include "prompt" and it must be a string'),
           );
           subscriber.complete();
           return;
@@ -162,7 +156,6 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
           logger.error({ status: res.status, statusText: res.statusText }, 'Agent call failed');
           subscriber.next(
             toolErrorEvent(
-              context,
               toolCall,
               `Agent endpoint responded with ${res.status} ${res.statusText}`,
             ),
@@ -174,7 +167,7 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
         const body = res.body;
         if (!body) {
           logger.error('Agent response has no body');
-          subscriber.next(toolErrorEvent(context, toolCall, 'Agent returned no response body'));
+          subscriber.next(toolErrorEvent(toolCall, 'Agent returned no response body'));
           subscriber.complete();
           return;
         }
@@ -187,6 +180,12 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
             kind: e.event,
             parentTaskId: context.taskId,
             ...data,
+            path: [
+              `agent:${this.card.name}`,
+              ...('path' in data && Array.isArray(data.path)
+                ? data.path.filter((p) => typeof p === 'string' && p)
+                : []),
+            ],
           } as ContextAnyEvent);
           if (e.event === 'task-complete') {
             content = data.content as string;
@@ -195,10 +194,8 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
         });
 
         if (!subscriber.closed) {
-          const toolCompleteEvent: ContextEvent<ToolCompleteEvent> = {
+          const toolCompleteEvent: ToolCompleteEvent = {
             kind: 'tool-complete',
-            contextId: context.contextId,
-            taskId: context.taskId,
             toolCallId: toolCall.id,
             toolName: toolCall.function.name,
             success: true, // TODO

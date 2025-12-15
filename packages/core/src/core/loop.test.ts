@@ -100,6 +100,7 @@ describe('loop', () => {
         contextId: 'ctx-456',
         taskId: 'task-789',
         status: 'working',
+        message: undefined,
         timestamp: expect.any(String),
         metadata: {},
       });

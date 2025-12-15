@@ -48,12 +48,7 @@ export type ThoughtType =
 /**
  * Input types for input-required events
  */
-export type InputType =
-  | 'tool-execution'
-  | 'confirmation'
-  | 'clarification'
-  | 'selection'
-  | 'custom';
+export type InputType = 'confirmation' | 'clarification' | 'selection' | 'data';
 
 /**
  * Authentication types
@@ -68,7 +63,7 @@ export type TaskInitiator = 'user' | 'agent';
 /**
  * Input provider type
  */
-export type InputProvider = 'user' | 'agent';
+export type InputProvider = 'user' | 'any';
 
 /**
  * JSON Schema type (simplified)
@@ -603,6 +598,7 @@ export type AnyEvent =
 export type ContextEvent<T> = T & {
   contextId: string;
   taskId: string;
+  path?: string[];
 };
 
 /**

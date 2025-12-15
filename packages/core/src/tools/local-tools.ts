@@ -197,15 +197,9 @@ export function localTools<AuthContext>(
           } satisfies ToolResult;
         }
       }).pipe(
-        mergeMap((result) => toolResultToEvents(context, toolCall, result)),
+        mergeMap((result) => toolResultToEvents(result)),
         catchError((error) =>
-          of(
-            toolErrorEvent(
-              context,
-              toolCall,
-              error instanceof Error ? error.message : String(error),
-            ),
-          ),
+          of(toolErrorEvent(toolCall, error instanceof Error ? error.message : String(error))),
         ),
       ),
   };
