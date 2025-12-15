@@ -88,11 +88,11 @@ const skillRegistry = new SkillRegistry([diagrammerSkill]);
 
 const langfuse = new LangfuseClient();
 
-const getSystemPrompt = asyncPrompt<MyContext>(async (): Promise<SystemPrompt> => {
+const getSystemPrompt = asyncPrompt<MyContext>(async (context): Promise<SystemPrompt> => {
   const prompt = await langfuse.prompt.get(
     process.env.LANGFUSE_PROMPT_NAME || 'looopy-kitchen-sink',
   );
-  getLogger({ component: 'kitchen-sink' }).debug(
+  getLogger({ contextId: context.contextId, component: 'kitchen-sink' }).debug(
     { name: prompt.name, version: prompt.version },
     'Fetched system prompt from Langfuse',
   );
