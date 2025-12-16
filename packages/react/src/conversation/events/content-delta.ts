@@ -1,25 +1,27 @@
-import type { Tasks } from '../types';
+import type { Conversation } from '../types';
 
 export const reduceContentDelta = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     delta: string;
     timestamp: string;
   },
-): Tasks => {
-  const updatedTasks = new Map(state.tasks);
-  const task = updatedTasks.get(data.taskId);
+): Conversation => {
+  const updatedTurns = new Map(state.turns);
+  const turn = updatedTurns.get(data.taskId);
 
-  if (task) {
-    updatedTasks.set(data.taskId, {
-      ...task,
-      stream: task.stream + (data.delta || ''),
-    });
+  if (!turn || turn.source !== 'agent') {
+    return state;
   }
+
+  updatedTurns.set(data.taskId, {
+    ...turn,
+    stream: turn.stream + (data.delta || ''),
+  });
 
   return {
     ...state,
-    tasks: updatedTasks,
+    turns: updatedTurns,
   };
 };

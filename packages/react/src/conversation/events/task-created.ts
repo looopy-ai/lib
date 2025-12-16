@@ -1,7 +1,7 @@
-import type { Tasks } from '../types';
+import type { Conversation } from '../types';
 
 export const reduceTaskCreated = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     parentTaskId?: string;
@@ -9,8 +9,9 @@ export const reduceTaskCreated = (
     timestamp: string;
     metadata: { historyLength: number };
   },
-): Tasks => {
-  const tasks = new Map(state.tasks).set(data.taskId, {
+): Conversation => {
+  const turns = new Map(state.turns).set(data.taskId, {
+    source: 'agent',
     id: data.taskId,
     status: 'created',
     content: [],
@@ -18,15 +19,24 @@ export const reduceTaskCreated = (
     events: [],
   });
 
-  const taskOrder = !data.parentTaskId ? [...state.taskOrder, data.taskId] : state.taskOrder;
+  const turnOrder = !data.parentTaskId ? [...state.turnOrder, data.taskId] : state.turnOrder;
 
   if (data.parentTaskId) {
-    const parentTask = tasks.get(data.parentTaskId);
-    if (parentTask) {
-      tasks.set(data.parentTaskId, {
-        ...parentTask,
+    const parentTurn = turns.get(data.parentTaskId);
+
+    if (!parentTurn || parentTurn.source !== 'agent') {
+      return {
+        ...state,
+        turns,
+        turnOrder,
+      };
+    }
+
+    if (parentTurn) {
+      turns.set(data.parentTaskId, {
+        ...parentTurn,
         events: [
-          ...parentTask.events,
+          ...parentTurn.events,
           {
             type: 'sub-task',
             id: data.taskId,
@@ -39,7 +49,7 @@ export const reduceTaskCreated = (
 
   return {
     ...state,
-    tasks,
-    taskOrder,
+    turns,
+    turnOrder,
   };
 };

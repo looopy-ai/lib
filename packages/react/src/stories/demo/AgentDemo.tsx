@@ -5,7 +5,7 @@ import { Streamdown } from 'streamdown';
 import { LucideIcon, type LucideIconName } from '../../components/lucide-icon';
 import { ScrollContainer } from '../../components/scroll-container';
 import { conversationReducer } from '../../conversation/reducer';
-import type { TaskEvent, TaskState } from '../../conversation/types';
+import type { TaskEvent, TurnState } from '../../conversation/types';
 
 type Inputs = {
   region: string;
@@ -73,8 +73,8 @@ const safeParse = (data: string | null) => {
 
 export const AgentDemo: FC = () => {
   const [conversationState, dispatch] = useReducer(conversationReducer, {
-    tasks: new Map<string, TaskState>(),
-    taskOrder: [],
+    turns: new Map<string, TurnState>(),
+    turnOrder: [],
   });
   const regionInputId = useId();
   const accountInputId = useId();
@@ -101,6 +101,13 @@ export const AgentDemo: FC = () => {
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     localStorage.setItem('agentDemoData', JSON.stringify(data));
     console.log(data);
+    const timestamp = new Date().toISOString();
+    const id = `prompt-${timestamp}`;
+    dispatch({
+      event: 'prompt',
+      id,
+      data: JSON.stringify({ promptId: id, content: data.prompt, timestamp, metadata: {} }),
+    });
 
     const prompt = data.prompt || 'Hey there! :)';
     const arn = `arn:aws:bedrock-agentcore:${data.region}:${data.accountId}:runtime/${data.agentId}`;
@@ -245,15 +252,27 @@ export const AgentDemo: FC = () => {
               </details>
 
               <ul className="space-y-2">
-                {Array.from(conversationState.taskOrder).map((id) => {
-                  const task = conversationState.tasks.get(id);
+                {Array.from(conversationState.turnOrder).map((id) => {
+                  const turn = conversationState.turns.get(id);
+                  if (turn?.source === 'client') {
+                    return (
+                      <li
+                        key={id}
+                        className="rounded-3xl border border-indigo-300 p-3 shadow-sm bg-indigo-500"
+                      >
+                        <span className="text-sm text-white text-right italic">
+                          <Streamdown>{turn?.prompt}</Streamdown>
+                        </span>
+                      </li>
+                    );
+                  }
                   return (
                     <li key={id} className="rounded-md border border-slate-100 p-3 shadow-sm">
-                      {task?.events && task.events.length > 0 && (
+                      {turn?.events && turn.events.length > 0 && (
                         <div className="mb-2 rounded bg-slate-50 p-2">
                           <h3 className="text-sm font-semibold text-slate-700">Events:</h3>
                           <ul className="mt-1 space-y-1">
-                            {task.events.map((event) => (
+                            {turn.events.map((event) => (
                               <li key={event.id} className="text-sm text-slate-600">
                                 <EventComponent event={event} />
                               </li>
@@ -263,10 +282,10 @@ export const AgentDemo: FC = () => {
                       )}
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <span className="text-sm text-slate-700">
-                          <Streamdown>{task?.stream}</Streamdown>
+                          <Streamdown>{turn?.stream}</Streamdown>
                         </span>
                         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                          {task?.status}
+                          {turn?.status}
                         </span>
                       </div>
                     </li>

@@ -1,7 +1,7 @@
-import type { Tasks } from '../types';
+import type { Conversation } from '../types';
 
 export const reduceToolStart = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     toolCallId: string;
@@ -10,28 +10,32 @@ export const reduceToolStart = (
     arguments: Record<string, unknown>;
     timestamp: string;
   },
-): Tasks => {
-  const updatedTasks = new Map(state.tasks);
-  const task = updatedTasks.get(data.taskId);
-  if (task) {
-    updatedTasks.set(data.taskId, {
-      ...task,
-      events: [
-        ...task.events,
-        {
-          type: 'tool-call',
-          id: data.toolCallId,
-          status: 'started',
-          icon: data.icon,
-          toolName: data.toolName,
-          arguments: data.arguments,
-          timestamp: data.timestamp,
-        },
-      ],
-    });
+): Conversation => {
+  const updatedTurns = new Map(state.turns);
+  const turn = updatedTurns.get(data.taskId);
+
+  if (!turn || turn.source !== 'agent') {
+    return state;
   }
+
+  updatedTurns.set(data.taskId, {
+    ...turn,
+    events: [
+      ...turn.events,
+      {
+        type: 'tool-call',
+        id: data.toolCallId,
+        status: 'started',
+        icon: data.icon,
+        toolName: data.toolName,
+        arguments: data.arguments,
+        timestamp: data.timestamp,
+      },
+    ],
+  });
+
   return {
     ...state,
-    tasks: updatedTasks,
+    turns: updatedTurns,
   };
 };

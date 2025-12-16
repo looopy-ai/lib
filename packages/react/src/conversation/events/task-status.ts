@@ -1,25 +1,27 @@
-import type { Tasks } from '../types';
+import type { Conversation } from '../types';
 
 export const reduceTaskStatus = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     status: string;
     timestamp: string;
   },
-): Tasks => {
-  const updatedTasks = new Map(state.tasks);
-  const task = updatedTasks.get(data.taskId);
+): Conversation => {
+  const updatedTurns = new Map(state.turns);
+  const turn = updatedTurns.get(data.taskId);
 
-  if (task) {
-    updatedTasks.set(data.taskId, {
-      ...task,
-      status: data.status,
-    });
+  if (!turn || turn.source !== 'agent') {
+    return state;
   }
+
+  updatedTurns.set(data.taskId, {
+    ...turn,
+    status: data.status,
+  });
 
   return {
     ...state,
-    tasks: updatedTasks,
+    turns: updatedTurns,
   };
 };

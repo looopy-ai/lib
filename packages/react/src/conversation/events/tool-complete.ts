@@ -1,7 +1,7 @@
-import type { Tasks, ToolCall } from '../types';
+import type { Conversation, ToolCall } from '../types';
 
 export const reduceToolComplete = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     toolCallId: string;
@@ -10,28 +10,32 @@ export const reduceToolComplete = (
     result: Record<string, unknown>;
     timestamp: string;
   },
-): Tasks => {
-  const updatedTasks = new Map(state.tasks);
-  const task = updatedTasks.get(data.taskId);
-  if (task) {
-    const existingEventIndex = task.events.findIndex(
-      (e) => e.type === 'tool-call' && e.id === data.toolCallId,
-    );
-    if (existingEventIndex !== -1) {
-      const toolCall = task.events[existingEventIndex] as ToolCall;
-      if (toolCall) {
-        const updatedEvents = [...task.events];
-        updatedEvents[existingEventIndex] = {
-          ...toolCall,
-          status: 'completed',
-          result: data.result,
-        };
-        updatedTasks.set(data.taskId, { ...task, events: updatedEvents });
-      }
+): Conversation => {
+  const updatedTurns = new Map(state.turns);
+  const turn = updatedTurns.get(data.taskId);
+
+  if (!turn || turn.source !== 'agent') {
+    return state;
+  }
+
+  const existingEventIndex = turn.events.findIndex(
+    (e) => e.type === 'tool-call' && e.id === data.toolCallId,
+  );
+  if (existingEventIndex !== -1) {
+    const toolCall = turn.events[existingEventIndex] as ToolCall;
+    if (toolCall) {
+      const updatedEvents = [...turn.events];
+      updatedEvents[existingEventIndex] = {
+        ...toolCall,
+        status: 'completed',
+        result: data.result,
+      };
+      updatedTurns.set(data.taskId, { ...turn, events: updatedEvents });
     }
   }
+
   return {
     ...state,
-    tasks: updatedTasks,
+    turns: updatedTurns,
   };
 };

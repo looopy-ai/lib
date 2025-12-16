@@ -1,7 +1,7 @@
-import type { Tasks } from '../types';
+import type { Conversation } from '../types';
 
 export const reduceThoughtStream = (
-  state: Tasks,
+  state: Conversation,
   data: {
     taskId: string;
     thoughtId: string;
@@ -9,26 +9,30 @@ export const reduceThoughtStream = (
     content: string;
     timestamp: string;
   },
-): Tasks => {
-  const updatedTasks = new Map(state.tasks);
-  const task = updatedTasks.get(data.taskId);
-  if (task) {
-    updatedTasks.set(data.taskId, {
-      ...task,
-      events: [
-        ...task.events,
-        {
-          type: 'thought',
-          id: data.thoughtId,
-          thoughtType: data.thoughtType,
-          content: data.content,
-          timestamp: data.timestamp,
-        },
-      ],
-    });
+): Conversation => {
+  const updatedTurns = new Map(state.turns);
+  const turn = updatedTurns.get(data.taskId);
+
+  if (!turn || turn.source !== 'agent') {
+    return state;
   }
+
+  updatedTurns.set(data.taskId, {
+    ...turn,
+    events: [
+      ...turn.events,
+      {
+        type: 'thought',
+        id: data.thoughtId,
+        thoughtType: data.thoughtType,
+        content: data.content,
+        timestamp: data.timestamp,
+      },
+    ],
+  });
+
   return {
     ...state,
-    tasks: updatedTasks,
+    turns: updatedTurns,
   };
 };
