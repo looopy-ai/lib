@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.8
+
+### Patch Changes
+
+- 8de36d7: Show prompt in conversation
+
 ## 1.0.7
 
 ### Patch Changes
