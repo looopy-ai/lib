@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.11
+
+### Patch Changes
+
+- 2cd34d7: Refresh tool and store documentation for the plugin-based tool contract and internal artifact event emitter.
+
 ## 2.1.10
 
 ### Patch Changes
