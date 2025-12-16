@@ -2,6 +2,9 @@
   "name": "@looopy-ai/react",
   "version": "1.0.7",
   "description": "React UI components for Looopy AI",
+  "repository": {
+    "url": "https://github.com/looopy-ai/lib"
+  },
   "keywords": [
     "agent",
     "ai",
