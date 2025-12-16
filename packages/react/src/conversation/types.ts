@@ -31,7 +31,7 @@ export type SubTask = {
   timestamp: string;
 };
 
-export type Prompt = {
+export type PromptTurn = {
   source: 'client';
   id: string;
   prompt: string;
@@ -39,7 +39,7 @@ export type Prompt = {
 
 export type TaskEvent = Thought | ToolCall | Content | SubTask;
 
-export type TurnState = {
+export type AgentTurn = {
   source: 'agent';
   id: string;
   status: string;
@@ -48,7 +48,7 @@ export type TurnState = {
   events: TaskEvent[];
 };
 
-export type Turn = TurnState | Prompt;
+export type Turn = AgentTurn | PromptTurn;
 
 export type Conversation = {
   turns: Map<string, Turn>;

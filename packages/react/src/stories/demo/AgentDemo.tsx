@@ -5,7 +5,7 @@ import { Streamdown } from 'streamdown';
 import { LucideIcon, type LucideIconName } from '../../components/lucide-icon';
 import { ScrollContainer } from '../../components/scroll-container';
 import { conversationReducer } from '../../conversation/reducer';
-import type { TaskEvent, TurnState } from '../../conversation/types';
+import type { AgentTurn, TaskEvent } from '../../conversation/types';
 
 type Inputs = {
   region: string;
@@ -73,7 +73,7 @@ const safeParse = (data: string | null) => {
 
 export const AgentDemo: FC = () => {
   const [conversationState, dispatch] = useReducer(conversationReducer, {
-    turns: new Map<string, TurnState>(),
+    turns: new Map<string, AgentTurn>(),
     turnOrder: [],
   });
   const regionInputId = useId();
