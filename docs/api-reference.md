@@ -93,14 +93,14 @@ export type Plugin<AuthContext> = {
   executeTool?: (
     toolCall: ToolCall,
     context: IterationContext<AuthContext>,
-  ) => Observable<ContextAnyEvent>;
+  ) => Observable<ContextAnyEvent | AnyEvent>;
 };
 ```
 
 - `generateSystemPrompts`: Inject static or dynamic system prompts before/after the conversation history.
-- `listTools`/`getTool`/`executeTool`: Declare and run tools. Implementations should emit `ContextAnyEvent` values (typically `tool-start`, `tool-progress`, and `tool-complete`) so callers can multiplex by `taskId`.
+- `listTools`/`getTool`/`executeTool`: Declare and run tools. Implementations should emit tool events; the agent loop prepends `tool-start` and stamps `contextId`/`taskId` so providers can emit contextless payloads.
 
-The core package ships with tool-capable plugins like `localTools` (in-process), `createArtifactTools`, `ClientToolProvider`, `McpToolProvider`, and `AgentToolProvider`. Prompt-only helpers (`literalPrompt`, `asyncPrompt`) compose with these in the same `plugins` array.
+The core package ships with tool-capable plugins like `localTools` (in-process), `createArtifactTools`, `McpToolProvider`, and `AgentToolProvider`. Prompt-only helpers (`literalPrompt`, `asyncPrompt`) compose with these in the same `plugins` array.
 
 # MessageStore
 

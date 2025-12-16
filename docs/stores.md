@@ -68,6 +68,24 @@ export interface MessageStore {
 
 Artifact stores manage generated artifacts (files, datasets, structured data). The filesystem implementation writes metadata under the same context directory structure used by other stores, while in-memory versions remain available for fast tests. Implementations must satisfy the interfaces in `packages/core/src/stores/artifacts`.
 
+### InternalEventArtifactStore
+
+Wrap any artifact store with `InternalEventArtifactStore` to emit `file-write`, `data-write`, and `dataset-write` events whenever artifacts change. This keeps the internal event stream aligned with artifact persistence without modifying the underlying store.
+
+```typescript
+import type { AnyEvent } from '@looopy-ai/core';
+import { InMemoryArtifactStore, InternalEventArtifactStore } from '@looopy-ai/core';
+
+const eventEmitter = { emit: (event: AnyEvent) => eventBus.publish(event) };
+
+const artifactStore = new InternalEventArtifactStore({
+  delegate: new InMemoryArtifactStore(),
+  eventEmitter,
+});
+```
+
+Chunk indices, sizes, schema info, and completion flags are included in the emitted events for observability.
+
 ## Task State Stores
 
 Task state stores keep per-turn checkpoints produced by the agent loop. Use `InMemoryStateStore` for tests or `FileSystemStateStore` for resilience across crashes. A custom store implements the `TaskStateStore` interface (`save`, `load`, `exists`, `delete`, `listTasks`, and `setTTL`).

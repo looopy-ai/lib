@@ -1,28 +1,40 @@
 # Tool Integration
 
-Looopy exposes a single `ToolProvider` contract so tools can be sourced from local code, clients, MCP servers, or even other agents. Providers stream **events** (not plain return values) so tool execution can be observed alongside LLM content streaming.
+Tools flow through the plugin interface so LLM tool calls can be routed to local code, artifact helpers, MCP servers, or even other agents. Providers emit **events** instead of bare return values so tool execution can stream alongside LLM content.
 
-## Provider Contract
+## Tool Plugin Contract
 
 ```typescript
 import type { Observable } from 'rxjs';
-import type { ExecutionContext, ContextAnyEvent } from '@looopy-ai/core';
+import type { AnyEvent, ContextAnyEvent, IterationContext } from '@looopy-ai/core';
 import type { ToolCall, ToolDefinition } from '@looopy-ai/core/types/tools';
 
-export type ToolProvider = {
-  readonly name: string;
-  getTool(toolName: string): Promise<ToolDefinition | undefined>;
-  getTools(): Promise<ToolDefinition[]>;
-  execute(toolCall: ToolCall, context: ExecutionContext): Observable<ContextAnyEvent>;
+export type ToolPlugin<AuthContext> = {
+  listTools: () => Promise<ToolDefinition[]>;
+  getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
+  executeTool: (
+    toolCall: ToolCall,
+    context: IterationContext<AuthContext>,
+  ) => Observable<ContextAnyEvent | AnyEvent>;
 };
+
+export interface ExecutionContext<AuthContext> {
+  taskId: string;
+  contextId: string;
+  agentId: string;
+  parentContext: import('@opentelemetry/api').Context;
+  authContext?: AuthContext;
+  metadata?: Record<string, unknown>;
+}
 ```
 
-- `ExecutionContext` contains `contextId`, `taskId`, `agentId`, and optional `authContext` so providers can forward identity to downstream systems.
-- `execute` should emit `tool-start`/`tool-progress`/`tool-complete` (or `tool-error`) events with the **same** `contextId`/`taskId` that were provided.
+- `runToolCall` automatically emits `tool-start`, stamps `contextId`/`taskId`, and adds `path: ["tool:<id>"]`.
+- Providers should emit contextless tool events (e.g., `tool-complete`, `internal:tool-message`); use `toolResultToEvents` to convert a `ToolResult` into events.
+- `ExecutionContext`/`IterationContext` includes `authContext` and OpenTelemetry parent context so downstream calls can forward identity and tracing headers.
 
-## Local Tools
+## Local Tools with Zod
 
-Use the `tool` helper to define Zod-typed handlers and `localTools` to build a provider:
+Use the `tool` helper to define Zod-typed handlers and `localTools` to build a plugin:
 
 ```typescript
 import { localTools, tool } from '@looopy-ai/core';
@@ -30,7 +42,7 @@ import { z } from 'zod';
 
 const localToolProvider = localTools([
   tool({
-    name: 'echo',
+    id: 'echo',
     description: 'Echo text back to the caller.',
     schema: z.object({ text: z.string() }),
     handler: async ({ text }) => ({
@@ -41,35 +53,28 @@ const localToolProvider = localTools([
 ]);
 ```
 
-`localTools` validates arguments with Zod and converts handler results into `tool-complete` events automatically.
+`localTools` validates arguments with Zod and turns handler results into `tool-complete` (and optional `internal:tool-message`) events automatically.
 
-## Client Tools
+## Artifact Tools
 
-Use `ClientToolProvider` when the browser or another caller must execute the tool. The provider emits an `input-required` flow and waits for the callback to supply a `ToolResult`:
+`createArtifactTools` ships built-in tools for creating and streaming file, data, and dataset artifacts while keeping task state in sync:
 
 ```typescript
-import { ClientToolProvider } from '@looopy-ai/core';
+import { Agent, createArtifactTools, InMemoryArtifactStore, InMemoryStateStore } from '@looopy-ai/core';
 
-const clientTools = new ClientToolProvider({
-  tools: [
-    {
-      name: 'show_ui',
-      description: 'Render a UI on the client',
-      parameters: { type: 'object', properties: {} },
-    },
+const artifactStore = new InMemoryArtifactStore();
+const stateStore = new InMemoryStateStore();
+
+const agent = new Agent({
+  // ...
+  plugins: [
+    createArtifactTools(artifactStore, stateStore),
+    localToolProvider,
   ],
-  onInputRequired: async (toolCall, context) => {
-    // Trigger a UI prompt or websocket message here
-    const resultFromClient = await getClientResponse(toolCall, context);
-    return {
-      toolCallId: toolCall.id,
-      toolName: toolCall.function.name,
-      success: true,
-      result: resultFromClient,
-    };
-  },
 });
 ```
+
+These tools wrap `ArtifactScheduler` so chunked writes are serialized and tracked on the task.
 
 ## MCP Tools
 
@@ -90,7 +95,7 @@ const mcpProvider = new McpToolProvider({
 
 ## Remote Agents
 
-`AgentToolProvider` treats another agent as a tool by calling its card endpoint and streaming SSE events back as `ContextAnyEvent`:
+`AgentToolProvider` treats another agent as a tool by calling its card endpoint and streaming SSE events back. Headers can be derived from the current auth context:
 
 ```typescript
 import { AgentToolProvider } from '@looopy-ai/core';
@@ -100,37 +105,39 @@ const researchCopilot = AgentToolProvider.from({
   description: 'Multi-tool research assistant',
   url: 'https://agent.example.com',
 });
+
+const withHeaders = await AgentToolProvider.fromUrl('https://agent.example.com/card.json', async (context) => ({
+  Authorization: `Bearer ${context.authContext?.credentials?.accessToken ?? ''}`,
+}));
 ```
+
+SSE payloads are forwarded as `AnyEvent` with `parentTaskId`/`path` preserved so they can be multiplexed with local tool activity.
 
 ## Custom Providers
 
-When implementing your own provider, emit `ContextAnyEvent` values so the agent can multiplex events by task:
+Emit tool lifecycle events directly or via `toolResultToEvents`:
 
 ```typescript
-import { of, defer, catchError, mergeMap } from 'rxjs';
-import { toolErrorEvent, toolResultToEvents } from '@looopy-ai/core';
-import type { ToolProvider } from '@looopy-ai/core';
+import { catchError, defer, mergeMap, of } from 'rxjs';
+import { toolErrorEvent, toolResultToEvents, type Plugin } from '@looopy-ai/core';
 
-const customProvider: ToolProvider = {
+const customProvider: Plugin<unknown> = {
   name: 'my-provider',
-  async getTools() {
-    return [{ name: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } }];
+  async listTools() {
+    return [{ id: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } }];
   },
-  async getTool(name) {
-    return name === 'hello' ? (await this.getTools())[0] : undefined;
-  },
-  execute(toolCall, context) {
-    return defer(async () => ({
+  getTool: async (id) => (id === 'hello' ? { id: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } } : undefined),
+  executeTool: (toolCall, context) =>
+    defer(async () => ({
       toolCallId: toolCall.id,
       toolName: toolCall.function.name,
       success: true,
       result: `hello ${context.contextId}`,
     })).pipe(
-      mergeMap((result) => toolResultToEvents(context, toolCall, result)),
-      catchError((err) => of(toolErrorEvent(context, toolCall, String(err)))),
-    );
-  },
+      mergeMap((result) => toolResultToEvents(result)),
+      catchError((err) => of(toolErrorEvent(toolCall, String(err)))),
+    ),
 };
 ```
 
-This pattern matches the built-in providers: create a `ToolResult`, then convert it into a stream of tool events.
+This pattern matches the built-in plugins: produce a `ToolResult`, then convert it into a stream of tool events.

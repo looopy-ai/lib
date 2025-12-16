@@ -63,7 +63,6 @@ Plugins handle prompts and tools in a single extension point. The core ships wit
 
 - `localTools`: Runs Zod-validated functions in-process.
 - `createArtifactTools`: Manages file/data/dataset artifacts and tracks them in task state.
-- `ClientToolProvider`: Delegates tool execution to a connected client.
 - `McpToolProvider`: Proxies tools from an MCP server over JSON-RPC.
 - `AgentToolProvider`: Calls another agent via its published card and streams SSE events.
 
@@ -122,11 +121,11 @@ export type Plugin<AuthContext> = {
   executeTool?: (
     toolCall: ToolCall,
     context: IterationContext<AuthContext>,
-  ) => Observable<ContextAnyEvent>;
+  ) => Observable<ContextAnyEvent | AnyEvent>;
 };
 ```
 
-`executeTool` should emit an RxJS `Observable` of `ContextAnyEvent` values (typically `tool-start`, any intermediate progress, and a final `tool-complete` event). The `IterationContext` includes `contextId`/`taskId` so plugins can forward those IDs to downstream systems (e.g., MCP headers or remote agent calls).
+`executeTool` should emit an RxJS `Observable` of tool events (typically `tool-complete` plus optional progress or `internal:tool-message`). The agent loop prepends `tool-start` and stamps `contextId`/`taskId` onto each event, so providers can emit contextless payloads while still forwarding auth/tracing from the `IterationContext`.
 
 ### Remote agents with `AgentToolProvider`
 
