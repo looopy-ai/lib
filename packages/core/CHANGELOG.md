@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.13
+
+### Patch Changes
+
+- 5101bc4: Refactor prompt handling and validation; introduce handlePrompt function
+
 ## 2.1.12
 
 ### Patch Changes
