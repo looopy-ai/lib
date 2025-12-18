@@ -1,6 +1,7 @@
 import { type Agent, getLogger, type ShutdownManager, SSEServer } from '@looopy-ai/core';
-import { Hono as BaseHono } from 'hono';
+import { Hono as BaseHono, type Context } from 'hono';
 import { requestId } from 'hono/request-id';
+import type { BlankInput } from 'hono/types';
 import type pino from 'pino';
 import { z } from 'zod';
 
@@ -22,16 +23,20 @@ const promptValidator = z.looseObject({
 
 export type Hono = BaseHono<{ Variables: HonoVariables }>;
 
+type HonoContext<P extends string> = Context<{ Variables: HonoVariables }, P, BlankInput>;
+
 export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
   const app = new BaseHono<{ Variables: HonoVariables }>();
 
   app.use(requestId());
   app.use('*', async (c, next) => {
     const requestId = c.var.requestId;
+    const contextId = c.req.header('X-Amzn-Bedrock-AgentCore-Runtime-Session-Id') || undefined;
     const requestContext = {
       requestId,
       method: c.req.method,
       path: c.req.path,
+      contextId,
     };
     const child = config.logger?.child(requestContext) ?? getLogger(requestContext);
 
@@ -50,6 +55,50 @@ export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
 
   const state = { busy: false, agent: undefined as Agent<AuthContext> | undefined };
 
+  const processRequest = async <P extends string>(
+    c: HonoContext<P>,
+    handleRequest: (
+      agent: Agent<AuthContext>,
+      authContext: AuthContext | undefined,
+      logger: pino.Logger,
+    ) => Promise<Response>,
+  ) => {
+    const contextId = c.req.header('X-Amzn-Bedrock-AgentCore-Runtime-Session-Id') || undefined;
+    if (!contextId) {
+      // state.busy = false;
+      return c.json({ error: 'Missing X-Amzn-Bedrock-AgentCore-Runtime-Session-Id header' }, 400);
+    }
+
+    const authorization = c.req.header('Authorization') || undefined;
+    if (!authorization && config.decodeAuthorization) {
+      // state.busy = false;
+      return c.json({ error: 'Missing Authorization header' }, 401);
+    }
+    const authContext = await getAuthContext(authorization, config.decodeAuthorization);
+    if (config.decodeAuthorization && !authContext) {
+      // state.busy = false;
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const logger = c.var.logger;
+    if (!state.agent) {
+      state.agent = await config.agent(contextId);
+      logger.info('Created new agent instance');
+      config.shutdown?.registerWatcher(async () => {
+        logger.info('Shutting down agent');
+        state.agent = undefined;
+      });
+    }
+    const agent = state.agent;
+
+    if (agent.contextId !== contextId) {
+      // state.busy = false;
+      return c.json({ error: 'Another session is active' }, 409);
+    }
+
+    return await handleRequest(agent, authContext, logger);
+  };
+
   app.get('/ping', async (c) => {
     return c.text(
       JSON.stringify({
@@ -59,99 +108,75 @@ export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
     );
   });
 
+  app.get('/invocations', async (c) => {
+    return processRequest(c, async (agent) => {
+      return c.json(agent.state);
+    });
+  });
+
   // body e.g. {"prompt": "Tell me about AWS"}
   app.post('/invocations', async (c) => {
-    const logger = c.var.logger;
-
     if (state.busy) {
       return c.json({ error: 'Agent is currently busy' }, 503);
     }
-    state.busy = true;
-    const contextId = c.req.header('X-Amzn-Bedrock-AgentCore-Runtime-Session-Id') || undefined;
-    if (!contextId) {
-      state.busy = false;
-      return c.json({ error: 'Missing X-Amzn-Bedrock-AgentCore-Runtime-Session-Id header' }, 400);
-    }
 
-    const authorization = c.req.header('Authorization') || undefined;
-    if (!authorization && config.decodeAuthorization) {
-      state.busy = false;
-      return c.json({ error: 'Missing Authorization header' }, 401);
-    }
-    const authContext = await getAuthContext(authorization, config.decodeAuthorization);
-    if (config.decodeAuthorization && !authContext) {
-      state.busy = false;
-      return c.json({ error: 'Forbidden' }, 403);
-    }
+    return processRequest(c, async (agent, authContext, logger) => {
+      state.busy = true;
 
-    if (!state.agent) {
-      state.agent = await config.agent(contextId);
-      logger.info({ contextId }, 'Created new agent instance');
-      config.shutdown?.registerWatcher(async () => {
-        logger.info({ contextId }, 'Shutting down agent');
-        state.agent = undefined;
+      const body = await c.req.json();
+      const promptValidation = promptValidator.safeParse(body);
+      if (!promptValidation.success) {
+        state.busy = false;
+        return c.json({ error: 'Invalid prompt', details: promptValidation.error.issues }, 400);
+      }
+      const { prompt, ...metadata } = promptValidation.data;
+
+      const sseServer = new SSEServer();
+      const turn = await agent.startTurn(prompt, { authContext, metadata });
+      turn.subscribe({
+        next: (evt) => {
+          sseServer.emit(agent.contextId, evt);
+        },
+        complete: async () => {
+          // await agent.shutdown();
+          sseServer.shutdown();
+          state.busy = false;
+        },
       });
-    }
-    const agent = state.agent;
 
-    if (agent.contextId !== contextId) {
-      state.busy = false;
-      return c.json({ error: 'Another session is active' }, 409);
-    }
+      const res = c.res;
+      logger.info('SSE connection established');
+      const stream = new ReadableStream({
+        start(controller) {
+          sseServer.subscribe(
+            {
+              setHeader: (name: string, value: string): void => {
+                res.headers.set(name, value);
+              },
+              write: (chunk: string): void => {
+                controller.enqueue(new TextEncoder().encode(chunk));
+              },
+              end: function (): void {
+                logger.info('SSE stream finished');
+                this.writable = false;
+                controller.close();
+              },
+            },
+            {
+              contextId: agent.contextId,
+            },
+            undefined,
+          );
+        },
+        cancel: (): void => {
+          logger.info('Stream canceled');
+          sseServer.shutdown();
+          state.busy = false;
+        },
+      });
 
-    const body = await c.req.json();
-    const promptValidation = promptValidator.safeParse(body);
-    if (!promptValidation.success) {
-      state.busy = false;
-      return c.json({ error: 'Invalid prompt', details: promptValidation.error.issues }, 400);
-    }
-    const { prompt, ...metadata } = promptValidation.data;
-
-    const sseServer = new SSEServer();
-    const turn = await agent.startTurn(prompt, { authContext, metadata });
-    turn.subscribe({
-      next: (evt) => {
-        sseServer.emit(contextId, evt);
-      },
-      complete: async () => {
-        // await agent.shutdown();
-        sseServer.shutdown();
-        state.busy = false;
-      },
+      return new Response(stream, res);
     });
-
-    const res = c.res;
-    logger.info({ contextId }, 'SSE connection established');
-    const stream = new ReadableStream({
-      start(controller) {
-        sseServer.subscribe(
-          {
-            setHeader: (name: string, value: string): void => {
-              res.headers.set(name, value);
-            },
-            write: (chunk: string): void => {
-              controller.enqueue(new TextEncoder().encode(chunk));
-            },
-            end: function (): void {
-              logger.info({ contextId }, 'SSE stream finished');
-              this.writable = false;
-              controller.close();
-            },
-          },
-          {
-            contextId,
-          },
-          undefined,
-        );
-      },
-      cancel: (): void => {
-        logger.info({ contextId }, 'Stream canceled');
-        sseServer.shutdown();
-        state.busy = false;
-      },
-    });
-
-    return new Response(stream, res);
   });
 
   return app;

@@ -100,17 +100,17 @@ const createAgent = async (contextId: string) => {
   });
 };
 
-const shutdown = new ShutdownManager();
+const BEARER_PREFIX = 'Bearer ' as const;
 
 export const decodeAuthorization = async (
   authorization: string,
 ): Promise<MyContext | undefined> => {
-  if (!authorization.startsWith('Bearer ')) {
+  if (!authorization.startsWith(BEARER_PREFIX)) {
     return undefined;
   }
 
   return {
-    accessToken: authorization.substring('Bearer '.length),
+    accessToken: authorization.substring(BEARER_PREFIX.length),
   };
 };
 
@@ -118,7 +118,7 @@ serve<MyContext>({
   agent: createAgent,
   decodeAuthorization,
   logger,
-  shutdown,
+  shutdown: new ShutdownManager(),
 } as unknown as ServeConfig<MyContext>);
 
-console.log('Server is running');
+console.log('Server is running on port 8080');

@@ -1,4 +1,39 @@
+import type { MessageStore } from '../stores/messages';
 import type { SerializedError } from '../utils/error';
+import type { Plugin } from './core';
+import type { LLMProvider } from './llm';
+
+/**
+ * Agent configuration
+ */
+export interface AgentConfig<AuthContext> {
+  /** Agent ID for tracing */
+  agentId: string;
+
+  /** Unique identifier for this agent/session */
+  contextId: string;
+
+  /** LLM provider for generating responses */
+  llmProvider: LLMProvider;
+
+  /** Message store for conversation history */
+  messageStore: MessageStore;
+
+  /** Agent store for persisting AgentState */
+  agentStore?: AgentStore;
+
+  /** Auto-compact messages when exceeding limit (default: false) */
+  autoCompact?: boolean;
+
+  /** Maximum messages to keep before compaction warning */
+  maxMessages?: number;
+
+  /** Plugins */
+  plugins?: Plugin<AuthContext>[];
+
+  /** Logger */
+  logger?: import('pino').Logger;
+}
 
 /**
  * Agent state

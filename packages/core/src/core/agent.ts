@@ -24,47 +24,12 @@ import {
   startAgentInitializeSpan,
   startAgentTurnSpan,
 } from '../observability/spans';
-import type { MessageStore } from '../stores/messages/interfaces';
-import type { AgentState, AgentStore } from '../types/agent';
-import type { Plugin } from '../types/core';
+import type { AgentConfig, AgentState } from '../types/agent';
 import type { ContextAnyEvent } from '../types/event';
-import type { LLMProvider } from '../types/llm';
 import type { LLMMessage } from '../types/message';
 import { serializeError } from '../utils/error';
 import { getLogger } from './logger';
 import { runLoop } from './loop';
-
-/**
- * Agent configuration
- */
-export interface AgentConfig<AuthContext> {
-  /** Agent ID for tracing */
-  agentId: string;
-
-  /** Unique identifier for this agent/session */
-  contextId: string;
-
-  /** LLM provider for generating responses */
-  llmProvider: LLMProvider;
-
-  /** Message store for conversation history */
-  messageStore: MessageStore;
-
-  /** Agent store for persisting AgentState */
-  agentStore?: AgentStore;
-
-  /** Auto-compact messages when exceeding limit (default: false) */
-  autoCompact?: boolean;
-
-  /** Maximum messages to keep before compaction warning */
-  maxMessages?: number;
-
-  /** Plugins */
-  plugins?: Plugin<AuthContext>[];
-
-  /** Logger */
-  logger?: import('pino').Logger;
-}
 
 /**
  * Options for getting messages
