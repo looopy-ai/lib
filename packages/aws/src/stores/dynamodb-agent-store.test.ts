@@ -49,7 +49,7 @@ describe('DynamoDBAgentStore', () => {
         },
       },
     });
-    expect(command.input.Item.updatedAt).toEqual(expect.any(String));
+    expect(command.input.Item.updatedAt).toEqual(expect.any(Number));
   });
 
   it('loads agent state and rehydrates dates', async () => {
