@@ -1,5 +1,14 @@
 # @looopy-ai/aws
 
+## 2.1.14
+
+### Patch Changes
+
+- 5101bc4: Refactor prompt handling and validation; introduce handlePrompt function
+- b15f0f6: Add expiry
+- Updated dependencies [5101bc4]
+  - @looopy-ai/core@2.1.13
+
 ## 2.1.13
 
 ### Patch Changes
