@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.12
+
+### Patch Changes
+
+- f91cf27: Get agent state
+
 ## 2.1.11
 
 ### Patch Changes
