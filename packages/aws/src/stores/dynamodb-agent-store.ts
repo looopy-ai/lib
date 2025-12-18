@@ -39,6 +39,8 @@ export interface DynamoDBAgentStoreConfig {
   documentClient?: DynamoDBDocumentClient;
   /** Configuration passed to the fallback DynamoDBClient constructor */
   dynamoDbClientConfig?: DynamoDBClientConfig;
+  /** Optional TTL in seconds for the agent state records */
+  ttlSeconds?: number;
 }
 
 export class DynamoDBAgentStore implements AgentStore {
@@ -51,6 +53,7 @@ export class DynamoDBAgentStore implements AgentStore {
   private readonly consistentRead: boolean;
   private readonly entityType: string;
   private readonly documentClient: DynamoDBDocumentClient;
+  private readonly ttlSeconds: number | undefined;
 
   constructor(config: DynamoDBAgentStoreConfig) {
     if (!config.tableName) {
@@ -91,6 +94,7 @@ export class DynamoDBAgentStore implements AgentStore {
   }
 
   async save(contextId: string, state: AgentState): Promise<void> {
+    const now = Math.floor(Date.now() / 1000);
     const serializable = this.serializeState(state);
     const command = new PutCommand({
       TableName: this.tableName,
@@ -98,7 +102,8 @@ export class DynamoDBAgentStore implements AgentStore {
         ...this.buildKey(contextId),
         entityType: this.entityType,
         state: serializable,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
+        expires: this.ttlSeconds ? now + this.ttlSeconds : null,
       },
     });
     await this.documentClient.send(command);
