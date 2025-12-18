@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.1.13
+
+### Patch Changes
+
+- f91cf27: Get agent state
+- Updated dependencies [f91cf27]
+  - @looopy-ai/core@2.1.12
+
 ## 2.1.12
 
 ### Patch Changes

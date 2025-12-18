@@ -1,6 +1,6 @@
 {
   "name": "@looopy-ai/aws",
-  "version": "2.1.12",
+  "version": "2.1.13",
   "description": "AWS storage and providers for Looopy AI",
   "repository": {
     "url": "https://github.com/looopy-ai/lib"
