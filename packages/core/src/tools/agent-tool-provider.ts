@@ -148,7 +148,7 @@ export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
             'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': `${context.contextId}`,
             ...(await this.getHeaders?.(context, this.card)),
           },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ type: 'prompt', prompt }),
           signal: abortController.signal,
         });
 

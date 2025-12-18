@@ -1,9 +1,9 @@
-import { type Agent, getLogger, type ShutdownManager, SSEServer } from '@looopy-ai/core';
+import { type Agent, getLogger, type ShutdownManager } from '@looopy-ai/core';
 import { Hono as BaseHono, type Context } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { BlankInput } from 'hono/types';
 import type pino from 'pino';
-import { z } from 'zod';
+import { handlePrompt } from './invocations/prompt';
 
 export type ServeConfig<AuthContext> = {
   agent: (contextId: string) => Promise<Agent<AuthContext>>;
@@ -16,10 +16,6 @@ export type ServeConfig<AuthContext> = {
 export type HonoVariables = {
   logger: pino.Logger;
 };
-
-const promptValidator = z.looseObject({
-  prompt: z.string().min(1),
-});
 
 export type Hono = BaseHono<{ Variables: HonoVariables }>;
 
@@ -124,58 +120,29 @@ export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
       state.busy = true;
 
       const body = await c.req.json();
-      const promptValidation = promptValidator.safeParse(body);
-      if (!promptValidation.success) {
+      if (!body || typeof body !== 'object') {
         state.busy = false;
-        return c.json({ error: 'Invalid prompt', details: promptValidation.error.issues }, 400);
+        return c.json({ error: 'Invalid request body' }, 400);
       }
-      const { prompt, ...metadata } = promptValidation.data;
 
-      const sseServer = new SSEServer();
-      const turn = await agent.startTurn(prompt, { authContext, metadata });
-      turn.subscribe({
-        next: (evt) => {
-          sseServer.emit(agent.contextId, evt);
-        },
-        complete: async () => {
-          // await agent.shutdown();
-          sseServer.shutdown();
-          state.busy = false;
-        },
-      });
-
-      const res = c.res;
-      logger.info('SSE connection established');
-      const stream = new ReadableStream({
-        start(controller) {
-          sseServer.subscribe(
-            {
-              setHeader: (name: string, value: string): void => {
-                res.headers.set(name, value);
-              },
-              write: (chunk: string): void => {
-                controller.enqueue(new TextEncoder().encode(chunk));
-              },
-              end: function (): void {
-                logger.info('SSE stream finished');
-                this.writable = false;
-                controller.close();
-              },
+      switch (body.type) {
+        case 'prompt':
+          return handlePrompt(
+            agent,
+            body,
+            authContext,
+            c.res,
+            logger,
+            () => {
+              state.busy = false;
             },
-            {
-              contextId: agent.contextId,
+            () => {
+              state.busy = false;
             },
-            undefined,
           );
-        },
-        cancel: (): void => {
-          logger.info('Stream canceled');
-          sseServer.shutdown();
-          state.busy = false;
-        },
-      });
-
-      return new Response(stream, res);
+        default:
+          return c.json({ error: 'Unsupported invocation type' }, 400);
+      }
     });
   });
 
