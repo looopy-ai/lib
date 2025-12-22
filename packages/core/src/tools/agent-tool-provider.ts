@@ -19,7 +19,7 @@ export type HeaderFactory<AuthContext> = (
   card: AgentCard,
 ) => Promise<Record<string, string | undefined>>;
 
-const cardSchema = z.object({
+export const cardSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   url: z.url(),
@@ -41,7 +41,7 @@ const cardSchema = z.object({
     .optional(),
 });
 
-type AgentCard = z.infer<typeof cardSchema>;
+export type AgentCard = z.infer<typeof cardSchema>;
 
 const safeName = (name: string): string => name.replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase();
 
