@@ -1,6 +1,6 @@
 {
   "name": "@looopy-ai/core",
-  "version": "2.1.13",
+  "version": "2.1.14",
   "description": "RxJS-based AI agent framework",
   "repository": {
     "url": "https://github.com/looopy-ai/lib"

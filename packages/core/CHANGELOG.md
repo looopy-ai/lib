@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.14
+
+### Patch Changes
+
+- c498a07: Export cardSchema and AgentCard types for external usage
+
 ## 2.1.13
 
 ### Patch Changes
