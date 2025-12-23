@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.15
+
+### Patch Changes
+
+- f0df36f: More configurable agent auth
+
 ## 2.1.14
 
 ### Patch Changes
