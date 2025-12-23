@@ -34,10 +34,10 @@ export const cardSchema = z.object({
     .optional(),
   auth: z
     .object({
-      issuer: z.string(),
-      audience: z.string(),
+      token_endpoint: z.string(),
       scopes: z.array(z.string()),
     })
+    .loose()
     .optional(),
 });
 
