@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.1.18
+
+### Patch Changes
+
+- 08d02e9: Revert timeout
+
 ## 2.1.17
 
 ### Patch Changes
