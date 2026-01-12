@@ -1,5 +1,11 @@
 # @looopy-ai/aws
 
+## 2.1.17
+
+### Patch Changes
+
+- ad95663: Add idleTimeout
+
 ## 2.1.16
 
 ### Patch Changes
