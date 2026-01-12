@@ -2,6 +2,7 @@ import type { SSEEvent } from '@geee-be/sse-stream-parser';
 import { reduceContentComplete } from './events/content-complete';
 import { reduceContentDelta } from './events/content-delta';
 import { reducePrompt } from './events/prompt';
+import { reducePromptError } from './events/prompt-error';
 import { reduceTaskComplete } from './events/task-complete';
 import { reduceTaskCreated } from './events/task-created';
 import { reduceTaskStatus } from './events/task-status';
@@ -16,9 +17,15 @@ export type Prompt = {
   data: string;
 };
 
+export type PromptError = {
+  event: 'prompt-error';
+  id: string;
+  data: string;
+};
+
 export const conversationReducer = (
   state: Conversation,
-  event: SSEEvent | Prompt,
+  event: SSEEvent | Prompt | PromptError,
 ): Conversation => {
   const data = event.data ? JSON.parse(event.data) : null;
   if (!data) return state;
@@ -43,6 +50,8 @@ export const conversationReducer = (
       return reduceToolComplete(state, data);
     case 'prompt':
       return reducePrompt(state, data);
+    case 'prompt-error':
+      return reducePromptError(state, data);
     default:
       return state;
   }

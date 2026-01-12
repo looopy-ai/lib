@@ -35,6 +35,7 @@ export type PromptTurn = {
   source: 'client';
   id: string;
   prompt: string;
+  error?: string;
 };
 
 export type TaskEvent = Thought | ToolCall | Content | SubTask;
