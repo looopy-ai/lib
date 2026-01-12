@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.17
+
+### Patch Changes
+
+- 77d54c7: More validation
+
 ## 2.1.16
 
 ### Patch Changes
