@@ -17,8 +17,6 @@ export type HonoVariables = {
   logger: pino.Logger;
 };
 
-const TIMEOUT_15_MINUTES = 15 * 60;
-
 export type Hono = BaseHono<{ Variables: HonoVariables }>;
 
 type HonoContext<P extends string> = Context<{ Variables: HonoVariables }, P, BlankInput>;
@@ -148,7 +146,7 @@ export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
     });
   });
 
-  return Object.assign(app, { idleTimeout: TIMEOUT_15_MINUTES });
+  return app;
 };
 
 const getAuthContext = async <AuthContext>(
