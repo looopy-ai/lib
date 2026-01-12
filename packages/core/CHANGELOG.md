@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.16
+
+### Patch Changes
+
+- a6cd754: Validate tool function name
+
 ## 2.1.15
 
 ### Patch Changes
