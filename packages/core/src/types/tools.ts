@@ -114,7 +114,7 @@ export function validateToolDefinitions(tools: unknown): ToolDefinition[] {
 export function safeValidateToolDefinitions(tools: unknown): {
   success: boolean;
   data?: ToolDefinition[];
-  errors?: z.ZodIssue[];
+  errors?: z.core.$ZodIssue[];
 } {
   const result = z.array(ToolDefinitionSchema).safeParse(tools);
   if (result.success) {
@@ -122,6 +122,8 @@ export function safeValidateToolDefinitions(tools: unknown): {
   }
   return { success: false, errors: result.error.issues };
 }
+
+export const toolFunctionNameRegex = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Tool call from LLM
@@ -133,7 +135,7 @@ export const ToolCallSchema = z.object({
     name: z
       .string()
       .regex(
-        /^[a-zA-Z0-9_-]+$/,
+        toolFunctionNameRegex,
         'Tool name must contain only alphanumeric characters, underscores, and hyphens',
       ),
     arguments: z.record(z.string(), z.unknown()), // object
@@ -155,7 +157,7 @@ export function validateToolCall(toolCall: unknown): ToolCall {
 export function safeValidateToolCall(toolCall: unknown): {
   success: boolean;
   data?: ToolCall;
-  errors?: z.ZodIssue[];
+  errors?: z.core.$ZodIssue[];
 } {
   const result = ToolCallSchema.safeParse(toolCall);
   if (result.success) {

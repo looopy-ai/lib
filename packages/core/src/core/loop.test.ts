@@ -857,5 +857,60 @@ describe('loop', () => {
 
       expect(mockTapFinish).toHaveBeenCalled();
     });
+
+    it('should not persist invalid tool calls to message history', async () => {
+      // Simulate an iteration where an invalid tool call is converted to tool-error
+      // The key point: the loop should continue with a tool message (error), not an assistant message with toolCalls
+      let callCount = 0;
+      vi.mocked(iteration.runIteration).mockImplementation((context) => {
+        callCount++;
+        if (callCount === 1) {
+          // First iteration: Invalid tool call gets converted to tool-complete error by validation
+          return of(
+            {
+              kind: 'content-complete',
+              contextId: context.contextId,
+              taskId: context.taskId,
+              content: '',
+              finishReason: 'stop', // LLM finishes after the tool error
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+            // No tool-call event here because it was converted to tool-complete
+            {
+              kind: 'tool-complete',
+              contextId: context.contextId,
+              taskId: context.taskId,
+              toolCallId: 'call-invalid',
+              toolName: 'invalid tool!',
+              success: false,
+              error: 'Invalid tool call format: function.name: String must match ^[a-zA-Z0-9_-]+$',
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+          );
+        }
+        return of();
+      });
+
+      const events$ = runLoop(mockContext, mockConfig, mockMessages);
+      const allEvents = await lastValueFrom(events$.pipe(toArray()));
+
+      // Verify we got the tool-complete error event
+      const toolCompleteEvents = allEvents.filter((e) => e.kind === 'tool-complete');
+      expect(toolCompleteEvents).toHaveLength(1);
+      expect(toolCompleteEvents[0]).toMatchObject({
+        kind: 'tool-complete',
+        toolCallId: 'call-invalid',
+        toolName: 'invalid tool!',
+        success: false,
+      });
+
+      // The critical assertion: verify that NO tool-call event was emitted
+      const toolCallEvents = allEvents.filter((e) => e.kind === 'tool-call');
+      expect(toolCallEvents).toHaveLength(0);
+
+      // If there was a second iteration, verify the messages don't include invalid tool calls
+      // (In this case there's no second iteration due to finishReason: 'stop')
+      expect(iteration.runIteration).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -595,5 +595,65 @@ describe('iteration', () => {
         expect.any(Object),
       );
     });
+
+    it('should convert invalid tool calls to tool-error events and not execute them', async () => {
+      const invalidToolCallEvent = {
+        kind: 'tool-call',
+        toolCallId: 'call-invalid',
+        toolName: 'invalid tool name!', // Contains invalid characters (space and !)
+        arguments: { param: 'value' },
+        timestamp: new Date().toISOString(),
+      };
+
+      vi.mocked(mockLLMProvider.call).mockReturnValue(
+        of(invalidToolCallEvent as unknown as AnyEvent),
+      );
+
+      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      const events = await lastValueFrom(events$.pipe(toArray()));
+
+      // Should emit a tool-complete event with error, not a tool-call event
+      const toolCompleteEvents = events.filter((e) => e.kind === 'tool-complete');
+      expect(toolCompleteEvents).toHaveLength(1);
+      expect(toolCompleteEvents[0]).toMatchObject({
+        kind: 'tool-complete',
+        toolCallId: 'call-invalid',
+        success: false,
+      });
+
+      // Should NOT call runToolCall for invalid tool
+      expect(tools.runToolCall).not.toHaveBeenCalled();
+
+      // Verify error message contains validation details
+      expect(toolCompleteEvents[0].error).toBeDefined();
+      expect(toolCompleteEvents[0].error).toContain('Invalid tool call format');
+      expect(toolCompleteEvents[0].error).toContain('function.name');
+    });
+
+    it('should allow valid tool names with hyphens and underscores', async () => {
+      const validToolCallEvent = {
+        kind: 'tool-call',
+        toolCallId: 'call-valid',
+        toolName: 'valid-tool_name123', // Valid: alphanumeric, hyphens, underscores
+        arguments: { param: 'value' },
+        timestamp: new Date().toISOString(),
+      };
+
+      vi.mocked(mockLLMProvider.call).mockReturnValue(
+        of(validToolCallEvent as unknown as AnyEvent),
+      );
+
+      const events$ = runIteration(mockContext, mockConfig, mockHistory);
+      await lastValueFrom(events$.pipe(toArray()));
+
+      // Should call runToolCall for valid tool name
+      expect(tools.runToolCall).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          kind: 'tool-call',
+          toolName: 'valid-tool_name123',
+        }),
+      );
+    });
   });
 });
