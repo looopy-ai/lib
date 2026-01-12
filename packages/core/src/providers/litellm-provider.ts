@@ -473,7 +473,7 @@ export class LiteLLMProvider implements LLMProvider {
         litellmRequest.tools = request.tools.map((tool) => ({
           type: 'function',
           function: {
-            name: tool.id,
+            name: getValidToolName(tool.id),
             description: tool.description,
             parameters: tool.parameters as Record<string, unknown>,
           },
@@ -703,4 +703,11 @@ export const LiteLLM = {
       topP: 1.0,
     });
   },
+};
+
+const getValidToolName = (toolId: string): string => {
+  // Sometimes the tool ID may be suffixed with invalid characters for function names
+  // Anything after the first invalid character is stripped
+  const match = toolId.match(/^[a-zA-Z0-9_-]+/);
+  return match ? match[0] : 'invalid_tool_name';
 };
