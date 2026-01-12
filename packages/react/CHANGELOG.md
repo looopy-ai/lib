@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.9
+
+### Patch Changes
+
+- 6dd9260: add prompt error
+
 ## 1.0.8
 
 ### Patch Changes
