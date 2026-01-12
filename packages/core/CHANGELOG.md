@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.18
+
+### Patch Changes
+
+- fca5057: Strip invalid parts from tool function name
+
 ## 2.1.17
 
 ### Patch Changes
