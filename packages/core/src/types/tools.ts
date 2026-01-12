@@ -130,7 +130,36 @@ export const ToolCallSchema = z.object({
   id: z.string(),
   type: z.literal('function'),
   function: z.object({
-    name: z.string(),
+    name: z
+      .string()
+      .regex(
+        /^[a-zA-Z0-9_-]+$/,
+        'Tool name must contain only alphanumeric characters, underscores, and hyphens',
+      ),
     arguments: z.record(z.string(), z.unknown()), // object
   }),
 });
+
+/**
+ * Validate tool calls from LLM responses
+ *
+ * @throws {z.ZodError} if validation fails
+ */
+export function validateToolCall(toolCall: unknown): ToolCall {
+  return ToolCallSchema.parse(toolCall);
+}
+
+/**
+ * Safely validate tool calls, returning errors instead of throwing
+ */
+export function safeValidateToolCall(toolCall: unknown): {
+  success: boolean;
+  data?: ToolCall;
+  errors?: z.ZodIssue[];
+} {
+  const result = ToolCallSchema.safeParse(toolCall);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, errors: result.error.issues };
+}

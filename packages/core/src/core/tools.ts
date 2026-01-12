@@ -11,6 +11,7 @@ import type {
   ToolExecutionEvent,
 } from '../types/event';
 import type { ToolCall } from '../types/tools';
+import { safeValidateToolCall } from '../types/tools';
 
 /**
  * Execute a tool call and return an observable stream of tool execution events
@@ -72,6 +73,32 @@ export const runToolCall = <AuthContext>(
   });
 
   return defer(async () => {
+    const toolCallInput: ToolCall = {
+      id: toolCall.toolCallId,
+      type: 'function',
+      function: {
+        name: toolCall.toolName,
+        arguments: toolCall.arguments,
+      },
+    };
+
+    // Validate tool call structure and name format
+    const validation = safeValidateToolCall(toolCallInput);
+
+    if (!validation.success) {
+      const errorMessage = `Invalid tool call format: ${(validation.errors || []).map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`;
+      logger.error(
+        {
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          errors: validation.errors,
+        },
+        'Invalid tool call from LLM - tool name must match ^[a-zA-Z0-9_-]+$',
+      );
+      // Return tool error event for invalid tool name format
+      return of(toolErrorEvent(toolCallInput, errorMessage));
+    }
+
     const matchingPlugins = await Promise.all(
       context.plugins.filter(isToolPlugin).map(async (p) => ({
         plugin: p,
@@ -99,15 +126,6 @@ export const runToolCall = <AuthContext>(
       toolName: toolCall.toolName,
       arguments: toolCall.arguments,
       timestamp: new Date().toISOString(),
-    };
-
-    const toolCallInput: ToolCall = {
-      id: toolCall.toolCallId,
-      type: 'function',
-      function: {
-        name: toolCall.toolName,
-        arguments: toolCall.arguments,
-      },
     };
 
     // Start tool execution span
