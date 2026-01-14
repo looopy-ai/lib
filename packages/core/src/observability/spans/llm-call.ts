@@ -62,13 +62,19 @@ export const startLLMCallSpan = <AuthContext>(
       next: (event) => {
         if (isChildTaskEvent(event)) return;
         switch (event.kind) {
-          case 'content-complete':
+          case 'content-complete': {
             if (event.content) {
               span.setAttribute(SpanAttributes.GEN_AI_COMPLETION, event.content);
             }
             span.setAttribute(SpanAttributes.LLM_FINISH_REASON, event.finishReason || 'unknown');
+            const toolCalls = event.toolCalls?.map((t) => t.function);
+            if (toolCalls?.length) {
+              context.logger.debug({ toolCalls }, 'Tools calls');
+              span.setAttribute('llm.tool_calls', JSON.stringify(toolCalls.map((t) => t.name)));
+            }
             span.setStatus({ code: SpanStatusCode.OK });
             break;
+          }
           case 'llm-usage':
             span.setAttribute(SpanAttributes.GEN_AI_RESPONSE_MODEL, event.model);
             span.setAttribute(SpanAttributes.GEN_AI_USAGE_PROMPT_TOKENS, event.prompt_tokens || 0);
