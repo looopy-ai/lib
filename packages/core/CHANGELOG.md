@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.20
+
+### Patch Changes
+
+- e14b4af: Refactor tool function name handling in LiteLLMProvider and remove unused validation logic
+
 ## 2.1.19
 
 ### Patch Changes
