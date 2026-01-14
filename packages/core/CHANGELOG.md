@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.19
+
+### Patch Changes
+
+- 72ee540: Debug tool calls
+
 ## 2.1.18
 
 ### Patch Changes
