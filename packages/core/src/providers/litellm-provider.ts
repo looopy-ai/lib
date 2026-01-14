@@ -277,7 +277,7 @@ export class LiteLLMProvider implements LLMProvider {
             id: tc.id as string,
             type: 'function' as const,
             function: {
-              name: tc.function?.name as string,
+              name: fixToolFunctionName(tc.function?.name as string),
               arguments:
                 (typeof tc.function?.arguments === 'string'
                   ? (JSON.parse(tc.function?.arguments) as Record<string, unknown>)
@@ -316,7 +316,7 @@ export class LiteLLMProvider implements LLMProvider {
           event.toolCalls?.map<ToolCallEvent>((tc) => ({
             kind: 'tool-call',
             toolCallId: tc.id,
-            toolName: tc.function.name,
+            toolName: fixToolFunctionName(tc.function.name),
             arguments: tc.function.arguments,
             timestamp: event.timestamp,
           })) || [],
@@ -446,7 +446,7 @@ export class LiteLLMProvider implements LLMProvider {
               id: tc.id,
               type: tc.type,
               function: {
-                name: tc.function.name,
+                name: fixToolFunctionName(tc.function.name),
                 arguments:
                   typeof tc.function.arguments === 'string'
                     ? tc.function.arguments
@@ -474,7 +474,7 @@ export class LiteLLMProvider implements LLMProvider {
         litellmRequest.tools = request.tools.map((tool) => ({
           type: 'function',
           function: {
-            name: getValidToolName(tool.id),
+            name: fixToolFunctionName(tool.id),
             description: tool.description,
             parameters: tool.parameters as Record<string, unknown>,
           },
@@ -572,14 +572,6 @@ export class LiteLLMProvider implements LLMProvider {
     Object.assign(this.config, updates);
   }
 }
-
-// Note: callAsync and transformResponse methods removed as we now use streaming only
-// These can be added back if non-streaming support is needed in the future
-
-/**
- * REMOVED METHODS (for reference if non-streaming is needed later):
- *
- */
 
 /**
  * Create a LiteLLM provider with common presets
@@ -706,7 +698,7 @@ export const LiteLLM = {
   },
 };
 
-const getValidToolName = (toolId: string): string => {
+const fixToolFunctionName = (toolId: string): string => {
   // Sometimes the tool ID may be suffixed with invalid characters for function names
   // Anything after the first invalid character is stripped
   const match = toolId.match(/^[a-zA-Z0-9_-]+/);

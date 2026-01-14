@@ -1,10 +1,8 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import { toolErrorEvent } from '../tools/tool-result-events';
 import type { IterationConfig, IterationContext, Plugin } from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
-import { safeValidateToolCall } from '../types/tools';
 import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
 import { runToolCall } from './tools';
 
@@ -127,44 +125,6 @@ export const runIteration = <AuthContext>(
         })
         .pipe(
           finishLLMCallSpan,
-          // Validate tool calls and convert invalid ones to tool-error events
-          map<AnyEvent, AnyEvent>((event) => {
-            if (event.kind === 'tool-call') {
-              const validation = safeValidateToolCall({
-                id: event.toolCallId,
-                type: 'function',
-                function: {
-                  name: event.toolName,
-                  arguments: event.arguments,
-                },
-              });
-
-              if (!validation.success) {
-                const errorMessage = `Invalid tool call format: ${(validation.errors || []).map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`;
-                context.logger.error(
-                  {
-                    toolCallId: event.toolCallId,
-                    toolName: event.toolName,
-                    errors: validation.errors,
-                  },
-                  'Invalid tool call from LLM - tool name must match ^[a-zA-Z0-9_-]+$',
-                );
-                // Return tool-error event instead of invalid tool-call
-                return toolErrorEvent(
-                  {
-                    id: event.toolCallId,
-                    type: 'function',
-                    function: {
-                      name: event.toolName,
-                      arguments: event.arguments,
-                    },
-                  },
-                  errorMessage,
-                );
-              }
-            }
-            return event;
-          }),
           map<AnyEvent, ContextAnyEvent>(
             (event): ContextAnyEvent => ({
               contextId: context.contextId,
