@@ -30,6 +30,7 @@ import type {
 import type { LLMProvider } from '../types/llm';
 import type { LLMMessage } from '../types/message';
 import type { ToolDefinition } from '../types/tools';
+import { serializeError } from '../utils';
 import {
   aggregateChoice,
   aggregateLLMUsage,
@@ -39,7 +40,6 @@ import {
   splitInlineXml,
   usage,
 } from './chat-completions';
-import { serializeError } from '../utils';
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;
