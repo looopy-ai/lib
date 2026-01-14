@@ -39,6 +39,7 @@ import {
   splitInlineXml,
   usage,
 } from './chat-completions';
+import { serializeError } from '../utils';
 
 const singleString = (input: string | string[] | null | undefined): string | undefined => {
   if (!input) return undefined;
@@ -348,7 +349,7 @@ export class LiteLLMProvider implements LLMProvider {
         );
         this.debugLogInitialized = true;
       } catch (error) {
-        this.logger.warn({ error }, 'Failed to initialize debug log file');
+        this.logger.warn({ error: serializeError(error) }, 'Failed to initialize debug log file');
         return;
       }
     }
@@ -363,7 +364,7 @@ export class LiteLLMProvider implements LLMProvider {
 
       appendFileSync(this.config.debugLogPath, `${logEntry}\n`);
     } catch (error) {
-      this.logger.warn({ error }, 'Failed to write debug log');
+      this.logger.warn({ error: serializeError(error) }, 'Failed to write debug log');
     }
   }
 

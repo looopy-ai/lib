@@ -425,7 +425,7 @@ export class Agent<AuthContext> {
                 observer.next(event);
               },
               error: (error: Error) => {
-                logger.error({ error }, 'Turn execution failed');
+                logger.error({ error: serializeError(error) }, 'Turn execution failed');
 
                 failAgentTurnSpan(turnSpan, error);
                 observer.error(error);
@@ -451,7 +451,7 @@ export class Agent<AuthContext> {
                   completeAgentTurnSpan(turnSpan);
                   observer.complete();
                 } catch (error) {
-                  logger.error({ error }, 'Failed to save turn results');
+                  logger.error({ error: serializeError(error) }, 'Failed to save turn results');
 
                   failAgentTurnSpan(turnSpan, error as Error);
                   observer.error(error);
@@ -459,7 +459,7 @@ export class Agent<AuthContext> {
               },
             });
           } catch (error) {
-            logger.error({ error }, 'Failed to prepare turn');
+            logger.error({ error: serializeError(error) }, 'Failed to prepare turn');
 
             failAgentTurnSpan(turnSpan, error as Error);
             observer.error(error);
@@ -517,7 +517,7 @@ export class Agent<AuthContext> {
       this.shutdownComplete = true;
       this.config.logger.info('Agent shutdown complete');
     } catch (error) {
-      this.config.logger.error({ error }, 'Failed to shutdown agent');
+      this.config.logger.error({ error: serializeError(error) }, 'Failed to shutdown agent');
       throw error;
     } finally {
       this.shuttingDown = false;
@@ -549,7 +549,7 @@ export class Agent<AuthContext> {
 
       this.logger.info('Agent data cleared');
     } catch (error) {
-      this.logger.error({ error }, 'Failed to clear agent');
+      this.logger.error({ error: serializeError(error) }, 'Failed to clear agent');
       throw error;
     }
   }
@@ -574,7 +574,7 @@ export class Agent<AuthContext> {
     }
 
     void this.persistState().catch((error) => {
-      this.logger.error({ error }, 'Failed to persist agent state');
+      this.logger.error({ error: serializeError(error) }, 'Failed to persist agent state');
     });
   }
 
