@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.21
+
+### Patch Changes
+
+- 4dc927d: Improve plugin types
+
 ## 2.1.20
 
 ### Patch Changes

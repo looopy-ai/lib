@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.1.24
+
+### Patch Changes
+
+- 82dde7c: Updated AgentCoreMemoryMessageStore to cache messages
+- Updated dependencies [4dc927d]
+  - @looopy-ai/core@2.1.21
+
 ## 2.1.23
 
 ### Patch Changes
