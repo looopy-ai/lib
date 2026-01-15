@@ -129,6 +129,7 @@ describe('iteration', () => {
     mockConfig = {
       iterationNumber: 1,
       llmProvider: mockLLMProvider,
+      filterPlugins: undefined,
     };
 
     mockHistory = [{ role: 'user', content: 'Hello, how are you?' }];

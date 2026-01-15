@@ -39,6 +39,7 @@ export const cardSchema = z.object({
     })
     .loose()
     .optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type AgentCard = z.infer<typeof cardSchema>;

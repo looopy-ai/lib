@@ -88,12 +88,20 @@ export const runIteration = <AuthContext>(
   );
 
   const llmEvents$ = defer(async () => {
-    // const systemPrompt = await getSystemPrompt(context.systemPrompt, context);
-    const systemPrompts = await getSystemPrompts(context.plugins, context);
+    const allowedPlugins = config.filterPlugins
+      ? config.filterPlugins(context.plugins, context)
+      : context.plugins;
+
+    const systemPrompts = await getSystemPrompts(allowedPlugins, context);
     const messages = await prepareMessages(systemPrompts, history);
-    const tools = await prepareTools(context.plugins);
+    const tools = await prepareTools(allowedPlugins);
     logger.debug(
-      { systemPrompts, messages: messages.length, tools: tools.map((t) => t.id).join(', ') },
+      {
+        systemPrompts,
+        messages: messages.length,
+        plugins: allowedPlugins.map((p) => p.name).join(', '),
+        tools: tools.map((t) => t.id).join(', '),
+      },
       'Prepared messages and tools for LLM call',
     );
     return { messages, tools, systemPrompts };

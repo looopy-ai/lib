@@ -1,6 +1,6 @@
 import type { MessageStore } from '../stores/messages';
 import type { SerializedError } from '../utils/error';
-import type { Plugin } from './core';
+import type { FilterPlugins, Plugin } from './core';
 import type { LLMProvider } from './llm';
 
 /**
@@ -15,6 +15,9 @@ export interface AgentConfig<AuthContext> {
 
   /** LLM provider for generating responses */
   llmProvider: LLMProvider;
+
+  /** Optional filter for plugins */
+  filterPlugins?: FilterPlugins<AuthContext>;
 
   /** Message store for conversation history */
   messageStore: MessageStore;

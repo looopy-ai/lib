@@ -4,6 +4,11 @@ import type { LLMProvider } from '../types/llm';
 import type { AnyEvent, ContextAnyEvent } from './event';
 import type { ToolCall, ToolDefinition } from './tools';
 
+export type FilterPlugins<AuthContext> = (
+  availablePlugins: readonly Plugin<AuthContext>[],
+  context: IterationContext<AuthContext>,
+) => readonly Plugin<AuthContext>[];
+
 export type AgentContext<AuthContext> = Readonly<{
   agentId: string;
   contextId: string;
@@ -26,13 +31,15 @@ export type LoopContext<AuthContext> = TurnContext<AuthContext>;
 
 export type IterationContext<AuthContext> = TurnContext<AuthContext>;
 
-export type LoopConfig = {
+export type LoopConfig<AuthContext> = {
+  filterPlugins: FilterPlugins<AuthContext> | undefined;
   llmProvider: LLMProvider;
   maxIterations: number;
   stopOnToolError: boolean;
 };
 
 export type IterationConfig<AuthContext> = {
+  filterPlugins: FilterPlugins<AuthContext> | undefined;
   llmProvider:
     | LLMProvider
     | ((

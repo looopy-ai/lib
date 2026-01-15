@@ -364,6 +364,7 @@ export class Agent<AuthContext> {
                 metadata,
               },
               {
+                filterPlugins: this.config.filterPlugins,
                 llmProvider: this.config.llmProvider,
                 maxIterations: 5,
                 stopOnToolError: false,

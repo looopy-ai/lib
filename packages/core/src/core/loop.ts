@@ -74,7 +74,7 @@ import { runIteration } from './iteration';
  */
 export const runLoop = <AuthContext>(
   context: LoopContext<AuthContext>,
-  config: LoopConfig,
+  config: LoopConfig<AuthContext>,
   history: LLMMessage[],
 ) => {
   const logger = context.logger.child({ component: 'loop' });
@@ -115,6 +115,7 @@ export const runLoop = <AuthContext>(
         {
           llmProvider: config.llmProvider,
           iterationNumber: state.iteration,
+          filterPlugins: config.filterPlugins,
         },
         state.messages,
       ),

@@ -43,7 +43,7 @@ vi.mock('./iteration', () => ({
 
 describe('loop', () => {
   let mockContext: TurnContext<unknown>;
-  let mockConfig: LoopConfig;
+  let mockConfig: LoopConfig<unknown>;
   let mockMessages: LLMMessage[];
   let mockLLMProvider: LLMProvider;
 
@@ -65,6 +65,7 @@ describe('loop', () => {
     };
 
     mockConfig = {
+      filterPlugins: undefined,
       llmProvider: mockLLMProvider,
       maxIterations: 10,
       stopOnToolError: false,
