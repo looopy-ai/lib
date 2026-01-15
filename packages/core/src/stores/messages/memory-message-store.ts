@@ -71,11 +71,11 @@ export class InMemoryMessageStore implements MessageStore {
       messages = trimToTokenBudget(messages, maxTokens);
     }
 
-    return messages;
+    return messages.slice();
   }
 
   async getAll(contextId: string): Promise<LLMMessage[]> {
-    return this.messages.get(contextId) || [];
+    return (this.messages.get(contextId) || []).slice();
   }
 
   async getCount(contextId: string): Promise<number> {

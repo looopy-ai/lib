@@ -7,14 +7,16 @@ import {
   type PayloadType,
   RetrieveMemoryRecordsCommand,
 } from '@aws-sdk/client-bedrock-agentcore';
-import type {
-  AssistantLLMMessage,
-  CompactionOptions,
-  CompactionResult,
-  LLMMessage,
-  MessageStore,
+import {
+  type AssistantLLMMessage,
+  type CompactionOptions,
+  type CompactionResult,
+  estimateTokens,
+  type LLMMessage,
+  type MessageStore,
+  type StoredMessage,
+  trimToTokenBudget,
 } from '@looopy-ai/core';
-import { trimToTokenBudget } from '@looopy-ai/core';
 import type { DocumentType } from '@smithy/types';
 
 export interface AgentCoreMemoryMessageStoreConfig {
@@ -37,16 +39,14 @@ export interface AgentCoreMemoryMessageStoreConfig {
 export class AgentCoreMemoryMessageStore implements MessageStore {
   private readonly memoryId: string;
   private readonly actorId: string;
-  private readonly includeLongTermMemories: boolean;
   private readonly longTermMemoryNamespace?: string;
   private readonly client: BedrockAgentCoreClient;
   private readonly initialFetchLimit: number;
-  private readonly cache: Map<string, LLMMessage[]> = new Map();
+  private readonly messages: Map<string, StoredMessage[]> = new Map();
 
   constructor(config: AgentCoreMemoryMessageStoreConfig) {
     this.memoryId = config.memoryId;
     this.actorId = config.agentId;
-    this.includeLongTermMemories = !!config.longTermMemoryNamespace;
     this.longTermMemoryNamespace = config.longTermMemoryNamespace;
     this.initialFetchLimit = config.initialFetchLimit ?? 50;
     this.client =
@@ -57,11 +57,21 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   }
 
   async append(contextId: string, messages: LLMMessage[]): Promise<void> {
-    const cache = this.ensureCache(contextId);
+    const stored = this.messages.get(contextId) || [];
+    const nextIndex = stored.length;
+
+    const newMessages: StoredMessage[] = messages.map((msg, i) => ({
+      ...msg,
+      id: `msg_${contextId}_${nextIndex + i}`,
+      contextId,
+      index: nextIndex + i,
+      timestamp: new Date().toISOString(),
+      tokens: estimateTokens(msg.content),
+    }));
+
+    this.messages.set(contextId, [...stored, ...newMessages]);
 
     for (const message of messages) {
-      cache.push(message);
-
       const command = new CreateEventCommand({
         memoryId: this.memoryId,
         actorId: this.actorId,
@@ -98,39 +108,55 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<LLMMessage[]> {
-    const cache = await this.loadCacheIfNeeded(contextId, options?.maxMessages);
-    const messages = options?.maxMessages ? cache.slice(-options.maxMessages) : cache.slice();
+    await this.loadCacheIfNeeded(contextId, options?.maxMessages);
+    // const messages = options?.maxMessages ? cache.slice(-options.maxMessages) : cache.slice();
 
-    if (this.includeLongTermMemories && messages.length > 0) {
-      const longTerm = await this.retrieveLongTermMemories(this.actorId, 'relevant context');
-      if (longTerm.length > 0) {
-        messages.unshift({
-          role: 'system',
-          content: this.formatLongTermMemories(longTerm),
-        });
-      }
-    }
+    // if (this.includeLongTermMemories && messages.length > 0) {
+    //   const longTerm = await this.retrieveLongTermMemories(this.actorId, 'relevant context');
+    //   if (longTerm.length > 0) {
+    //     messages.unshift({
+    //       role: 'system',
+    //       content: this.formatLongTermMemories(longTerm),
+    //     });
+    //   }
+    // }
 
-    if (options?.maxTokens) {
-      return trimToTokenBudget(messages, options.maxTokens);
+    // TODO
+    // if (options?.maxTokens) {
+    //   return trimToTokenBudget(messages, options.maxTokens);
+    // }
+
+    const all = this.messages.get(contextId) || [];
+    const { maxMessages = 50, maxTokens } = options || {};
+
+    // Take recent messages
+    let messages: LLMMessage[] = all.slice(-maxMessages);
+
+    // If token limit specified, trim further
+    if (maxTokens) {
+      messages = trimToTokenBudget(messages, maxTokens);
     }
 
     return messages.slice();
   }
 
   async getAll(contextId: string): Promise<LLMMessage[]> {
-    const cache = await this.loadCacheIfNeeded(contextId);
-    return cache.slice();
+    await this.loadCacheIfNeeded(contextId);
+    return (this.messages.get(contextId) || []).slice();
   }
 
   async getCount(contextId: string): Promise<number> {
-    const cache = await this.loadCacheIfNeeded(contextId);
-    return cache.length;
+    await this.loadCacheIfNeeded(contextId);
+
+    const messages = this.messages.get(contextId) || [];
+    return messages.length;
   }
 
   async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
-    const cache = await this.loadCacheIfNeeded(contextId, endIndex);
-    return cache.slice(startIndex, endIndex);
+    await this.loadCacheIfNeeded(contextId, endIndex);
+
+    const all = this.messages.get(contextId) || [];
+    return all.slice(startIndex, endIndex);
   }
 
   async compact(_contextId: string, _options?: CompactionOptions): Promise<CompactionResult> {
@@ -142,7 +168,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   }
 
   async clear(contextId: string): Promise<void> {
-    this.cache.delete(contextId);
+    this.messages.delete(contextId);
 
     const list = await this.client.send(
       new ListEventsCommand({
@@ -166,15 +192,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     }
   }
 
-  private ensureCache(contextId: string): LLMMessage[] {
-    if (!this.cache.has(contextId)) {
-      this.cache.set(contextId, []);
-    }
-    return this.cache.get(contextId) as LLMMessage[];
-  }
-
   private async loadCacheIfNeeded(contextId: string, requested?: number): Promise<LLMMessage[]> {
-    const existing = this.cache.get(contextId);
+    const existing = this.messages.get(contextId);
     if (existing) {
       return existing;
     }
@@ -189,7 +208,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
 
     const response = await this.client.send(command);
     const messages = this.convertEventsToMessages(response.events ?? []);
-    this.cache.set(contextId, messages);
+    this.messages.set(contextId, messages);
 
     return messages;
   }
@@ -198,8 +217,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return this.retrieveLongTermMemories(this.actorId, query, options?.maxResults ?? 10);
   }
 
-  private convertEventsToMessages(events: Event[]): LLMMessage[] {
-    const messages: LLMMessage[] = [];
+  private convertEventsToMessages(events: Event[]): StoredMessage[] {
+    const messages: StoredMessage[] = [];
 
     events.sort((a, b) => {
       const dateA = a.eventTimestamp?.getTime() ?? 0;
@@ -207,7 +226,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
       return dateA - dateB;
     });
 
-    for (const event of events) {
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i];
       const message = { role: 'assistant', content: '' } as LLMMessage;
       for (const payload of event.payload ?? []) {
         if (payload.conversational) {
@@ -222,7 +242,15 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
           message.toolCalls = blob.toolCalls as unknown as AssistantLLMMessage['toolCalls'];
         }
       }
-      messages.push(message);
+      const storedMessage: StoredMessage = {
+        ...message,
+        id: event.eventId ?? `event_${i}`,
+        contextId: event.sessionId ?? '',
+        index: i,
+        timestamp: event.eventTimestamp?.toISOString() ?? new Date().toISOString(),
+        tokens: estimateTokens(message.content),
+      };
+      messages.push(storedMessage);
     }
 
     return messages;
@@ -246,18 +274,18 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     return response.memoryRecordSummaries ?? [];
   }
 
-  private formatLongTermMemories(memories: unknown[]): string {
-    if (memories.length === 0) {
-      return '';
-    }
+  // private formatLongTermMemories(memories: unknown[]): string {
+  //   if (memories.length === 0) {
+  //     return '';
+  //   }
 
-    const lines = memories.map((record) => {
-      const data = record as Record<string, unknown>;
-      return `- ${String(data.content || data.memory || JSON.stringify(record))}`;
-    });
+  //   const lines = memories.map((record) => {
+  //     const data = record as Record<string, unknown>;
+  //     return `- ${String(data.content || data.memory || JSON.stringify(record))}`;
+  //   });
 
-    return `Relevant context from previous sessions:\n${lines.join('\n')}`;
-  }
+  //   return `Relevant context from previous sessions:\n${lines.join('\n')}`;
+  // }
 
   private toAgentCoreRole(role: LLMMessage['role']): 'USER' | 'ASSISTANT' | 'TOOL' | 'OTHER' {
     switch (role) {
