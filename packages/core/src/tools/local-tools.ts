@@ -9,7 +9,7 @@
 import { catchError, defer, mergeMap, of } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from '../types/context';
-import type { Plugin } from '../types/core';
+import type { ToolPlugin } from '../types/core';
 import type { ToolCall, ToolDefinition, ToolResult } from '../types/tools';
 import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
 
@@ -112,7 +112,7 @@ const zodToJsonSchema = (
  */
 export function localTools<AuthContext>(
   tools: LocalToolDefinition<z.ZodObject, AuthContext>[],
-): Plugin<AuthContext> {
+): ToolPlugin<AuthContext> {
   const toolMap = new Map<string, LocalToolDefinition<z.ZodObject, AuthContext>>();
 
   for (const tool of tools) {

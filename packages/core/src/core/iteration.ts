@@ -1,6 +1,11 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
-import type { IterationConfig, IterationContext, Plugin } from '../types/core';
+import {
+  type IterationConfig,
+  type IterationContext,
+  isToolPlugin,
+  type Plugin,
+} from '../types/core';
 import type { AnyEvent, ContextAnyEvent, ContextEvent, ToolCallEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import { getSystemPrompts, type SystemPrompts } from '../utils/prompt';
@@ -106,7 +111,6 @@ export const runIteration = <AuthContext>(
         .reverse()
         .reduce<Record<string, unknown>>((acc, sp) => {
           if (sp.metadata) {
-            // biome-ignore lint/performance/noAccumulatingSpread: gotta do it
             return Object.assign(acc, sp.metadata);
           }
           return acc;
@@ -187,7 +191,7 @@ const prepareMessages = async (
  * them into a single array for the LLM to use.
  *
  * @internal
- * @param toolProviders - Array of tool providers to query for available tools
+ * @param plugins - Array of tool providers to query for available tools
  * @returns A promise that resolves to a flattened array of all tool definitions
  *
  * @example
@@ -208,8 +212,8 @@ const prepareMessages = async (
  * - If a provider fails to return tools, the promise will reject
  * - Duplicate tool names from different providers are not filtered
  */
-const prepareTools = async <AuthContext>(toolProviders: readonly Plugin<AuthContext>[]) => {
-  const toolPromises = toolProviders.map((p) => p.listTools?.());
+const prepareTools = async <AuthContext>(plugins: readonly Plugin<AuthContext>[]) => {
+  const toolPromises = plugins.filter(isToolPlugin).map((p) => p.listTools());
   const toolArrays = await Promise.all(toolPromises);
   return toolArrays.filter(Boolean).flat();
 };

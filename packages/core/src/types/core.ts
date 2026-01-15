@@ -42,9 +42,7 @@ export type IterationConfig<AuthContext> = {
   iterationNumber: number;
 };
 
-export type Plugin<AuthContext> = BasePlugin &
-  Partial<SystemPromptPlugin<AuthContext>> &
-  Partial<ToolPlugin<AuthContext>>;
+export type Plugin<AuthContext> = SystemPromptPlugin<AuthContext> | ToolPlugin<AuthContext>;
 
 type BasePlugin = {
   readonly name: string;
@@ -55,7 +53,7 @@ type BasePlugin = {
 
 // TODO: state persistence hooks
 
-export type SystemPromptPlugin<AuthContext> = {
+export type SystemPromptPlugin<AuthContext> = BasePlugin & {
   /**
    * Generate system prompts for the iteration
    */
@@ -70,7 +68,7 @@ export const isSystemPromptPlugin = <AuthContext>(
   return typeof (plugin as SystemPromptPlugin<AuthContext>).generateSystemPrompts === 'function';
 };
 
-export type ToolPlugin<AuthContext> = {
+export type ToolPlugin<AuthContext> = BasePlugin & {
   /**
    * Get available tools from this provider
    */

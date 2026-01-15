@@ -7,7 +7,7 @@
  */
 
 import { catchError, defer, mergeMap, of } from 'rxjs';
-import type { Plugin } from '..';
+import type { ToolPlugin } from '..';
 import type { ExecutionContext } from '../types/context';
 import type { ToolCall, ToolDefinition, ToolResult } from '../types/tools';
 import { MCPClient, type MCPTool } from './mcp-client';
@@ -26,7 +26,7 @@ export const mcp = <AuthContext>(
   return new McpToolProvider(config);
 };
 
-export class McpToolProvider<AuthContext> implements Plugin<AuthContext> {
+export class McpToolProvider<AuthContext> implements ToolPlugin<AuthContext> {
   name = 'mcp-tool-provider';
 
   readonly id: string;

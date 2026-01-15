@@ -5,7 +5,7 @@ import { lastValueFrom, toArray } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { localTools, tool } from '../src/tools/local-tools';
-import type { ExecutionContext, IterationContext, Plugin, ToolCall } from '../src/types';
+import type { ExecutionContext, IterationContext, ToolCall, ToolPlugin } from '../src/types';
 
 describe('local-tools', () => {
   describe('tool()', () => {
@@ -343,7 +343,7 @@ describe('local-tools', () => {
         logger: pino(),
         turnNumber: 1,
       };
-      const getFirstEvent = async (provider: Plugin<unknown>, toolCall: ToolCall) => {
+      const getFirstEvent = async (provider: ToolPlugin<unknown>, toolCall: ToolCall) => {
         if (!provider.executeTool) expect.fail('executeTool not defined');
         const events = await lastValueFrom(
           provider.executeTool(toolCall, mockContext).pipe(toArray()),

@@ -8,8 +8,8 @@ import type {
   AnyEvent,
   ContextAnyEvent,
   ExecutionContext,
-  Plugin,
   ToolCompleteEvent,
+  ToolPlugin,
 } from '../types';
 import type { ToolCall, ToolDefinition } from '../types/tools';
 import { toolErrorEvent } from './tool-result-events';
@@ -45,7 +45,7 @@ export type AgentCard = z.infer<typeof cardSchema>;
 
 const safeName = (name: string): string => name.replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase();
 
-export class AgentToolProvider<AuthContext> implements Plugin<AuthContext> {
+export class AgentToolProvider<AuthContext> implements ToolPlugin<AuthContext> {
   static fromUrl = <AuthContext>(
     cardUrl: string,
     getHeaders?: HeaderFactory<AuthContext>,
