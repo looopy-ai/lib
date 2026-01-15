@@ -30,6 +30,8 @@ export interface AgentCoreMemoryMessageStoreConfig {
   extractActorId?: (contextId: string) => string;
   /** Optional namespace for long-term memories */
   longTermMemoryNamespace?: string;
+  /** Maximum number of messages to fetch on first load */
+  initialFetchLimit?: number;
 }
 
 export class AgentCoreMemoryMessageStore implements MessageStore {
@@ -38,12 +40,15 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   private readonly includeLongTermMemories: boolean;
   private readonly longTermMemoryNamespace?: string;
   private readonly client: BedrockAgentCoreClient;
+  private readonly initialFetchLimit: number;
+  private readonly cache: Map<string, LLMMessage[]> = new Map();
 
   constructor(config: AgentCoreMemoryMessageStoreConfig) {
     this.memoryId = config.memoryId;
     this.actorId = config.agentId;
     this.includeLongTermMemories = !!config.longTermMemoryNamespace;
     this.longTermMemoryNamespace = config.longTermMemoryNamespace;
+    this.initialFetchLimit = config.initialFetchLimit ?? 500;
     this.client =
       config.client ||
       new BedrockAgentCoreClient({
@@ -52,7 +57,11 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   }
 
   async append(contextId: string, messages: LLMMessage[]): Promise<void> {
+    const cache = this.ensureCache(contextId);
+
     for (const message of messages) {
+      cache.push(message);
+
       const command = new CreateEventCommand({
         memoryId: this.memoryId,
         actorId: this.actorId,
@@ -89,15 +98,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     contextId: string,
     options?: { maxMessages?: number; maxTokens?: number },
   ): Promise<LLMMessage[]> {
-    const command = new ListEventsCommand({
-      memoryId: this.memoryId,
-      actorId: this.actorId,
-      sessionId: contextId,
-      maxResults: options?.maxMessages ?? 50,
-    });
-
-    const response = await this.client.send(command);
-    const messages = this.convertEventsToMessages(response.events ?? []);
+    const cache = await this.loadCacheIfNeeded(contextId, options?.maxMessages);
+    const messages = options?.maxMessages ? cache.slice(-options.maxMessages) : cache.slice();
 
     if (this.includeLongTermMemories && messages.length > 0) {
       const longTerm = await this.retrieveLongTermMemories(this.actorId, 'relevant context');
@@ -113,21 +115,22 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
       return trimToTokenBudget(messages, options.maxTokens);
     }
 
-    return messages;
+    return messages.slice();
   }
 
   async getAll(contextId: string): Promise<LLMMessage[]> {
-    return this.getRecent(contextId, { maxMessages: 1000 });
+    const cache = await this.loadCacheIfNeeded(contextId);
+    return cache.slice();
   }
 
   async getCount(contextId: string): Promise<number> {
-    const messages = await this.getRecent(contextId);
-    return messages.length;
+    const cache = await this.loadCacheIfNeeded(contextId);
+    return cache.length;
   }
 
   async getRange(contextId: string, startIndex: number, endIndex: number): Promise<LLMMessage[]> {
-    const all = await this.getAll(contextId);
-    return all.slice(startIndex, endIndex);
+    const cache = await this.loadCacheIfNeeded(contextId, endIndex);
+    return cache.slice(startIndex, endIndex);
   }
 
   async compact(_contextId: string, _options?: CompactionOptions): Promise<CompactionResult> {
@@ -139,6 +142,8 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
   }
 
   async clear(contextId: string): Promise<void> {
+    this.cache.delete(contextId);
+
     const list = await this.client.send(
       new ListEventsCommand({
         memoryId: this.memoryId,
@@ -159,6 +164,34 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
         }),
       );
     }
+  }
+
+  private ensureCache(contextId: string): LLMMessage[] {
+    if (!this.cache.has(contextId)) {
+      this.cache.set(contextId, []);
+    }
+    return this.cache.get(contextId) as LLMMessage[];
+  }
+
+  private async loadCacheIfNeeded(contextId: string, requested?: number): Promise<LLMMessage[]> {
+    const existing = this.cache.get(contextId);
+    if (existing) {
+      return existing;
+    }
+
+    const maxResults = requested ?? this.initialFetchLimit;
+    const command = new ListEventsCommand({
+      memoryId: this.memoryId,
+      actorId: this.actorId,
+      sessionId: contextId,
+      maxResults,
+    });
+
+    const response = await this.client.send(command);
+    const messages = this.convertEventsToMessages(response.events ?? []);
+    this.cache.set(contextId, messages);
+
+    return messages;
   }
 
   async searchMemories(query: string, options?: { maxResults?: number }): Promise<unknown[]> {

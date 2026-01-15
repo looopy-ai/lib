@@ -10,7 +10,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AgentCoreMemoryMessageStore } from './agentcore-memory-message-store';
 
-const createStore = (send?: ReturnType<typeof vi.fn>) => {
+const createStore = (
+  send?: ReturnType<typeof vi.fn>,
+  options?: { enableLongTerm?: boolean; initialFetchLimit?: number },
+) => {
   const sendMock = send ?? vi.fn().mockResolvedValue({});
   const client = { send: sendMock } as unknown as BedrockAgentCoreClient;
 
@@ -18,7 +21,8 @@ const createStore = (send?: ReturnType<typeof vi.fn>) => {
     memoryId: 'mem-123',
     client,
     agentId: 'actor-1',
-    longTermMemoryNamespace: 'long-term',
+    longTermMemoryNamespace: options?.enableLongTerm ? 'long-term' : undefined,
+    initialFetchLimit: options?.initialFetchLimit,
   });
 
   return { store, sendMock };
@@ -72,7 +76,7 @@ describe('AgentCoreMemoryMessageStore', () => {
       return {};
     });
 
-    const { store } = createStore(sendMock);
+    const { store } = createStore(sendMock, { enableLongTerm: true });
 
     const result = await store.getRecent('ctx-2');
 
@@ -81,6 +85,56 @@ describe('AgentCoreMemoryMessageStore', () => {
     expect(result[0].role).toBe('system');
     expect(result[0].content).toContain('remember to ask');
     expect(result[1]).toMatchObject({ role: 'assistant', content: 'response' });
+  });
+
+  it('lazily loads messages once and serves from cache', async () => {
+    const sendMock = vi.fn(async (command) => {
+      if (command instanceof ListEventsCommand) {
+        return {
+          events: [
+            {
+              payload: [
+                {
+                  conversational: {
+                    role: 'USER',
+                    content: { text: 'hey' },
+                  },
+                },
+              ],
+            },
+          ],
+        };
+      }
+      return {};
+    });
+
+    const { store } = createStore(sendMock, { enableLongTerm: false, initialFetchLimit: 10 });
+
+    const first = await store.getRecent('ctx-4', { maxMessages: 5 });
+    const second = await store.getRecent('ctx-4', { maxMessages: 5 });
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    const listCalls = sendMock.mock.calls.filter(([cmd]) => cmd instanceof ListEventsCommand);
+    expect(listCalls).toHaveLength(1);
+  });
+
+  it('appends write-through to cache and remote', async () => {
+    const sendMock = vi.fn(async (command) => {
+      if (command instanceof ListEventsCommand) {
+        return { events: [] };
+      }
+      return {};
+    });
+    const { store } = createStore(sendMock, { enableLongTerm: false });
+
+    await store.append('ctx-5', [{ role: 'user', content: 'cached' }]);
+
+    const messages = await store.getAll('ctx-5');
+    expect(messages).toEqual([{ role: 'user', content: 'cached' }]);
+
+    const createCalls = sendMock.mock.calls.filter(([cmd]) => cmd instanceof CreateEventCommand);
+    expect(createCalls).toHaveLength(1);
   });
 
   it('clears stored events', async () => {

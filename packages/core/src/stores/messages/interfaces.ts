@@ -85,7 +85,7 @@ export interface MessageStore {
  * Compaction strategy options
  */
 export interface CompactionOptions {
-  /** Keep this many recent messages uncompacted */
+  /** Keep this many recent messages un-compacted */
   keepRecent?: number;
 
   /** Target token budget for compacted history */
