@@ -48,7 +48,7 @@ export class AgentCoreMemoryMessageStore implements MessageStore {
     this.actorId = config.agentId;
     this.includeLongTermMemories = !!config.longTermMemoryNamespace;
     this.longTermMemoryNamespace = config.longTermMemoryNamespace;
-    this.initialFetchLimit = config.initialFetchLimit ?? 500;
+    this.initialFetchLimit = config.initialFetchLimit ?? 50;
     this.client =
       config.client ||
       new BedrockAgentCoreClient({
