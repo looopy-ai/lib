@@ -1,5 +1,13 @@
 # @looopy-ai/core
 
+## 2.1.22
+
+### Patch Changes
+
+- 348ac59: Plugin filtering for each iteration
+- 930c884: Align message store implementations
+- 5e9cc57: Update packages
+
 ## 2.1.21
 
 ### Patch Changes
