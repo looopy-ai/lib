@@ -1,5 +1,16 @@
 # @looopy-ai/aws
 
+## 2.1.25
+
+### Patch Changes
+
+- 930c884: Align message store implementations
+- 5e9cc57: Update packages
+- Updated dependencies [348ac59]
+- Updated dependencies [930c884]
+- Updated dependencies [5e9cc57]
+  - @looopy-ai/core@2.1.22
+
 ## 2.1.24
 
 ### Patch Changes

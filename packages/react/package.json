@@ -1,6 +1,6 @@
 {
   "name": "@looopy-ai/react",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "React UI components for Looopy AI",
   "repository": {
     "url": "https://github.com/looopy-ai/lib"

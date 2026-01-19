@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.10
+
+### Patch Changes
+
+- 5e9cc57: Update packages
+
 ## 1.0.9
 
 ### Patch Changes
