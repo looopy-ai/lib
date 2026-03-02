@@ -27,7 +27,7 @@ if (process.env.OTEL_ENABLED === 'true') {
   initializeTracing({
     serviceName: 'kitchen-sink-agent',
     serviceVersion: '1.0.0',
-    environment: process.env.STAGE || 'dev',
+    stage: process.env.STAGE || 'dev',
     enabled: true,
   });
   console.log('✅ OpenTelemetry tracing enabled');
