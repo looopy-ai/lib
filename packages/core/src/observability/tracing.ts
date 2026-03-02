@@ -31,7 +31,7 @@ export interface TraceContext {
 export interface TelemetryConfig {
   serviceName?: string;
   serviceVersion?: string;
-  environment?: string;
+  stage?: string;
   otlpEndpoint?: string;
   enabled?: boolean;
 }
@@ -152,13 +152,13 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
 
   const serviceName = config?.serviceName || 'looopy';
   const serviceVersion = config?.serviceVersion || '1.0.0';
-  const environment = config?.environment || process.env.NODE_ENV || 'development';
+  const stage = config?.stage || process.env.STAGE || 'dev';
 
   DEFAULT_LOGGER.trace(
     {
       serviceName,
       serviceVersion,
-      environment,
+      stage,
     },
     'Initializing OpenTelemetry tracing',
   );
@@ -166,7 +166,7 @@ export function initializeTracing(config?: TelemetryConfig): Tracer {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: serviceVersion,
-    'deployment.environment': environment,
+    'deployment.environment': stage,
   });
 
   // Configure OTLP exporter

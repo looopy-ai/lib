@@ -17,9 +17,9 @@ export interface LoadSecretsOptions {
   awsRegion?: string;
 
   /**
-   * Environment name (dev, staging, prod). Defaults to ENVIRONMENT env var or "dev"
+   * Stage name (dev, staging, prod). Defaults to STAGE env var or "dev"
    */
-  environment?: string;
+  stage?: string;
 
   /**
    * Prefix for secret IDs. Defaults to "agents"
@@ -45,11 +45,11 @@ export interface LoadSecretsOptions {
  * @param options - Configuration options for loading secrets
  * @throws {SecretsManagerServiceException} If there's an error accessing AWS Secrets Manager
  */
-export async function loadSecrets(options: LoadSecretsOptions): Promise<void> {
+export const loadSecrets = async (options: LoadSecretsOptions): Promise<void> => {
   const {
     secretKeys,
     awsRegion = process.env.AWS_REGION || 'us-west-2',
-    environment = (process.env.ENVIRONMENT || 'dev').toLowerCase(),
+    stage = (process.env.STAGE || 'dev').toLowerCase(),
     secretPrefix = 'agents',
   } = options;
 
@@ -65,7 +65,7 @@ export async function loadSecrets(options: LoadSecretsOptions): Promise<void> {
   }
 
   for (const key of secretKeys) {
-    const secretId = `${secretPrefix}/${environment}/${key}`;
+    const secretId = `${secretPrefix}/${stage}/${key}`;
 
     try {
       const command = new GetSecretValueCommand({ SecretId: secretId });
@@ -100,4 +100,4 @@ export async function loadSecrets(options: LoadSecretsOptions): Promise<void> {
       }
     }
   }
-}
+};
