@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.1.26
+
+### Patch Changes
+
+- 001d957: Change engironment -> stage for more clarity
+- Updated dependencies [001d957]
+  - @looopy-ai/core@2.1.23
+
 ## 2.1.25
 
 ### Patch Changes

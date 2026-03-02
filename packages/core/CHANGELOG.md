@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.23
+
+### Patch Changes
+
+- 001d957: Change engironment -> stage for more clarity
+
 ## 2.1.22
 
 ### Patch Changes
