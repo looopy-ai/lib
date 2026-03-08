@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.24
+
+### Patch Changes
+
+- 913ef17: Materialize skills before use
+
 ## 2.1.23
 
 ### Patch Changes
