@@ -1,7 +1,7 @@
 import { catchError, defer, mergeMap, of } from 'rxjs';
 import z from 'zod';
 import { toolErrorEvent, toolResultToEvents } from '../tools/tool-result-events';
-import type { LLMMessage, MaterializedSkill, Skill } from '../types';
+import type { LLMMessage, Skill } from '../types';
 import type { ExecutionContext } from '../types/context';
 import type { IterationContext, Plugin, SystemPrompt } from '../types/core';
 import type { ToolCall, ToolDefinition } from '../types/tools';
@@ -30,7 +30,7 @@ export type AgentAcademyOptions<AuthContext> = {
    * If provided, this prompt will be added before other messages with positionSequence=100.
    */
   learnSkillPrompt?: (
-    skills: MaterializedSkill[],
+    skills: Skill[],
     context: IterationContext<AuthContext>,
   ) => Promise<string | SystemPrompt>;
 };
@@ -58,6 +58,15 @@ export function agentAcademy<AuthContext>(
   skills: Skill[],
   options?: AgentAcademyOptions<AuthContext>,
 ): Plugin<AuthContext> {
+  const skillMap = new Map<string, Skill>();
+
+  for (const skill of skills) {
+    if (skillMap.has(skill.name)) {
+      throw new Error(`Duplicate skill name: ${skill.name}`);
+    }
+    skillMap.set(skill.name, skill);
+  }
+
   const learnSkillToolDefinition: ToolDefinition = {
     id: learnSkillToolName,
     description: 'Learns a new skill from the available agent academy.',
@@ -76,12 +85,6 @@ export function agentAcademy<AuthContext>(
 
   const learnSkillPromptFn = options?.learnSkillPrompt ?? defaultPrompt;
 
-  const materializedSkillsPromises: Promise<MaterializedSkill>[] = skills.map(async (s) => ({
-    ...s,
-    instruction: await getInstruction(s.instruction),
-  }));
-  const materializedSkills = Promise.all(materializedSkillsPromises);
-
   return {
     name: 'agent-academy',
 
@@ -92,7 +95,7 @@ export function agentAcademy<AuthContext>(
         return [];
       }
 
-      const prompt = await learnSkillPromptFn(await materializedSkills, context);
+      const prompt = await learnSkillPromptFn(skills, context);
       if (typeof prompt === 'string') {
         return [
           {
@@ -140,7 +143,6 @@ export function agentAcademy<AuthContext>(
           });
           const validatedParams = schema.parse(toolCall.function.arguments);
 
-          const skillMap = buildMaterializedSkillMap(await materializedSkills);
           const foundSkill = skillMap.get(validatedParams.name);
 
           if (!foundSkill) {
@@ -199,16 +201,10 @@ export function agentAcademy<AuthContext>(
   };
 }
 
-const buildMaterializedSkillMap = (skills: MaterializedSkill[]): Map<string, MaterializedSkill> => {
-  const map = new Map<string, MaterializedSkill>();
-  skills.forEach((skill) => {
-    map.set(skill.name, skill);
-  });
-  return map;
-};
-
-const defaultPrompt = (skills: MaterializedSkill[]): string => {
-  const skillList = skills.map((skill) => `- **${skill.name}**: ${skill.instruction}`).join('\n');
+const defaultPrompt = (skills: Skill[]): string => {
+  const skillList = skills
+    .map((skill) => `- **${skill.name}**: ${skill.description || 'A useful skill.'}`)
+    .join('\n');
 
   return `You can learn new skills using the learn_skill tool. The available skills are:\n\n${skillList}\n\nTo learn a skill, call the learn_skill tool with the name of the skill you want to learn.`;
 };
