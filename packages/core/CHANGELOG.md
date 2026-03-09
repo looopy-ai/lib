@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.25
+
+### Patch Changes
+
+- b490a00: Revert pre-materializing skills
+
 ## 2.1.24
 
 ### Patch Changes
