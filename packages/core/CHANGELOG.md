@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.1.26
+
+### Patch Changes
+
+- 515e18c: Add card URL to logger context in agent tool execution
+
 ## 2.1.25
 
 ### Patch Changes
