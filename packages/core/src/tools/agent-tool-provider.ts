@@ -114,6 +114,7 @@ export class AgentToolProvider<AuthContext> implements ToolPlugin<AuthContext> {
     const logger = this.logger.child({
       taskId: context.taskId,
       toolCallId: toolCall.id,
+      url: this.card.url,
     });
     logger.debug({ toolCallId: toolCall.id }, 'Executing agent tool call');
 
