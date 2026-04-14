@@ -9,7 +9,7 @@
 
 import type { Context } from '@opentelemetry/api';
 import type pino from 'pino';
-import { catchError, concat, filter, Observable, of, tap } from 'rxjs';
+import { catchError, concat, concatMap, filter, Observable, of, type Subscription } from 'rxjs';
 import { createTaskStatusEvent } from '../events';
 import { isChildTaskEvent } from '../events/utils';
 import {
@@ -113,10 +113,6 @@ export class Agent<AuthContext> {
    * @param parentContext - Parent context to nest the initialization span within
    */
   private async initialize(parentContext: Context): Promise<void> {
-    if (this._state.status !== 'created') {
-      return; // Already initialized
-    }
-
     const { span } = startAgentInitializeSpan({
       agentId: this.config.agentId,
       contextId: this.config.contextId,
@@ -208,13 +204,11 @@ export class Agent<AuthContext> {
     );
 
     try {
-      // Auto-initialize on first turn (will be nested within this span)
-      if (this._state.status === 'created') {
-        await this.initialize(rootContext);
-      }
+      // Capture status before any mutations to avoid TOCTOU race on concurrent calls
+      const priorStatus = this._state.status;
 
-      // Validate state
-      if (this._state.status === 'shutdown') {
+      // Validate state synchronously before any awaits
+      if (priorStatus === 'shutdown') {
         const error = new Error('Cannot execute turn: Agent has been shutdown');
         logger.error(error.message);
 
@@ -231,7 +225,7 @@ export class Agent<AuthContext> {
         );
       }
 
-      if (this._state.status === 'error') {
+      if (priorStatus === 'error') {
         const error = new Error(
           `Cannot execute turn: Agent is in error state: ${this._state.error?.message}`,
         );
@@ -250,7 +244,7 @@ export class Agent<AuthContext> {
         );
       }
 
-      if (this._state.status === 'busy') {
+      if (priorStatus === 'busy') {
         const error = new Error('Cannot execute turn: Agent is already executing a turn');
         logger.error(error.message);
 
@@ -267,9 +261,32 @@ export class Agent<AuthContext> {
         );
       }
 
+      // Claim the busy slot synchronously before any awaits to prevent concurrent turns
+      this._state.status = 'busy';
+
+      // Auto-initialize on first turn (nested within this span)
+      if (priorStatus === 'created') {
+        try {
+          await this.initialize(rootContext);
+        } catch (error) {
+          const err = error as Error;
+          failAgentTurnSpan(rootSpan, err);
+          return of(
+            createTaskStatusEvent({
+              contextId: this.config.contextId,
+              taskId,
+              status: 'failed',
+              message: err.message,
+              metadata: { error: err.message },
+            }),
+          );
+        }
+        // initialize() sets status to 'idle'; reclaim the busy slot
+        this._state.status = 'busy';
+      }
+
       logger.info({ userMessage }, 'Starting turn');
 
-      this._state.status = 'busy';
       this._state.lastActivity = new Date();
       await this.persistState();
 
@@ -324,6 +341,8 @@ export class Agent<AuthContext> {
     return concat(
       // Load messages, execute turn, save results
       new Observable<ContextAnyEvent>((observer) => {
+        let innerSubscription: Subscription | undefined;
+
         const execute = async () => {
           try {
             // 1. Load conversation history
@@ -371,56 +390,58 @@ export class Agent<AuthContext> {
               },
               messages,
             ).pipe(
-              tap(async (event) => {
-                if (isChildTaskEvent(event)) return;
-                switch (event.kind) {
-                  case 'content-complete':
-                    if (event.content || event.toolCalls) {
-                      logger.debug({ event }, 'Saving content-complete to message store');
+              concatMap(async (event) => {
+                if (!isChildTaskEvent(event)) {
+                  switch (event.kind) {
+                    case 'content-complete':
+                      if (event.content || event.toolCalls) {
+                        logger.debug({ event }, 'Saving content-complete to message store');
 
-                      await this.config.messageStore.append(this.config.contextId, [
-                        {
-                          role: 'assistant',
-                          content: event.content,
-                          toolCalls: event.toolCalls?.map((toolCall) => ({
-                            id: toolCall.id,
-                            type: toolCall.type,
-                            function: {
-                              name: toolCall.function.name,
-                              arguments: toolCall.function.arguments || {},
-                            },
-                          })),
-                        },
-                      ]);
+                        await this.config.messageStore.append(this.config.contextId, [
+                          {
+                            role: 'assistant',
+                            content: event.content,
+                            toolCalls: event.toolCalls?.map((toolCall) => ({
+                              id: toolCall.id,
+                              type: toolCall.type,
+                              function: {
+                                name: toolCall.function.name,
+                                arguments: toolCall.function.arguments || {},
+                              },
+                            })),
+                          },
+                        ]);
+                      }
+                      break;
+                    case 'tool-complete': {
+                      logger.debug({ event }, 'Saving tool-complete to message store');
+                      const message: LLMMessage = {
+                        role: 'tool',
+                        content: JSON.stringify({
+                          success: event.success,
+                          result: event.result,
+                          error: event.error,
+                        }),
+                        toolCallId: event.toolCallId,
+                      };
+                      await this.config.messageStore.append(this.config.contextId, [message]);
+                      break;
                     }
-                    break;
-                  case 'tool-complete': {
-                    logger.debug({ event }, 'Saving tool-complete to message store');
-                    const message: LLMMessage = {
-                      role: 'tool',
-                      content: JSON.stringify({
-                        success: event.success,
-                        result: event.result,
-                        error: event.error,
-                      }),
-                      toolCallId: event.toolCallId,
-                    };
-                    await this.config.messageStore.append(this.config.contextId, [message]);
-                    break;
+                    case 'internal:tool-message':
+                      logger.debug({ event }, 'Saving internal:tool-message to message store');
+                      await this.config.messageStore.append(this.config.contextId, [event.message]);
+                      break;
+                    default:
+                      break;
                   }
-                  case 'internal:tool-message':
-                    logger.debug({ event }, 'Saving internal:tool-message to message store');
-                    await this.config.messageStore.append(this.config.contextId, [event.message]);
-                    break;
-                  default:
-                    break;
                 }
+                return event;
               }),
               filter((event) => event.kind !== 'internal:tool-message'),
             );
 
             // Subscribe to turn events
-            turnEvents$.subscribe({
+            innerSubscription = turnEvents$.subscribe({
               next: (event: ContextAnyEvent) => {
                 // Forward events to observer
                 observer.next(event);
@@ -468,10 +489,13 @@ export class Agent<AuthContext> {
         };
 
         execute();
+        return () => {
+          innerSubscription?.unsubscribe();
+        };
       }).pipe(
         catchError((error) => {
           this._state.status = 'error';
-          this._state.error = error;
+          this._state.error = serializeError(error);
           this.persistStateSafely();
 
           // Fail the span for any errors caught in the pipeline
