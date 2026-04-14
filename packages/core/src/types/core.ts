@@ -79,12 +79,15 @@ export type ToolPlugin<AuthContext> = BasePlugin & {
   /**
    * Get available tools from this provider
    */
-  listTools: () => Promise<ToolDefinition[]>;
+  listTools: (context: IterationContext<AuthContext>) => Promise<ToolDefinition[]>;
 
   /**
    * Get tool definition by ID
    */
-  getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
+  getTool: (
+    toolId: string,
+    context: IterationContext<AuthContext>,
+  ) => Promise<ToolDefinition | undefined>;
 
   /**
    * Execute a tool call

@@ -31,6 +31,7 @@ export interface LocalToolDefinition<TSchema extends z.ZodObject, AuthContext> {
   description: string;
   icon?: string;
   schema: TSchema;
+  isEnabled?: (context: ExecutionContext<AuthContext>) => boolean;
   handler: ToolHandler<z.infer<TSchema>, AuthContext>;
 }
 
@@ -124,18 +125,23 @@ export function localTools<AuthContext>(
 
   return {
     name: 'local-tool-provider',
-    listTools: async (): Promise<ToolDefinition[]> =>
-      tools.map((t) => ({
-        id: t.id,
-        description: t.description,
-        icon: t.icon,
-        parameters: zodToJsonSchema(t.schema),
-      })),
+    listTools: async (context): Promise<ToolDefinition[]> =>
+      tools
+        .filter((t) => (t.isEnabled ? t.isEnabled(context) : true))
+        .map((t) => ({
+          id: t.id,
+          description: t.description,
+          icon: t.icon,
+          parameters: zodToJsonSchema(t.schema),
+        })),
 
-    getTool: async (toolName: string): Promise<ToolDefinition | undefined> => {
+    getTool: async (toolName: string, context): Promise<ToolDefinition | undefined> => {
       const toolDef = toolMap.get(toolName);
       if (!toolDef) {
         return undefined;
+      }
+      if (toolDef.isEnabled && !toolDef.isEnabled(context)) {
+        return undefined; // Return undefined if tool is not enabled in the current context
       }
       return {
         id: toolDef.id,
@@ -157,6 +163,16 @@ export function localTools<AuthContext>(
             result: null,
             error: `Tool ${toolCall.function.name} not found`,
           } satisfies ToolResult;
+        }
+
+        if (toolDef.isEnabled && !toolDef.isEnabled(context)) {
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            success: false,
+            result: null,
+            error: `Tool ${toolCall.function.name} is not enabled in the current context`,
+          } satisfies ToolResult; // Return error if tool is not enabled
         }
 
         try {

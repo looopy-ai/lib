@@ -102,7 +102,7 @@ export const runToolCall = <AuthContext>(
     const matchingPlugins = await Promise.all(
       context.plugins.filter(isToolPlugin).map(async (p) => ({
         plugin: p,
-        tool: await p.getTool?.(toolCall.toolName),
+        tool: await p.getTool?.(toolCall.toolName, context),
       })),
     );
 

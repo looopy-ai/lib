@@ -94,7 +94,7 @@ export const runIteration = <AuthContext>(
 
     const systemPrompts = await getSystemPrompts(allowedPlugins, context);
     const messages = await prepareMessages(systemPrompts, history);
-    const tools = await prepareTools(allowedPlugins);
+    const tools = await prepareTools(allowedPlugins, context);
     logger.debug(
       {
         systemPrompts,
@@ -114,8 +114,7 @@ export const runIteration = <AuthContext>(
         tools,
       );
 
-      const metadata = systemPrompts.before
-        .concat(systemPrompts.after)
+      const metadata = [...systemPrompts.before, ...systemPrompts.after]
         .reverse()
         .reduce<Record<string, unknown>>((acc, sp) => {
           if (sp.metadata) {
@@ -220,8 +219,11 @@ const prepareMessages = async (
  * - If a provider fails to return tools, the promise will reject
  * - Duplicate tool names from different providers are not filtered
  */
-const prepareTools = async <AuthContext>(plugins: readonly Plugin<AuthContext>[]) => {
-  const toolPromises = plugins.filter(isToolPlugin).map((p) => p.listTools());
+const prepareTools = async <AuthContext>(
+  plugins: readonly Plugin<AuthContext>[],
+  context: IterationContext<AuthContext>,
+) => {
+  const toolPromises = plugins.filter(isToolPlugin).map((p) => p.listTools(context));
   const toolArrays = await Promise.all(toolPromises);
   return toolArrays.filter(Boolean).flat();
 };

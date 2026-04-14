@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { localTools, tool } from '../src/tools/local-tools';
 import type { ExecutionContext, IterationContext, ToolCall, ToolPlugin } from '../src/types';
+import { mockIterationContext } from './utils';
 
 describe('local-tools', () => {
   describe('tool()', () => {
@@ -111,7 +112,7 @@ describe('local-tools', () => {
 
         const provider = localTools([calculatorTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools).toHaveLength(1);
         expect(tools[0].id).toBe('calculate');
@@ -148,7 +149,7 @@ describe('local-tools', () => {
 
         const provider = localTools([stringTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.properties.name).toEqual({
           type: 'string',
@@ -180,7 +181,7 @@ describe('local-tools', () => {
 
         const provider = localTools([numberTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.properties.age).toEqual({
           type: 'integer',
@@ -211,7 +212,7 @@ describe('local-tools', () => {
 
         const provider = localTools([arrayTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.properties.tags).toEqual({
           type: 'array',
@@ -237,7 +238,7 @@ describe('local-tools', () => {
 
         const provider = localTools([enumTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.properties.role).toEqual({
           type: 'string',
@@ -263,7 +264,7 @@ describe('local-tools', () => {
 
         const provider = localTools([nestedTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.properties.user).toEqual({
           type: 'object',
@@ -297,7 +298,7 @@ describe('local-tools', () => {
 
         const provider = localTools([optionalTool]);
         if (!provider.listTools) expect.fail('listTools not defined');
-        const tools = await provider.listTools();
+        const tools = await provider.listTools(mockIterationContext());
 
         expect(tools[0].parameters.required).toEqual(['required']);
       });
@@ -313,7 +314,7 @@ describe('local-tools', () => {
         });
         const provider = localTools([testTool]);
         if (!provider.getTool) expect.fail('getTool not defined');
-        const toolDef = await provider.getTool('test');
+        const toolDef = await provider.getTool('test', mockIterationContext());
 
         expect(toolDef?.id).toBe('test');
       });
@@ -327,7 +328,7 @@ describe('local-tools', () => {
         });
         const provider = localTools([testTool]);
         if (!provider.getTool) expect.fail('getTool not defined');
-        const toolDef = await provider.getTool('unknown');
+        const toolDef = await provider.getTool('unknown', mockIterationContext());
 
         expect(toolDef).toBeUndefined();
       });

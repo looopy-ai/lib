@@ -8,6 +8,8 @@ import type { LLMMessage } from '../types/message';
 import { recursiveMerge } from '../utils/recursive-merge';
 import { runIteration } from './iteration';
 
+const MAX_REPLAY_BUFFER_SIZE = 1000; // Limit the replay buffer size to prevent memory issues in long-running loops
+
 /**
  * Execute the main agent loop that processes a turn through multiple iterations
  *
@@ -106,7 +108,6 @@ export const runLoop = <AuthContext>(
   const merged$ = recursiveMerge(
     {
       messages: history,
-      completed: false,
       iteration: 0,
     },
     (state) =>
@@ -121,10 +122,11 @@ export const runLoop = <AuthContext>(
       ),
     (state, { events }) => ({
       ...state,
+      iteration: state.iteration + 1,
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
     (e) => !isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
-  ).pipe(shareReplay({ refCount: true }));
+  ).pipe(shareReplay({ bufferSize: MAX_REPLAY_BUFFER_SIZE, refCount: false }));
 
   // Build a final task-complete event from the last content-complete event
   const finalSummary$ = merged$.pipe(
@@ -192,46 +194,36 @@ export const runLoop = <AuthContext>(
  * - Tool complete creates tool message with stringified result or error
  * - Messages are in correct order for LLM consumption
  */
-const eventsToMessages = (events: ContextAnyEvent[]): LLMMessage[] => {
-  const messages: LLMMessage[] = [];
-  for (const event of events) {
-    if (isChildTaskEvent(event)) continue;
+const eventsToMessages = (events: ContextAnyEvent[]): LLMMessage[] =>
+  events.flatMap((event): LLMMessage[] => {
+    if (isChildTaskEvent(event)) return [];
 
     switch (event.kind) {
-      case 'content-complete':
-        if (event.content) {
-          messages.push({
-            role: 'assistant',
-            content: event.content,
-          });
-        }
+      case 'content-complete': {
+        const msgs: LLMMessage[] = event.content
+          ? [{ role: 'assistant', content: event.content }]
+          : [];
         if (event.finishReason === 'tool_calls' && (event.toolCalls?.length ?? 0) > 0) {
-          // If there are tool calls, add an assistant message with toolCalls field
-          messages.push({
-            role: 'assistant',
-            content: '',
-            toolCalls: event.toolCalls,
-          });
+          msgs.push({ role: 'assistant', content: '', toolCalls: event.toolCalls });
         }
-        break;
+        return msgs;
+      }
       case 'tool-complete':
-        messages.push({
-          role: 'tool',
-          name: event.toolName,
-          content: event.success
-            ? event.result
-              ? JSON.stringify(event.result)
-              : 'Success'
-            : event.error || 'Error executing tool',
-          toolCallId: event.toolCallId,
-        });
-        break;
+        return [
+          {
+            role: 'tool',
+            name: event.toolName,
+            content: event.success
+              ? event.result
+                ? JSON.stringify(event.result)
+                : 'Success'
+              : event.error || 'Error executing tool',
+            toolCallId: event.toolCallId,
+          },
+        ];
       case 'internal:tool-message':
-        messages.push(event.message);
-        break;
+        return [event.message];
       default:
-        break;
+        return [];
     }
-  }
-  return messages;
-};
+  });
