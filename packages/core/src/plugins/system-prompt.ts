@@ -1,11 +1,13 @@
 import type { IterationContext, Plugin, SystemPrompt } from '../types/core';
 
-// biome-ignore lint/suspicious/noExplicitAny: type is not used
-export const literalPrompt = <AuthContext = any>(content: string): Plugin<AuthContext> => {
+export const literalPrompt = <AuthContext>(
+  content: string,
+  position: SystemPrompt['position'] = 'before',
+): Plugin<AuthContext> => {
   return {
     name: 'literal-prompt',
     generateSystemPrompts: async () => {
-      return [{ content, position: 'before' }];
+      return [{ content, position }];
     },
   };
 };
