@@ -549,7 +549,7 @@ describe('local-tools', () => {
           },
         });
 
-        expect(receivedContext).toEqual(mockContext);
+        expect(receivedContext).toEqual(expect.objectContaining(mockContext));
       });
 
       it('should handle complex return values', async () => {

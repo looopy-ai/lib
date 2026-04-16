@@ -1,5 +1,12 @@
 import { concat, EMPTY, from, type Observable, of } from 'rxjs';
-import type { AnyEvent, InternalToolMessageEvent, ToolCompleteEvent } from '../types/event';
+import type {
+  AnyEvent,
+  InputType,
+  InternalToolMessageEvent,
+  JSONSchema,
+  ToolCompleteEvent,
+  ToolInputRequiredEvent,
+} from '../types/event';
 import type { ToolCall, ToolResult } from '../types/tools';
 
 export const toolErrorEvent = (toolCall: ToolCall, errorMessage: string): ToolCompleteEvent => ({
@@ -9,6 +16,30 @@ export const toolErrorEvent = (toolCall: ToolCall, errorMessage: string): ToolCo
   success: false,
   result: null,
   error: errorMessage,
+  timestamp: new Date().toISOString(),
+});
+
+export interface ToolInputRequiredSpec {
+  inputId?: string;
+  inputType: InputType;
+  prompt: string;
+  schema?: JSONSchema;
+  options?: unknown[];
+}
+
+export const toolInputRequiredEvent = (
+  toolCall: ToolCall,
+  spec: ToolInputRequiredSpec,
+): ToolInputRequiredEvent => ({
+  kind: 'tool-input-required',
+  toolCallId: toolCall.id,
+  toolName: toolCall.function.name,
+  toolArguments: toolCall.function.arguments,
+  inputId: spec.inputId ?? crypto.randomUUID(),
+  inputType: spec.inputType,
+  prompt: spec.prompt,
+  schema: spec.schema,
+  options: spec.options,
   timestamp: new Date().toISOString(),
 });
 

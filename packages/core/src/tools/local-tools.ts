@@ -10,18 +10,70 @@ import { catchError, defer, mergeMap, of } from 'rxjs';
 import { z } from 'zod';
 import type { ExecutionContext } from '../types/context';
 import type { ToolPlugin } from '../types/core';
+import type { InputType } from '../types/event';
 import type { ToolCall, ToolDefinition, ToolResult } from '../types/tools';
-import { toolErrorEvent, toolResultToEvents } from './tool-result-events';
+import {
+  type ToolInputRequiredSpec,
+  toolErrorEvent,
+  toolInputRequiredEvent,
+  toolResultToEvents,
+} from './tool-result-events';
 
 type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
 
 /**
- * Tool handler function with typed parameters
+ * Returned from a tool handler when the tool needs upstream input before it can continue.
+ * On resume the `resolvedInputs` map in `ExecutionContext` will contain the provided value
+ * keyed by `toolCallId`.
+ */
+export interface InputRequiredResult {
+  inputRequired: ToolInputRequiredSpec;
+}
+
+/**
+ * Helper to construct an `InputRequiredResult` — the return value a tool handler
+ * yields when it needs upstream input.
+ *
+ * @example
+ * ```typescript
+ * handler: async (params, context) => {
+ *   const apiKey = context.resolvedInputs?.get(context.toolCallId);
+ *   if (!apiKey) return inputRequired({ inputType: 'data', prompt: 'Please provide your API key' });
+ *   // use apiKey
+ * }
+ * ```
+ */
+export function inputRequired(
+  spec: Omit<ToolInputRequiredSpec, 'inputType'> & { inputType?: InputType },
+): InputRequiredResult {
+  return {
+    inputRequired: {
+      inputType: 'data',
+      ...spec,
+    } as ToolInputRequiredSpec,
+  };
+}
+
+/**
+ * Type guard for InputRequiredResult
+ */
+function isInputRequiredResult(value: unknown): value is InputRequiredResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'inputRequired' in value &&
+    typeof (value as InputRequiredResult).inputRequired === 'object'
+  );
+}
+
+/**
+ * Tool handler function with typed parameters.
+ * May return an `InputRequiredResult` to pause execution and request upstream input.
  */
 export type ToolHandler<TParams, AuthContext> = (
   params: TParams,
   context: ExecutionContext<AuthContext>,
-) => Promise<InternalToolResult> | InternalToolResult;
+) => Promise<InternalToolResult | InputRequiredResult> | InternalToolResult | InputRequiredResult;
 
 /**
  * Tool definition with Zod schema and handler
@@ -179,8 +231,19 @@ export function localTools<AuthContext>(
           // Arguments should be an object, not a string. If a provider delivers a string, it should parse it before calling this.
           const validatedParams = toolDef.schema.parse(toolCall.function.arguments);
 
+          // Inject toolCallId and resolvedInputs into the execution context
+          const execContext: ExecutionContext<AuthContext> = {
+            ...context,
+            toolCallId: toolCall.id,
+          };
+
           // Execute handler with validated params
-          const result = await toolDef.handler(validatedParams, context);
+          const result = await toolDef.handler(validatedParams, execContext);
+
+          // If the handler wants input, emit tool-input-required instead of tool-complete
+          if (isInputRequiredResult(result)) {
+            return toolInputRequiredEvent(toolCall, result.inputRequired);
+          }
 
           return {
             toolCallId: toolCall.id,
@@ -213,7 +276,13 @@ export function localTools<AuthContext>(
           } satisfies ToolResult;
         }
       }).pipe(
-        mergeMap((result) => toolResultToEvents(result)),
+        mergeMap((result) => {
+          // tool-input-required events are forwarded directly (not wrapped in toolResultToEvents)
+          if ('kind' in result && result.kind === 'tool-input-required') {
+            return of(result);
+          }
+          return toolResultToEvents(result as ToolResult);
+        }),
         catchError((error) =>
           of(toolErrorEvent(toolCall, error instanceof Error ? error.message : String(error))),
         ),

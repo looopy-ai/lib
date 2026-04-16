@@ -1,7 +1,32 @@
 import type { MessageStore } from '../stores/messages';
 import type { SerializedError } from '../utils/error';
 import type { FilterPlugins, Plugin } from './core';
+import type { InputType, JSONSchema } from './event';
 import type { LLMProvider } from './llm';
+
+/**
+ * A pending tool-input-required entry — saved to AgentState so it survives across turns.
+ */
+export interface PendingToolInput {
+  /** The public-facing ID the consumer uses to supply the resolved value */
+  inputId: string;
+  /** The internal tool call ID; used to re-call the tool on resume */
+  toolCallId: string;
+  toolName: string;
+  /** Original arguments; passed back to the tool on resume */
+  toolArguments: Record<string, unknown>;
+  taskId: string;
+  inputType: InputType;
+  prompt: string;
+  schema?: JSONSchema;
+  options?: unknown[];
+  /**
+   * When `true`, the interrupt was originated by an intercepted `request_input`
+   * LLM tool call.  On resume the agent injects a synthetic `tool-complete`
+   * carrying the resolved value rather than re-calling the tool.
+   */
+  isLlmRequest?: boolean;
+}
 
 /**
  * Agent configuration
@@ -43,7 +68,7 @@ export interface AgentConfig<AuthContext> {
  */
 export interface AgentState {
   /** Agent lifecycle status */
-  status: 'created' | 'idle' | 'busy' | 'shutdown' | 'error';
+  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;
@@ -56,6 +81,12 @@ export interface AgentState {
 
   /** Error if in error state */
   error?: SerializedError;
+
+  /**
+   * Tool input requests that are paused waiting for upstream resolution.
+   * Present only when status === 'waiting-input'.
+   */
+  pendingToolInputs?: PendingToolInput[];
 
   /** Metadata */
   metadata?: Record<string, unknown>;

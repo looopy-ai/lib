@@ -2,7 +2,7 @@
 
 This document lists features that are **not yet implemented** and should be evaluated for future development.
 
-**Last Updated**: November 5, 2025
+**Last Updated**: April 2026
 
 ## Current Implementation Status
 
@@ -21,8 +21,9 @@ This document lists features that are **not yet implemented** and should be eval
 
 **Tool System**:
 - LocalToolProvider (server-side function execution)
-- ClientToolProvider (client-side delegation via A2A input-required)
+- Tool-input-required interrupt pattern (`inputRequired()` helper, `requestInputPlugin()`, `waiting-input` state)
 - MCPToolProvider (integration with MCP servers)
+- AgentToolProvider (sub-agent as tool via SSE)
 - Parallel tool execution with configurable concurrency (default: 5)
 - Tool definition interfaces
 
@@ -53,9 +54,9 @@ This document lists features that are **not yet implemented** and should be eval
 - Comprehensive span hierarchy (agent.turn → agent.execute → iteration → llm/tools)
 
 **Testing**:
-- 103 tests passing
+- 270+ tests passing
 - Unit tests for core components
-- Integration tests for tool plugins
+- Integration tests for tool plugins, agent lifecycle, and input-required flows
 - Artifact store tests
 
 ### 🚧 Partially Implemented

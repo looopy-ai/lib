@@ -1,5 +1,7 @@
 import { concat, defer, filter, map, mergeMap, type Observable, shareReplay } from 'rxjs';
 import { startLLMCallSpan, startLoopIterationSpan } from '../observability/spans';
+import { REQUEST_INPUT_TOOL_NAME } from '../tools/request-input-tool';
+import { toolInputRequiredEvent } from '../tools/tool-result-events';
 import {
   type IterationConfig,
   type IterationContext,
@@ -149,19 +151,54 @@ export const runIteration = <AuthContext>(
     shareReplay({ refCount: true }),
   );
 
-  // If tool call, execute tools
+  // If tool call, execute tools (or intercept request_input)
   const toolEvents$ = llmEvents$.pipe(
     filter((event): event is ContextEvent<ToolCallEvent> => event.kind === 'tool-call'),
-    mergeMap((event) =>
-      runToolCall(
+    mergeMap((event) => {
+      // ── request_input intercept ────────────────────────────────────────────
+      // When the LLM calls `request_input`, we convert the call directly into
+      // a `tool-input-required` event without routing it through `runToolCall`.
+      // The stop condition in `loop.ts` will then halt the loop gracefully.
+      if (event.toolName === REQUEST_INPUT_TOOL_NAME) {
+        const toolCall = {
+          id: event.toolCallId,
+          type: 'function' as const,
+          function: {
+            name: event.toolName,
+            arguments: event.arguments,
+          },
+        };
+        const intercepted = toolInputRequiredEvent(toolCall, {
+          inputType:
+            (event.arguments?.input_type as
+              | 'confirmation'
+              | 'clarification'
+              | 'selection'
+              | 'data') ?? 'data',
+          prompt: String(event.arguments?.prompt ?? 'Input required'),
+          options: event.arguments?.options as unknown[] | undefined,
+          schema: event.arguments?.schema as import('../types/event').JSONSchema | undefined,
+        });
+        return [
+          {
+            contextId: context.contextId,
+            taskId: context.taskId,
+            path: undefined,
+            ...intercepted,
+          } as ContextAnyEvent,
+        ];
+      }
+
+      // ── normal tool call ──────────────────────────────────────────────────
+      return runToolCall(
         {
           ...context,
           logger: context.logger.child({ iteration: config.iterationNumber }),
           parentContext: iterationContext,
         },
         event,
-      ),
-    ),
+      );
+    }),
   );
 
   return concat(

@@ -12,4 +12,5 @@ export * from './agent-tool-provider';
 export * from './artifact-tools';
 export * from './local-tools';
 export * from './mcp-tool-provider';
+export * from './request-input-tool';
 export * from './tool-result-events';

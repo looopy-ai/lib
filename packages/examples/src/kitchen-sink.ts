@@ -535,6 +535,9 @@ async function main() {
       case 'thought-stream':
         handleThoughtEvent(event);
         break;
+      case 'tool-input-required':
+        console.log(chalk.yellow(`\n⏸️  ${event.toolName}: ${event.prompt}`));
+        break;
     }
   }
 
@@ -567,6 +570,8 @@ async function main() {
       console.log('⏳ Working...');
     } else if (status === 'completed' && event.message) {
       console.log(`🤖 ${event.message}`);
+    } else if (status === 'waiting-input') {
+      console.log('⏸️  Waiting for input...');
     } else if (status === 'failed') {
       console.error('❌ Error:', event.message || 'Unknown error');
     }
@@ -579,8 +584,56 @@ async function main() {
     prompt: '> ',
   });
 
-  // Handle user input
-  rl.prompt();
+  /** Promisified readline.question for collecting a single value inline. */
+  const question = (prompt: string): Promise<string> =>
+    new Promise((resolve) => rl.question(prompt, resolve));
+
+  /**
+   * Execute a turn (normal or resume) and handle waiting-input recursively
+   * until the agent reaches idle.
+   */
+  async function executeTurn(
+    userMessage: string | null,
+    inputs?: Array<{ inputId: string; value: unknown }>,
+  ): Promise<void> {
+    const events$ = await agent.startTurn(userMessage, inputs?.length ? { inputs } : undefined);
+    await new Promise<void>((resolve, reject) => {
+      events$.subscribe({
+        next: (event) => {
+          void handleAgentEvent(event);
+        },
+        error: reject,
+        complete: resolve,
+      });
+    });
+    if (agent.state.status === 'waiting-input') {
+      await handleWaitingInput();
+    }
+  }
+
+  /**
+   * Prompt the user for each pending tool input then resume the agent loop.
+   */
+  async function handleWaitingInput(): Promise<void> {
+    const pending = agent.state.pendingToolInputs ?? [];
+    if (pending.length === 0) return;
+
+    console.log('\n⏸️  Agent is waiting for input:\n');
+    const inputs: Array<{ inputId: string; value: unknown }> = [];
+
+    for (const p of pending) {
+      let prompt = `  [${p.toolName}] ${p.prompt}`;
+      if (p.options?.length) {
+        prompt += ` (${(p.options as string[]).join(' / ')})`;
+      }
+      prompt += '\n  > ';
+      const value = await question(prompt);
+      inputs.push({ inputId: p.inputId, value: value.trim() });
+    }
+
+    console.log('');
+    await executeTurn(null, inputs);
+  }
 
   rl.on('line', async (line) => {
     const input = line.trim();
@@ -599,26 +652,12 @@ async function main() {
     // Process user message
     try {
       console.log('');
-      const events$ = await agent.startTurn(input);
-
-      // Subscribe to events
-      events$.subscribe({
-        next: (event) => handleAgentEvent(event),
-        error: async (err) => {
-          console.error('\n❌ Error:', err.message);
-          console.log('');
-          rl.prompt();
-        },
-        complete: async () => {
-          console.log('');
-          rl.prompt();
-        },
-      });
+      await executeTurn(input);
     } catch (error) {
       console.error('❌ Error:', (error as Error).message);
-      console.log('');
-      rl.prompt();
     }
+    console.log('');
+    rl.prompt();
   });
 
   rl.on('close', () => {

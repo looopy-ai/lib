@@ -7,7 +7,7 @@
 - **Agent** - Multi-turn conversation manager (stateful)
   - Manages message history via MessageStore
   - Persists artifacts via ArtifactStore
-  - Lifecycle: created → ready → busy → ready
+  - Lifecycle: `created → idle → busy → idle` (normal), `busy → waiting-input` (tool needs input)
   - Lazy initialization on first turn
 
 - **AgentLoop** - Single-turn execution engine (stateless)

@@ -10,6 +10,7 @@
     "agentcore:client": "tsx src/agentcore-client.ts",
     "example": "tsx src/kitchen-sink.ts",
     "kitchen-sink": "tsx src/kitchen-sink.ts",
+    "input-required": "tsx src/input-required.ts",
     "server": "tsx src/sse-server.ts",
     "client2": "tsx src/sse-client2.ts",
     "example:litellm": "tsx src/litellm-agent.ts",

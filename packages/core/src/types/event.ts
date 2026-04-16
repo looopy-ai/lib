@@ -173,6 +173,23 @@ export type ContentStreamingEvent = ContentDeltaEvent | ContentCompleteEvent;
 // ============================================================================
 
 /**
+ * Tool execution needs upstream input to continue — replaces tool-complete for this call.
+ * The toolArguments are preserved so the tool can be re-called on resume.
+ */
+export interface ToolInputRequiredEvent {
+  kind: 'tool-input-required';
+  toolCallId: string;
+  toolName: string;
+  toolArguments: Record<string, unknown>; // Original args preserved for re-call on resume
+  inputId: string; // Unique ID for this input request (used by caller to supply the value)
+  inputType: InputType;
+  prompt: string; // Human-readable description of what is needed
+  schema?: JSONSchema; // If the input has a specific schema
+  options?: unknown[]; // For selection-type inputs
+  timestamp: string;
+}
+
+/**
  * Tool execution requested by llm
  */
 export interface ToolCallEvent {
@@ -244,11 +261,13 @@ export interface ToolCompleteEvent {
 /**
  * Union of all tool execution events
  */
+// NOTE: ToolInputRequiredEvent replaces ToolCompleteEvent for an interrupted tool call.
 export type ToolExecutionEvent =
   | ToolCallEvent
   | ToolStartEvent
   | ToolProgressEvent
-  | ToolCompleteEvent;
+  | ToolCompleteEvent
+  | ToolInputRequiredEvent;
 
 // ============================================================================
 // 4. Input Request Events
@@ -591,6 +610,10 @@ export type AnyEvent =
   | InternalDebugEvent
   | UsageEvent
   | MessageEvent;
+
+export function isToolInputRequiredEvent(event: AnyEvent): event is ToolInputRequiredEvent {
+  return event.kind === 'tool-input-required';
+}
 
 /**
  * Adds context/task identifiers to an event shape.

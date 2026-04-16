@@ -156,6 +156,13 @@ interface Agent {
     options?: {
       authContext?: AuthContext;
       taskId?: string;
+      metadata?: Record<string, unknown>;
+      /**
+       * Resolved inputs for a waiting-input resume.
+       * Each entry maps an inputId to the resolved value.
+       * If omitted while waiting-input, a userMessage cancels pending tools.
+       */
+      inputs?: Array<{ inputId: string; value: unknown }>;
     }
   ): Promise<Observable<AgentEvent>>;
 
@@ -187,7 +194,7 @@ interface Agent {
 
 interface AgentState {
   /** Agent lifecycle status */
-  status: 'created' | 'ready' | 'busy' | 'shutdown' | 'error';
+  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;
@@ -199,7 +206,10 @@ interface AgentState {
   createdAt: Date;
 
   /** Error if in error state */
-  error?: Error;
+  error?: SerializedError;
+
+  /** Pending tool inputs when status is waiting-input */
+  pendingToolInputs?: PendingToolInput[];
 
   /** Metadata */
   metadata?: Record<string, unknown>;

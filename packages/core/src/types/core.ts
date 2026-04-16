@@ -29,7 +29,13 @@ export type TurnContext<AuthContext> = AgentContext<AuthContext> &
 
 export type LoopContext<AuthContext> = TurnContext<AuthContext>;
 
-export type IterationContext<AuthContext> = TurnContext<AuthContext>;
+export type IterationContext<AuthContext> = TurnContext<AuthContext> & {
+  /**
+   * When resuming after a `tool-input-required` interrupt, resolved inputs are passed here.
+   * Keys are `toolCallId`s; values are whatever the upstream caller provided.
+   */
+  resolvedInputs?: Map<string, unknown>;
+};
 
 export type LoopConfig<AuthContext> = {
   filterPlugins: FilterPlugins<AuthContext> | undefined;

@@ -142,13 +142,17 @@ export const runToolCall = <AuthContext>(
         return plugin.executeTool(toolCallInput, context).pipe(
           tap((event) => {
             if (isChildTaskEvent(event)) return;
-            if (event.kind !== 'tool-complete') {
-              return;
+            if (event.kind === 'tool-complete') {
+              logger.trace(
+                { providerName: plugin.name, success: event.success },
+                'Tool execution complete',
+              );
+            } else if (event.kind === 'tool-input-required') {
+              logger.trace(
+                { providerName: plugin.name, inputId: event.inputId },
+                'Tool execution paused — input required',
+              );
             }
-            logger.trace(
-              { providerName: plugin.name, success: event.success },
-              'Tool execution complete',
-            );
           }),
           tapFinish,
           catchError((error) => {

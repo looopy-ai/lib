@@ -78,7 +78,7 @@ The main exports from this package include:
 - **runLoop**: The core loop execution function (used internally by Agent)
 - **Stores**: `FileSystemAgentStore`, `FileSystemMessageStore`, `FileSystemArtifactStore`, `FileSystemContextStore`, `FileSystemStateStore`, and in-memory alternatives
 - **Providers**: `LiteLLMProvider` for LLM integration
-- **Tools**: `localTools`, `mcp`, `AgentToolProvider`, `createArtifactTools` for tool plugins
+- **Tools**: `localTools`, `tool`, `inputRequired`, `mcp`, `AgentToolProvider`, `createArtifactTools`, `requestInputPlugin`, `REQUEST_INPUT_TOOL_NAME` for tool plugins
 - **Plugins**: `literalPrompt`, `asyncPrompt` for system prompt injection, `agentAcademy` for skill learning
 - **Server**: `SSEServer`, `EventRouter`, `EventBuffer` for HTTP/SSE streaming
 - **Observability**: OpenTelemetry tracing and structured logging via pino

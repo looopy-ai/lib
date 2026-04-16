@@ -113,6 +113,55 @@ const withHeaders = await AgentToolProvider.fromUrl('https://agent.example.com/c
 
 SSE payloads are forwarded as `AnyEvent` with `parentTaskId`/`path` preserved so they can be multiplexed with local tool activity.
 
+## Requesting Input from a Tool
+
+A local tool handler can pause the agent loop and ask for upstream input (credentials, confirmations, clarifications) by returning `inputRequired(...)` instead of a normal result. The agent saves the pending state, emits a `task-status: waiting-input` event, and halts until the caller resumes.
+
+```typescript
+import { inputRequired, localTools, tool } from '@looopy-ai/core';
+import { z } from 'zod';
+
+const credentialTool = tool({
+  id: 'use_api',
+  description: 'Call an external API that needs a key',
+  schema: z.object({ endpoint: z.string() }),
+  handler: async (params, ctx) => {
+    // Check whether the key was already provided on a prior resume
+    const apiKey = ctx.resolvedInputs?.get(ctx.toolCallId ?? '');
+    if (!apiKey) {
+      return inputRequired({ inputType: 'data', prompt: 'Provide your API key' });
+    }
+    return { success: true, result: `called ${params.endpoint} with key` };
+  },
+});
+```
+
+The `inputRequired` helper accepts:
+- `inputType`: `'data'` (default) | `'confirmation'` | `'clarification'` | `'selection'`
+- `prompt`: Human-readable description of what's needed.
+- `schema?`: JSON Schema constraining the expected answer.
+- `options?`: List of choices for `selection` type.
+
+When the consumer supplies the resolved value the tool is re-invoked automatically with `ctx.resolvedInputs?.get(ctx.toolCallId)` set.
+
+## LLM-Initiated Input Requests
+
+Add `requestInputPlugin()` to let the LLM call `request_input` directly when it needs clarification. The call is **intercepted** before execution and surfaced as a `tool-input-required` event — the defensive `executeTool` on the plugin is never reached in normal operation.
+
+```typescript
+import { requestInputPlugin, REQUEST_INPUT_TOOL_NAME } from '@looopy-ai/core';
+
+const agent = new Agent({
+  plugins: [
+    requestInputPlugin(),
+    localTools([credentialTool]),
+  ],
+  // ...
+});
+```
+
+On resume, `startTurn(null, { inputs: [{ inputId, value }] })` injects a synthetic `tool-complete` into the message history so the LLM receives the answer on the next iteration.
+
 ## Custom Providers
 
 Emit tool lifecycle events directly or via `toolResultToEvents`:

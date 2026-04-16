@@ -6,9 +6,10 @@ Looopy AI provides a powerful, stream-based architecture for creating advanced A
 
 ## Core Packages
 
-- **`@looopy-ai/core`**: The heart of the framework, providing the core `Agent` class and `runLoop` function, along with tools for building custom agents.
-- **`@looopy-ai/aws`**: Integrations for AWS services, including Bedrock for LLM providers and S3 for artifact storage.
-- **`@looopy-ai/examples`**: A collection of examples to help you get started with the framework.
+- **`@looopy-ai/core`**: The heart of the framework — the `Agent` class, `runLoop` function, tool/prompt plugins, streaming helpers, and stores.
+- **`@looopy-ai/aws`**: AWS integrations: DynamoDB agent state store, Bedrock AgentCore memory message store, Secrets Manager helpers, and an AgentCore-compatible runtime server.
+- **`@looopy-ai/react`**: React components and conversation reducer for building chat UIs.
+- **`@looopy-ai/examples`**: Working examples to get started.
 
 ## Getting Started
 
@@ -49,12 +50,8 @@ const tools = localTools([
 ]);
 
 const promptPlugin = literalPrompt('You are a helpful assistant.');
-// or
-const promptPlugin = asyncPrompt(async ({authContext}) => {
-// load prompt from langfuse or similar prompt manager
-// inject user's name from authContext
-return prompt;
-});
+// Dynamic prompts (e.g. loading from a prompt manager or injecting user info):
+// const promptPlugin = asyncPrompt(async ({ authContext }) => myPromptFn(authContext));
 
 // Create a new agent
 const agent = new Agent({

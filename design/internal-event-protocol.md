@@ -408,24 +408,28 @@ interface ToolCompleteEvent {
 
 ### 4. Input Request Events
 
-#### `input-required`
+#### `tool-input-required`
 
-Agent needs input to continue.
+A tool (or the LLM via `request_input`) needs upstream input before execution can resume. The loop stops and the agent enters `waiting-input` status. Resume by calling `startTurn(null, { inputs: [{ inputId, value }] })`.
 
 ```typescript
-interface InputRequiredEvent {
-  kind: 'input-required';
+type InputType = 'confirmation' | 'clarification' | 'selection' | 'data';
+
+interface ToolInputRequiredEvent {
+  kind: 'tool-input-required';
   contextId: string;
   taskId: string;
-  inputId: string;               // Unique ID for this input request
-  requireUser?: boolean;         // If true, MUST go to user; if false/undefined, coordinator can handle
-  inputType: 'tool-execution' | 'confirmation' | 'clarification' | 'selection' | 'custom';
+  toolCallId: string;            // LLM tool-call ID being paused
+  toolName: string;              // Name of the tool that requested input
+  toolArguments: Record<string, unknown>; // Original arguments passed by LLM
+  inputId: string;               // Unique ID; pass back in startTurn inputs[]
+  inputType: InputType;          // Nature of the required value
   prompt: string;                // What is being requested
-  schema?: JSONSchema;           // Expected input structure
-  options?: unknown[];           // For selection type
+  schema?: JSONSchema;           // Expected structure for 'data' type
+  options?: unknown[];           // Choices for 'selection' type
   timestamp: string;
+  // (legacy fields below — kept for reference; not used in current implementation)
   metadata?: {
-    toolCall?: ToolCall;         // If inputType is 'tool-execution'
     urgency?: 'low' | 'medium' | 'high';
     timeout?: number;            // Timeout in seconds
     [key: string]: unknown;

@@ -6,7 +6,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
 
-    "target": "ES5",
+    "target": "esnext",
     "module": "ESNext",
     "moduleResolution": "bundler",
 

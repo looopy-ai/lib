@@ -3,7 +3,13 @@ import { createTaskCompleteEvent, createTaskCreatedEvent, createTaskStatusEvent 
 import { isChildTaskEvent } from '../events/utils';
 import { startAgentLoopSpan } from '../observability/spans';
 import type { LoopConfig, LoopContext } from '../types/core';
-import type { ContentCompleteEvent, ContextAnyEvent, ContextEvent } from '../types/event';
+import type {
+  ContentCompleteEvent,
+  ContextAnyEvent,
+  ContextEvent,
+  ToolInputRequiredEvent,
+} from '../types/event';
+import { isToolInputRequiredEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import { recursiveMerge } from '../utils/recursive-merge';
 import { runIteration } from './iteration';
@@ -73,6 +79,8 @@ const MAX_REPLAY_BUFFER_SIZE = 1000; // Limit the replay buffer size to prevent 
  * - Converts events from each iteration to messages for the next iteration
  * - Tool calls result in new iterations with tool results added to message history
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
+ * - The loop also stops when any tool emits a `tool-input-required` event; the final
+ *   event instead of `task-complete` is `task-status: waiting-input`
  */
 export const runLoop = <AuthContext>(
   context: LoopContext<AuthContext>,
@@ -125,24 +133,51 @@ export const runLoop = <AuthContext>(
       iteration: state.iteration + 1,
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
-    (e) => !isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls',
+    (e) =>
+      (!isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls') ||
+      (!isChildTaskEvent(e) && e.kind === 'tool-input-required'),
   ).pipe(shareReplay({ bufferSize: MAX_REPLAY_BUFFER_SIZE, refCount: false }));
 
-  // Build a final task-complete event from the last content-complete event
+  // Build a final task-complete or task-waiting-input event
   const finalSummary$ = merged$.pipe(
-    // Accumulate the last seen content-complete event (if any)
-    reduce<ContextAnyEvent, ContextEvent<ContentCompleteEvent> | null>(
-      (last, e) => (!isChildTaskEvent(e) && e.kind === 'content-complete' ? e : last),
-      null,
+    reduce<
+      ContextAnyEvent,
+      {
+        lastComplete: ContextEvent<ContentCompleteEvent> | null;
+        pendingInputs: ContextEvent<ToolInputRequiredEvent>[];
+      }
+    >(
+      (acc, e) => {
+        if (isChildTaskEvent(e)) return acc;
+        if (e.kind === 'content-complete') return { ...acc, lastComplete: e };
+        if (isToolInputRequiredEvent(e))
+          return { ...acc, pendingInputs: [...acc.pendingInputs, e] };
+        return acc;
+      },
+      { lastComplete: null, pendingInputs: [] },
     ),
-    mergeMap((last) => {
-      if (!last) return EMPTY;
+    mergeMap(({ lastComplete, pendingInputs }) => {
+      if (pendingInputs.length > 0) {
+        // At least one tool is waiting for input — surface a waiting-input status
+        return of(
+          createTaskStatusEvent({
+            contextId: context.contextId,
+            taskId: context.taskId,
+            status: 'waiting-input',
+            metadata: {
+              pendingInputIds: pendingInputs.map((e) => e.inputId),
+              pendingToolNames: pendingInputs.map((e) => e.toolName),
+            },
+          }),
+        );
+      }
+      if (!lastComplete) return EMPTY;
       return of(
         createTaskCompleteEvent({
           contextId: context.contextId,
           taskId: context.taskId,
-          content: last.content,
-          metadata: { finishReason: last.finishReason },
+          content: lastComplete.content,
+          metadata: { finishReason: lastComplete.finishReason },
         }),
       );
     }),
@@ -194,7 +229,7 @@ export const runLoop = <AuthContext>(
  * - Tool complete creates tool message with stringified result or error
  * - Messages are in correct order for LLM consumption
  */
-const eventsToMessages = (events: ContextAnyEvent[]): LLMMessage[] =>
+export const eventsToMessages = (events: ContextAnyEvent[]): LLMMessage[] =>
   events.flatMap((event): LLMMessage[] => {
     if (isChildTaskEvent(event)) return [];
 
