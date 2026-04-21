@@ -105,24 +105,29 @@ Implementation should be organized as:
 
 ```
 packages/
-├── core/              # Agent and AgentLoop
+├── core/              # Core framework
 │   ├── src/
-│   │   ├── agent.ts       # Multi-turn conversation manager
-│   │   ├── agent-loop.ts  # Single-turn execution engine (includes checkpointing)
-│   │   ├── operators/     # RxJS operator factories
-│   │   ├── types.ts       # Core type definitions
-│   │   └── ...
+│   │   ├── auth/          # Secure credential handoff (ECDH, JWE, PKCE OAuth)
+│   │   ├── core/          # Agent, runLoop, iteration, logger
+│   │   ├── events/        # Event factories and utilities
+│   │   ├── observability/ # OpenTelemetry spans
+│   │   ├── plugins/       # System prompts and agent academy (skills)
+│   │   ├── providers/     # LLM providers (LiteLLM, chat-completions)
+│   │   ├── server/        # SSE server, event routing, shutdown
+│   │   ├── stores/        # Message, artifact, agent-state stores
+│   │   ├── tools/         # Tool plugins (local, MCP, agent, artifact)
+│   │   ├── types/         # Shared type definitions
+│   │   └── utils/         # Shared utilities
 │   └── tests/
 ├── aws/               # AWS-specific integrations
 │   └── src/
 │       └── ...
-├── examples/          # Example usage and demos
+├── react/             # React UI components and conversation reducer
 │   └── src/
-│       └── kitchen-sink.ts
-└── a2a/               # A2A protocol (not yet implemented)
+│       └── ...
+└── examples/          # Example usage and demos
     └── src/
-        ├── server.ts      # SSE server
-        └── client.ts      # SSE client
+        └── kitchen-sink.ts
 ```
 
 ### 6. Progress Tracking and Completion Summaries

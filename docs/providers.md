@@ -27,6 +27,15 @@ const provider = new LiteLLMProvider({
 });
 ```
 
+A `LiteLLM` preset factory is also exported with convenience methods for common models:
+
+```typescript
+import { LiteLLM } from '@looopy-ai/core';
+
+const provider = LiteLLM.novaLite('http://localhost:4000');
+// also: LiteLLM.novaMicro, LiteLLM.gpt4, LiteLLM.gpt4Turbo, etc.
+```
+
 ### AWS Bedrock via LiteLLM
 
 The `@looopy-ai/aws` package provides AWS-specific stores and runtime helpers, but LLM providers are typically configured through LiteLLM. You can use Bedrock models via LiteLLM by configuring the model name:
@@ -47,7 +56,7 @@ To create a custom LLM provider, implement the `LLMProvider` interface:
 ```typescript
 export interface LLMProvider {
   call(request: {
-    messages: Message[];
+    messages: LLMMessage[];
     tools?: ToolDefinition[];
     stream?: boolean;
     sessionId?: string;
@@ -107,18 +116,30 @@ const filesystemTools = new McpToolProvider({
 
 ### Creating a Custom Plugin
 
-To create a custom plugin, implement any of the optional hooks below:
+`Plugin<AuthContext>` is a union of two distinct plugin types:
 
 ```typescript
-export type Plugin<AuthContext> = {
+export type Plugin<AuthContext> = SystemPromptPlugin<AuthContext> | ToolPlugin<AuthContext>;
+
+// Injects system prompts before the LLM call
+export type SystemPromptPlugin<AuthContext> = {
   readonly name: string;
   readonly version?: string;
-  generateSystemPrompts?: (
+  generateSystemPrompts: (
     context: IterationContext<AuthContext>,
   ) => SystemPrompt[] | Promise<SystemPrompt[]>;
-  getTool?: (toolId: string) => Promise<ToolDefinition | undefined>;
-  listTools?: () => Promise<ToolDefinition[]>;
-  executeTool?: (
+};
+
+// Provides tools the LLM can call
+export type ToolPlugin<AuthContext> = {
+  readonly name: string;
+  readonly version?: string;
+  listTools: (context: IterationContext<AuthContext>) => Promise<ToolDefinition[]>;
+  getTool: (
+    toolId: string,
+    context: IterationContext<AuthContext>,
+  ) => Promise<ToolDefinition | undefined>;
+  executeTool: (
     toolCall: ToolCall,
     context: IterationContext<AuthContext>,
   ) => Observable<ContextAnyEvent | AnyEvent>;
@@ -134,12 +155,15 @@ Use the `AgentToolProvider` to invoke another agent that exposes a card endpoint
 ```typescript
 import { Agent, AgentToolProvider } from '@looopy-ai/core';
 
-const remoteAgent = AgentToolProvider.from({
-  name: 'Research Copilot',
-  description: 'Multi-tool research assistant',
-  url: 'https://agent.example.com',
-  skills: [{ name: 'search', description: 'Web search' }],
-});
+const remoteAgent = AgentToolProvider.from(
+  {
+    name: 'Research Copilot',
+    description: 'Multi-tool research assistant',
+    url: 'https://agent.example.com',
+    skills: [{ name: 'search', description: 'Web search' }],
+  },
+  // optional: async (context, card) => ({ Authorization: `Bearer ${token}` }),
+);
 
 const agent = new Agent({
   // ...

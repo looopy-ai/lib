@@ -2,18 +2,18 @@
 
 ## Project Architecture Overview
 
-**Looopy** is an RxJS-based AI agent framework with two core classes:
+**Looopy** is an RxJS-based AI agent framework with two core execution primitives:
 
-- **Agent** - Multi-turn conversation manager (stateful)
+- **Agent** - Multi-turn conversation manager (stateful class)
   - Manages message history via MessageStore
   - Persists artifacts via ArtifactStore
   - Lifecycle: `created → idle → busy → idle` (normal), `busy → waiting-input` (tool needs input)
   - Lazy initialization on first turn
 
-- **AgentLoop** - Single-turn execution engine (stateless)
+- **`runLoop`** - Single-turn execution engine (stateless function)
   - Operator-based RxJS pipeline
   - Executes one complete LLM reasoning cycle
-  - Operated by Agent class
+  - Invoked by Agent class per turn
   - No conversation memory between calls
 
 ## Where Does This Go?
@@ -143,11 +143,11 @@ import { InMemoryMessageStore, InMemoryArtifactStore } from 'looopy/stores';
 
 // Create agent (lazy initialization on first turn)
 const agent = new Agent({
+  agentId: 'my-agent',
   contextId: 'user-123-session-456',
   llmProvider: new LiteLLMProvider({ model: 'gpt-4' }),
-  toolProviders: [localTools],
+  plugins: [localTools],
   messageStore: new InMemoryMessageStore(),
-  artifactStore: new InMemoryArtifactStore(),
 });
 
 // Turn 1 - Auto-initializes

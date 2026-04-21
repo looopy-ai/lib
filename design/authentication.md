@@ -1,865 +1,164 @@
-# Authentication & Security
+# Authentication & Secure Credential Handoff
 
 ## Overview
 
-Looopy provides a flexible authentication framework that supports:
+When an agent needs external credentials it cannot obtain itself (OAuth tokens, API keys, passwords), it pauses execution and emits an `auth-required` event. The client encrypts the credential using the agent's ephemeral public key and returns it via `startTurn()`. The agent decrypts it in memory and continues.
 
-1. **Authentication Validation**: Verify incoming requests
-2. **Credential Passthrough**: Forward auth to tools and sub-agents
-3. **Token Re-issuance**: Generate scoped tokens for external services
-4. **Authorization**: Fine-grained permission control
-5. **Audit Logging**: Track all authenticated operations
+**Key properties:**
+- Raw secrets never appear in events, logs, or traces — only encrypted JWE envelopes
+- Each auth request uses a fresh ephemeral ECDH key pair (15-minute lifetime)
+- Claim binding (`authId`, `contextId`) prevents replay across sessions
+- The client owns the OAuth redirect/callback flow; the agent only handles the resulting code
 
-## Authentication Architecture
+## Protocol Flow
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    Client Request                         │
-│              Authorization: Bearer <token>                │
-└────────────────────────┬─────────────────────────────────┘
-                         │
-┌────────────────────────▼─────────────────────────────────┐
-│              Authentication Middleware                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │  1. Extract credentials                            │  │
-│  │  2. Validate with AuthStrategy                     │  │
-│  │  3. Build AuthContext                              │  │
-│  │  4. Attach to request                              │  │
-│  └────────────────────────────────────────────────────┘  │
-└────────────────────────┬─────────────────────────────────┘
-                         │
-┌────────────────────────▼─────────────────────────────────┐
-│                  Agent Execution                          │
-│                 (with AuthContext)                        │
-└────────┬────────────────────────────┬────────────────────┘
-         │                            │
-         ▼                            ▼
-┌──────────────────┐        ┌──────────────────┐
-│   Tool Call      │        │  Sub-Agent Call  │
-└────────┬─────────┘        └────────┬─────────┘
-         │                           │
-         ▼                           ▼
-┌──────────────────┐        ┌──────────────────┐
-│ Auth Propagation │        │ Auth Propagation │
-│  - Passthrough   │        │  - Passthrough   │
-│  - Re-issue      │        │  - Re-issue      │
-│  - Scope down    │        │  - Scope down    │
-└──────────────────┘        └──────────────────┘
+Agent                    Client                   (OAuth Provider / User)
+  │                         │
+  ├─ auth-required ────────▶│
+  │  (encryptionKey,        │
+  │   PKCE challenge info   │
+  │   or api-key prompt)    │
+  │                         │
+  │                         │  [User authorises / pastes key]
+  │                         │
+  │◀─ startTurn ────────────┤
+  │   (with JWE(secret)     │
+  │    encrypted to key)    │
+  │                         │
+  ├─ decryptCredential()    │
+  │  → secret (in memory)   │
+  │                         │
+  ├─ use secret / exchange  │
+  └─ secret discarded       │
 ```
+
+See [docs/auth-flows.md](../docs/auth-flows.md) for complete worked examples.
 
 ## Core Interfaces
 
-### AuthContext
-
 ```typescript
-interface AuthContext {
-  /**
-   * Authenticated user/service identity
-   */
-  principal: Principal;
-
-  /**
-   * Original credentials (if passthrough is enabled)
-   */
-  credentials?: Credentials;
-
-  /**
-   * Granted permissions
-   */
-  permissions: Permission[];
-
-  /**
-   * Token metadata
-   */
-  token?: {
-    type: 'bearer' | 'api-key' | 'oauth2';
-    value: string;
-    expiresAt?: Date;
-    scopes?: string[];
-  };
-
-  /**
-   * Audit trail
-   */
-  audit: {
-    sessionId: string;
-    ipAddress: string;
-    userAgent?: string;
-    timestamp: Date;
-  };
+interface EncryptionKey {
+  kty: string;  // 'EC'
+  crv: string;  // 'P-256'
+  x: string;    // Base64url X coordinate
+  y: string;    // Base64url Y coordinate
+  kid: string;  // Key ID
+  alg?: string; // 'ECDH-ES'
 }
 
-interface Principal {
-  id: string;
-  type: 'user' | 'service' | 'api-key';
-  name: string;
-  email?: string;
-  metadata?: Record<string, unknown>;
+interface ECDHKeyPair {
+  keyId: string;
+  publicKey: EncryptionKey; // Embed in auth-required event
+  privateKeyPem: string;    // PKCS8 PEM — keep in memory, never emit
+  expiresAt: Date;          // 15-minute lifetime
 }
 
-interface Permission {
-  resource: string;  // e.g., "tool:search", "agent:invoke"
-  actions: string[]; // e.g., ["execute", "read"]
-  constraints?: Record<string, unknown>;
+interface JWEClaims {
+  authId: string;    // Unique per auth request — prevents replay
+  contextId: string; // Binds to specific conversation context
+  agentId?: string;  // Optional: restricts to target agent
+  iat: number;       // Issued-at (Unix seconds)
+  exp: number;       // Expiry (Unix seconds)
+}
+
+interface PKCEPair {
+  codeVerifier: string;    // Keep in agent memory, never emit
+  codeChallenge: string;   // Derived via SHA256 — include in auth URL
+  algorithm: 'S256';
+}
+
+interface CredentialSubmission {
+  authId: string;
+  credential: string; // JWE compact serialization
+  submittedAt: string;
 }
 ```
 
-### AuthStrategy
+## Auth Event Types
 
 ```typescript
-interface AuthStrategy {
-  /**
-   * Validate incoming credentials
-   */
-  validate(credentials: Credentials): Observable<AuthContext>;
-
-  /**
-   * Check if principal has permission
-   */
-  authorize(
-    context: AuthContext,
-    resource: string,
-    action: string
-  ): Observable<boolean>;
-
-  /**
-   * Prepare credentials for external service
-   */
-  prepareForward(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials>;
-
-  /**
-   * Refresh expired credentials
-   */
-  refresh?(context: AuthContext): Observable<AuthContext>;
+// Shared base for all variants
+interface AuthRequiredEventBase {
+  kind: 'auth-required';
+  authId: string;           // Unique per request
+  provider?: string;        // 'google', 'github', etc.
+  scopes?: string[];
+  prompt: string;           // User-facing message
+  encryptionKey: EncryptionKey; // Client encrypts to this
+  timestamp: string;
 }
 
-type ForwardTarget = {
-  type: 'tool' | 'agent';
-  id: string;
-  endpoint?: string;
-  requiredScopes?: string[];
-};
-```
-
-## Authentication Strategies
-
-### JWT Bearer Token
-
-```typescript
-class JWTAuthStrategy implements AuthStrategy {
-  constructor(
-    private config: {
-      secretOrPublicKey: string | Buffer;
-      issuer?: string;
-      audience?: string;
-    }
-  ) {}
-
-  validate(credentials: Credentials): Observable<AuthContext> {
-    if (credentials.type !== 'bearer') {
-      return throwError(() => new Error('Invalid credentials type'));
-    }
-
-    return defer(() => {
-      const decoded = jwt.verify(credentials.token, this.config.secretOrPublicKey, {
-        issuer: this.config.issuer,
-        audience: this.config.audience
-      }) as JWTPayload;
-
-      return of({
-        principal: {
-          id: decoded.sub!,
-          type: decoded.type || 'user',
-          name: decoded.name || decoded.sub!,
-          email: decoded.email
-        },
-        credentials,
-        permissions: this.extractPermissions(decoded),
-        token: {
-          type: 'bearer',
-          value: credentials.token,
-          expiresAt: decoded.exp ? new Date(decoded.exp * 1000) : undefined,
-          scopes: decoded.scope?.split(' ')
-        },
-        audit: {
-          sessionId: decoded.jti || generateId(),
-          ipAddress: credentials.metadata?.ip || 'unknown',
-          timestamp: new Date()
-        }
-      } as AuthContext);
-    }).pipe(
-      catchError(error => {
-        logger.warn('JWT validation failed', { error: error.message });
-        return throwError(() => new UnauthorizedError('Invalid token'));
-      })
-    );
-  }
-
-  authorize(
-    context: AuthContext,
-    resource: string,
-    action: string
-  ): Observable<boolean> {
-    const hasPermission = context.permissions.some(p =>
-      this.matchesResource(p.resource, resource) &&
-      p.actions.includes(action)
-    );
-
-    if (!hasPermission) {
-      logger.warn('Authorization failed', {
-        principal: context.principal.id,
-        resource,
-        action
-      });
-    }
-
-    return of(hasPermission);
-  }
-
-  prepareForward(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    // Default: passthrough original token
-    if (context.credentials) {
-      return of(context.credentials);
-    }
-
-    // Generate new token with reduced scope
-    return this.generateScopedToken(context, target);
-  }
-
-  private generateScopedToken(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    const payload: JWTPayload = {
-      sub: context.principal.id,
-      iss: 'looopy',
-      aud: target.id,
-      scope: target.requiredScopes?.join(' '),
-      exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-      iat: Math.floor(Date.now() / 1000),
-      jti: generateId()
-    };
-
-    const token = jwt.sign(payload, this.config.secretOrPublicKey);
-
-    return of({
-      type: 'bearer',
-      token
-    });
-  }
-
-  private extractPermissions(decoded: JWTPayload): Permission[] {
-    // Extract from custom claim
-    if (decoded.permissions) {
-      return decoded.permissions as Permission[];
-    }
-
-    // Extract from scopes
-    if (decoded.scope) {
-      return decoded.scope.split(' ').map(scope => ({
-        resource: scope,
-        actions: ['execute']
-      }));
-    }
-
-    // Default permissions
-    return [];
-  }
-
-  private matchesResource(pattern: string, resource: string): boolean {
-    // Support wildcards: "tool:*", "agent:data-*"
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    return regex.test(resource);
-  }
-}
-```
-
-### API Key Strategy
-
-```typescript
-class APIKeyAuthStrategy implements AuthStrategy {
-  constructor(
-    private apiKeyStore: APIKeyStore,
-    private permissionStore: PermissionStore
-  ) {}
-
-  validate(credentials: Credentials): Observable<AuthContext> {
-    if (credentials.type !== 'api-key') {
-      return throwError(() => new Error('Invalid credentials type'));
-    }
-
-    return this.apiKeyStore.find(credentials.key).pipe(
-      switchMap(apiKey => {
-        if (!apiKey || apiKey.revoked) {
-          throw new UnauthorizedError('Invalid API key');
-        }
-
-        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
-          throw new UnauthorizedError('API key expired');
-        }
-
-        return this.permissionStore.getPermissions(apiKey.id).pipe(
-          map(permissions => ({
-            principal: {
-              id: apiKey.id,
-              type: 'api-key' as const,
-              name: apiKey.name
-            },
-            credentials,
-            permissions,
-            token: {
-              type: 'api-key' as const,
-              value: credentials.key,
-              expiresAt: apiKey.expiresAt
-            },
-            audit: {
-              sessionId: generateId(),
-              ipAddress: credentials.metadata?.ip || 'unknown',
-              timestamp: new Date()
-            }
-          }))
-        );
-      }),
-      tap(() => {
-        // Update last used timestamp
-        this.apiKeyStore.updateLastUsed(credentials.key);
-      })
-    );
-  }
-
-  authorize(
-    context: AuthContext,
-    resource: string,
-    action: string
-  ): Observable<boolean> {
-    // Same as JWT strategy
-    return of(context.permissions.some(p =>
-      p.resource === resource && p.actions.includes(action)
-    ));
-  }
-
-  prepareForward(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    // API keys are typically not forwarded
-    // Generate a short-lived JWT instead
-    return this.generateJWT(context, target);
-  }
-
-  private generateJWT(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    // Implementation similar to JWT strategy
-    const token = jwt.sign({
-      sub: context.principal.id,
-      aud: target.id,
-      exp: Math.floor(Date.now() / 1000) + 300 // 5 minutes
-    }, process.env.JWT_SECRET!);
-
-    return of({
-      type: 'bearer',
-      token
-    });
-  }
-}
-```
-
-### OAuth2 Strategy
-
-```typescript
-class OAuth2AuthStrategy implements AuthStrategy {
-  constructor(
-    private config: {
-      issuer: string;
-      jwksUri: string;
-      tokenEndpoint: string;
-      clientId: string;
-      clientSecret: string;
-    }
-  ) {}
-
-  validate(credentials: Credentials): Observable<AuthContext> {
-    if (credentials.type !== 'bearer') {
-      return throwError(() => new Error('Invalid credentials type'));
-    }
-
-    // Validate with OAuth2 introspection endpoint
-    return this.introspectToken(credentials.token).pipe(
-      map(introspection => {
-        if (!introspection.active) {
-          throw new UnauthorizedError('Token not active');
-        }
-
-        return {
-          principal: {
-            id: introspection.sub,
-            type: 'user' as const,
-            name: introspection.username || introspection.sub,
-            email: introspection.email
-          },
-          credentials,
-          permissions: this.scopesToPermissions(introspection.scope),
-          token: {
-            type: 'bearer' as const,
-            value: credentials.token,
-            expiresAt: introspection.exp
-              ? new Date(introspection.exp * 1000)
-              : undefined,
-            scopes: introspection.scope?.split(' ')
-          },
-          audit: {
-            sessionId: generateId(),
-            ipAddress: credentials.metadata?.ip || 'unknown',
-            timestamp: new Date()
-          }
-        } as AuthContext;
-      })
-    );
-  }
-
-  prepareForward(
-    context: AuthContext,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    // Use token exchange (RFC 8693)
-    return this.exchangeToken(
-      context.credentials!.token,
-      target
-    );
-  }
-
-  private introspectToken(token: string): Observable<TokenIntrospection> {
-    return from(
-      fetch(this.config.tokenEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${Buffer.from(
-            `${this.config.clientId}:${this.config.clientSecret}`
-          ).toString('base64')}`
-        },
-        body: new URLSearchParams({ token })
-      })
-    ).pipe(
-      switchMap(res => from(res.json())),
-      map(json => json as TokenIntrospection)
-    );
-  }
-
-  private exchangeToken(
-    subjectToken: string,
-    target: ForwardTarget
-  ): Observable<Credentials> {
-    return from(
-      fetch(this.config.tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-          subject_token: subjectToken,
-          subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
-          audience: target.id,
-          scope: target.requiredScopes?.join(' ') || ''
-        })
-      })
-    ).pipe(
-      switchMap(res => from(res.json())),
-      map(json => ({
-        type: 'bearer' as const,
-        token: json.access_token
-      }))
-    );
-  }
-}
-```
-
-## Authorization
-
-### Permission Checking
-
-```typescript
-class AuthorizationService {
-  constructor(private strategy: AuthStrategy) {}
-
-  /**
-   * Check if context has permission for action
-   */
-  authorize(
-    context: AuthContext,
-    resource: string,
-    action: string
-  ): Observable<void> {
-    return this.strategy.authorize(context, resource, action).pipe(
-      switchMap(allowed => {
-        if (!allowed) {
-          return throwError(() => new ForbiddenError(
-            `Not authorized: ${action} on ${resource}`
-          ));
-        }
-        return of(void 0);
-      })
-    );
-  }
-
-  /**
-   * Filter list of items by permissions
-   */
-  filterByPermissions<T extends { id: string }>(
-    context: AuthContext,
-    items: T[],
-    resourceType: string,
-    action: string
-  ): Observable<T[]> {
-    return from(items).pipe(
-      mergeMap(item =>
-        this.strategy.authorize(
-          context,
-          `${resourceType}:${item.id}`,
-          action
-        ).pipe(
-          map(allowed => allowed ? item : null)
-        ),
-        10 // Concurrency
-      ),
-      filter(item => item !== null),
-      toArray()
-    ) as Observable<T[]>;
-  }
-}
-```
-
-### Tool Authorization
-
-```typescript
-const executeToolWithAuth$ = (
-  toolCall: ToolCall,
-  context: ExecutionContext
-): Observable<ToolResult> => {
-  const resource = `tool:${toolCall.function.name}`;
-
-  return authService.authorize(context.auth, resource, 'execute').pipe(
-    switchMap(() => {
-      // Prepare credentials for tool
-      return authStrategy.prepareForward(context.auth, {
-        type: 'tool',
-        id: toolCall.function.name
-      });
-    }),
-    switchMap(credentials => {
-      // Execute tool with forwarded credentials
-      return toolProvider.execute(toolCall, {
-        ...context,
-        credentials
-      });
-    })
-  );
-};
-```
-
-### Sub-Agent Authorization
-
-```typescript
-const invokeSubAgentWithAuth$ = (
-  agentId: string,
-  prompt: string,
-  context: ExecutionContext
-): Observable<string> => {
-  const resource = `agent:${agentId}`;
-
-  return authService.authorize(context.auth, resource, 'invoke').pipe(
-    switchMap(() => {
-      return authStrategy.prepareForward(context.auth, {
-        type: 'agent',
-        id: agentId,
-        requiredScopes: ['agent:execute']
-      });
-    }),
-    switchMap(credentials => {
-      return a2aClient.invoke({
-        prompt,
-        credentials
-      });
-    })
-  );
-};
-```
-
-## Credential Management
-
-### Secure Storage
-
-```typescript
-class CredentialStore {
-  constructor(
-    private encryption: EncryptionService,
-    private storage: SecureStorage
-  ) {}
-
-  async store(
-    principalId: string,
-    service: string,
-    credentials: Credentials
-  ): Promise<void> {
-    const encrypted = await this.encryption.encrypt(
-      JSON.stringify(credentials)
-    );
-
-    await this.storage.set(
-      `creds:${principalId}:${service}`,
-      encrypted,
-      {
-        ttl: 3600, // 1 hour
-        tags: ['credentials', principalId]
-      }
-    );
-  }
-
-  async retrieve(
-    principalId: string,
-    service: string
-  ): Promise<Credentials | null> {
-    const encrypted = await this.storage.get(
-      `creds:${principalId}:${service}`
-    );
-
-    if (!encrypted) return null;
-
-    const decrypted = await this.encryption.decrypt(encrypted);
-    return JSON.parse(decrypted) as Credentials;
-  }
-}
-```
-
-### Token Rotation
-
-```typescript
-class TokenRotationService {
-  constructor(
-    private authStrategy: AuthStrategy,
-    private credentialStore: CredentialStore
-  ) {}
-
-  /**
-   * Automatically refresh token before expiry
-   */
-  withAutoRefresh(
-    context$: Observable<AuthContext>
-  ): Observable<AuthContext> {
-    return context$.pipe(
-      switchMap(context => {
-        if (!context.token?.expiresAt) {
-          return of(context);
-        }
-
-        const expiresIn = context.token.expiresAt.getTime() - Date.now();
-        const refreshAt = expiresIn - 60000; // 1 minute before expiry
-
-        if (refreshAt <= 0) {
-          // Already expired, refresh immediately
-          return this.refreshToken(context);
-        }
-
-        // Schedule refresh
-        return timer(refreshAt).pipe(
-          switchMap(() => this.refreshToken(context)),
-          startWith(context)
-        );
-      })
-    );
-  }
-
-  private refreshToken(
-    context: AuthContext
-  ): Observable<AuthContext> {
-    if (!this.authStrategy.refresh) {
-      return of(context);
-    }
-
-    return this.authStrategy.refresh(context).pipe(
-      tap(newContext => {
-        logger.info('Token refreshed', {
-          principal: newContext.principal.id
-        });
-      }),
-      catchError(error => {
-        logger.error('Token refresh failed', { error });
-        return throwError(() => new UnauthorizedError('Token refresh failed'));
-      })
-    );
-  }
-}
-```
-
-## Audit Logging
-
-### Audit Trail
-
-```typescript
-interface AuditEvent {
-  timestamp: Date;
-  principal: Principal;
-  action: string;
-  resource: string;
-  outcome: 'success' | 'failure';
-  details?: Record<string, unknown>;
-  traceId?: string;
+// OAuth 2.0 — client builds authorization URL with own redirect URI
+interface OAuth2AuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'oauth2';
+  authorizationEndpoint?: string;
+  clientId?: string;
+  codeChallenge?: string;    // PKCE code challenge
+  codeChallengeMethod?: 'S256';
 }
 
-class AuditLogger {
-  constructor(private storage: AuditStorage) {}
-
-  log(event: AuditEvent): void {
-    this.storage.append({
-      ...event,
-      id: generateId(),
-      timestamp: event.timestamp || new Date()
-    });
-
-    // Also emit metric
-    meter.counter('auth.audit_events').add(1, {
-      'auth.action': event.action,
-      'auth.outcome': event.outcome
-    });
-  }
-
-  logAuthorization(
-    context: AuthContext,
-    resource: string,
-    action: string,
-    allowed: boolean
-  ): void {
-    this.log({
-      timestamp: new Date(),
-      principal: context.principal,
-      action: `authorize:${action}`,
-      resource,
-      outcome: allowed ? 'success' : 'failure',
-      details: {
-        sessionId: context.audit.sessionId,
-        ipAddress: context.audit.ipAddress
-      }
-    });
-  }
+// API key / PAT / password — user pastes a secret
+interface ApiKeyAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'api-key' | 'pat' | 'password';
+  infoUrl?: string; // Link to token generation page
 }
+
+type AuthRequiredEvent = OAuth2AuthRequiredEvent | ApiKeyAuthRequiredEvent | /* ... */;
 ```
 
-### Extension Hook
+## Key Functions
 
 ```typescript
-const auditExtension: Extension = {
-  name: 'audit',
-  priority: 100,
-  hooks: {
-    beforeToolExecution: (toolCall, context) => {
-      auditLogger.log({
-        timestamp: new Date(),
-        principal: context.auth.principal,
-        action: 'tool:execute',
-        resource: `tool:${toolCall.function.name}`,
-        outcome: 'success', // Will be updated if fails
-        details: {
-          taskId: context.taskId,
-          traceId: context.traceContext.traceId
-        }
-      });
+// Crypto
+generateECDHKeyPair(): ECDHKeyPair
+isKeyExpired(keyPair: ECDHKeyPair): boolean
 
-      return of({ toolCall, context });
-    },
+// JWE
+encryptCredential(credential: string, publicKey: EncryptionKey, claims: JWEClaims): Promise<string>
+decryptCredential(jwe: string, privateKeyPem: string, expectedClaims: Partial<JWEClaims>): Promise<string>
+validateJWEClaims(claims: JWEClaims, expected: Partial<JWEClaims>): void
 
-    afterToolExecution: (result, context) => {
-      auditLogger.log({
-        timestamp: new Date(),
-        principal: context.auth.principal,
-        action: 'tool:complete',
-        resource: `tool:${result.toolName}`,
-        outcome: result.success ? 'success' : 'failure',
-        details: {
-          taskId: context.taskId,
-          executionTime: result.metadata?.executionTime
-        }
-      });
+// PKCE
+generatePKCEPair(): PKCEPair
+generateCodeVerifier(): string
+generateCodeChallenge(verifier: string): string
+validateCodeChallenge(verifier: string, challenge: string): boolean
 
-      return of(result);
-    }
-  }
-};
+// OAuth URL helpers
+generateOAuth2Request(options): { pkce: PKCEPair; authUrl: string }
+buildOAuth2AuthUrl(options: OAuth2AuthUrlOptions): string
+extractAuthorizationCode(callbackUrl: string): { code: string; state: string } | null
+buildTokenExchangeRequest(options): Record<string, string>
+
+// Claims
+createJWEClaims(options: { authId, contextId, agentId?, expiresInSeconds? }): JWEClaims
+validateClaims(claims: JWEClaims, expected: Partial<JWEClaims>): void
+hasExpired(claims: JWEClaims): boolean
+getTimeRemaining(claims: JWEClaims): number
 ```
 
-## Security Best Practices
+## Design Decisions
 
-### 1. Principle of Least Privilege
+**Why ECDH-ES + A256GCM?** Asymmetric encryption means clients can encrypt without sharing a secret. P-256 is widely supported, compact, and fast. A256GCM provides authenticated encryption.
 
-```typescript
-// Grant minimal permissions
-const permissions: Permission[] = [
-  {
-    resource: 'tool:search',
-    actions: ['execute']
-  }
-  // Don't grant tool:* unless necessary
-];
-```
+**Why ephemeral keys (15-minute lifetime)?** Limits the window for key compromise; a fresh pair is generated for each auth request, so a leaked private key cannot be reused.
 
-### 2. Credential Scoping
+**Why claims in the JWE protected header?** Binding `authId` and `contextId` to the ciphertext prevents a valid JWE from being replayed in a different auth request or conversation.
 
-```typescript
-// Scope down credentials when forwarding
-const scopedCreds = await authStrategy.prepareForward(context.auth, {
-  type: 'tool',
-  id: 'external-api',
-  requiredScopes: ['read:data'] // Not write
-});
-```
+**Why does the client own the OAuth redirect?** The agent cannot host a redirect URI — it has no public HTTP endpoint in the general case. The client (browser or native app) handles the redirect, captures the authorization code, and returns only the encrypted code to the agent.
 
-### 3. Short-Lived Tokens
+## Security Properties
 
-```typescript
-// Issue tokens with minimal TTL
-const token = jwt.sign(payload, secret, {
-  expiresIn: '5m' // 5 minutes for tool calls
-});
-```
+| Property | Mechanism |
+|---|---|
+| No plaintext secrets in events | JWE encryption before submission |
+| No replay across auth requests | `authId` claim binding |
+| No replay across sessions | `contextId` claim binding |
+| PKCE code useless without verifier | Verifier kept in agent memory only |
+| Short-lived credentials | `exp` claim + key expiry |
 
-### 4. Rate Limiting
+## Implementation
 
-```typescript
-class RateLimitedAuthStrategy implements AuthStrategy {
-  constructor(
-    private wrapped: AuthStrategy,
-    private rateLimiter: RateLimiter
-  ) {}
+See [packages/core/src/auth/](../packages/core/src/auth/) for the full implementation.
 
-  validate(credentials: Credentials): Observable<AuthContext> {
-    return this.rateLimiter.checkLimit(credentials).pipe(
-      switchMap(allowed => {
-        if (!allowed) {
-          return throwError(() => new TooManyRequestsError());
-        }
-        return this.wrapped.validate(credentials);
-      })
-    );
-  }
-}
-```
-
-### 5. Secrets Encryption
-
-```typescript
-// Never log credentials
-logger.info('Auth successful', {
-  principal: context.principal.id,
-  // DO NOT: credentials: context.credentials
-});
-
-// Encrypt at rest
-const encrypted = await encryption.encrypt(credentials);
-await storage.set(key, encrypted);
-```

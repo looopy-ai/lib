@@ -10,20 +10,29 @@ import type { AnyEvent, ContextAnyEvent, IterationContext } from '@looopy-ai/cor
 import type { ToolCall, ToolDefinition } from '@looopy-ai/core/types/tools';
 
 export type ToolPlugin<AuthContext> = {
-  listTools: () => Promise<ToolDefinition[]>;
-  getTool: (toolId: string) => Promise<ToolDefinition | undefined>;
+  name: string;
+  listTools: (context: IterationContext<AuthContext>) => Promise<ToolDefinition[]>;
+  getTool: (toolId: string, context: IterationContext<AuthContext>) => Promise<ToolDefinition | undefined>;
   executeTool: (
     toolCall: ToolCall,
     context: IterationContext<AuthContext>,
   ) => Observable<ContextAnyEvent | AnyEvent>;
 };
 
+/** Passed to tool handlers (e.g. via localTools). */
 export interface ExecutionContext<AuthContext> {
   taskId: string;
   contextId: string;
   agentId: string;
+  /** Tool call ID — use as key into resolvedInputs on resume. */
+  toolCallId?: string;
   parentContext: import('@opentelemetry/api').Context;
   authContext?: AuthContext;
+  /**
+   * When resuming after tool-input-required, resolved values are placed here
+   * keyed by toolCallId.
+   */
+  resolvedInputs?: Map<string, unknown>;
   metadata?: Record<string, unknown>;
 }
 ```
@@ -78,7 +87,22 @@ These tools wrap `ArtifactScheduler` so chunked writes are serialized and tracke
 
 ## MCP Tools
 
-Call any MCP-compliant server with `McpToolProvider` (or the `mcp` helper). Tool schemas are fetched lazily and cached; executions forward the current `authContext`:
+Call any MCP-compliant server with `McpToolProvider` (or the `mcp` shorthand). Tool schemas are fetched lazily and cached; executions forward the current `authContext`:
+
+```typescript
+import { mcp } from '@looopy-ai/core';
+
+const mcpProvider = mcp({
+  serverId: 'filesystem',
+  serverUrl: 'http://localhost:3100',
+  getHeaders: (authContext) => ({
+    Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
+  }),
+  timeout: 15_000, // optional
+});
+```
+
+Or construct the class directly:
 
 ```typescript
 import { McpToolProvider } from '@looopy-ai/core';
@@ -89,7 +113,6 @@ const mcpProvider = new McpToolProvider({
   getHeaders: (authContext) => ({
     Authorization: `Bearer ${authContext?.credentials?.accessToken ?? ''}`,
   }),
-  timeout: 15_000, // optional
 });
 ```
 
@@ -172,10 +195,10 @@ import { toolErrorEvent, toolResultToEvents, type Plugin } from '@looopy-ai/core
 
 const customProvider: Plugin<unknown> = {
   name: 'my-provider',
-  async listTools() {
+  async listTools(_context) {
     return [{ id: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } }];
   },
-  getTool: async (id) => (id === 'hello' ? { id: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } } : undefined),
+  getTool: async (id, _context) => (id === 'hello' ? { id: 'hello', description: 'Say hello', parameters: { type: 'object', properties: {} } } : undefined),
   executeTool: (toolCall, context) =>
     defer(async () => ({
       toolCallId: toolCall.id,

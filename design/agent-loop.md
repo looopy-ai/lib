@@ -1,5 +1,413 @@
 # Agent Loop Design
 
+> **Note**: This document describes the agent loop execution engine. The loop is designed to be operated by the **Agent** class (see [agent-lifecycle.md](./agent-lifecycle.md)), which handles multi-turn conversations, message persistence, and session management.
+
+## Overview
+
+The agent loop is a reactive RxJS-based execution engine that powers a single conversational turn. It orchestrates LLM calls and tool executions until the LLM indicates completion.
+
+It is implemented as a **set of composable functions** (not a class):
+
+- **`runLoop()`** — Orchestrates the full turn: emits initial events, runs iterations, emits the final summary event.
+- **`runIteration()`** — Executes one LLM call + any resulting tool calls.
+- **`runToolCall()`** — Executes a single tool call and emits its lifecycle events.
+- **`recursiveMerge()`** — Generic RxJS utility that drives the iterative loop.
+
+### Key Responsibilities
+
+- **Single-turn execution**: Execute one complete LLM reasoning cycle from user input to final response
+- **LLM orchestration**: Call the LLM with full message history, available tools, and assembled system prompts
+- **Tool execution**: Execute tools requested by the LLM in parallel
+- **Iteration control**: Loop until the LLM finishes or max iterations is reached
+- **Input interruption**: Detect `tool-input-required` stops and surface `waiting-input` to the caller
+- **Event streaming**: Emit all lifecycle events for client observation
+- **Observability**: Create distributed tracing spans for all operations
+
+### What the Agent Loop Does NOT Do
+
+- ❌ Manage conversation history across turns (the `Agent` class does this)
+- ❌ Persist messages to storage (the `Agent` class does this)
+- ❌ Handle user sessions or context IDs (the `Agent` class does this)
+- ❌ Decide when to start/stop conversations (the `Agent` class does this)
+
+### Relationship to Agent
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        Agent                            │
+│                  (Multi-turn Manager)                   │
+│                                                         │
+│  - Manages conversation history (MessageStore)          │
+│  - Persists agent state (AgentStore)                    │
+│  - Handles lifecycle (created → idle → busy → idle)     │
+│  - Coordinates turns (startTurn)                        │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         For each turn: startTurn()               │   │
+│  │                                                  │   │
+│  │  1. Load message history                         │   │
+│  │  2. Call runLoop(context, config, history) ◄─────┼───┼─ Loop
+│  │  3. Collect events from Observable               │   │   operates here
+│  │  4. Save new messages to MessageStore            │   │
+│  │  5. Return to idle state                         │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Core Interfaces
+
+### Context Types
+
+There is a hierarchy of context types, each extending the previous:
+
+```typescript
+// Base context — shared by Agent-level operations
+type AgentContext<AuthContext> = {
+  agentId: string;
+  contextId: string;
+  parentContext: import('@opentelemetry/api').Context;
+  authContext?: AuthContext;
+  logger: pino.Logger;
+  plugins: readonly Plugin<AuthContext>[];
+  metadata?: Record<string, unknown>;
+};
+
+// Turn context — adds taskId and turn number
+type TurnContext<AuthContext> = AgentContext<AuthContext> & {
+  taskId: string;
+  turnNumber: number;
+};
+
+// Loop context — same as TurnContext (alias)
+type LoopContext<AuthContext> = TurnContext<AuthContext>;
+
+// Iteration context — adds resolved inputs for resumption after interrupts
+type IterationContext<AuthContext> = TurnContext<AuthContext> & {
+  resolvedInputs?: Map<string, unknown>;
+};
+```
+
+### Configuration Types
+
+```typescript
+type LoopConfig<AuthContext> = {
+  llmProvider: LLMProvider;
+  filterPlugins?: FilterPlugins<AuthContext>;
+  maxIterations: number;
+  stopOnToolError: boolean;
+};
+
+type IterationConfig<AuthContext> = {
+  llmProvider: LLMProvider | ((context, systemPromptMetadata) => LLMProvider);
+  iterationNumber: number;
+  filterPlugins?: FilterPlugins<AuthContext>;
+};
+```
+
+### Plugin System
+
+Plugins are the unified extension point for **system prompts** and **tools**. A `Plugin` is a union type:
+
+```typescript
+type Plugin<AuthContext> = SystemPromptPlugin<AuthContext> | ToolPlugin<AuthContext>;
+
+// Provides system prompt content
+type SystemPromptPlugin<AuthContext> = {
+  name: string;
+  version?: string;
+  generateSystemPrompts(context: IterationContext<AuthContext>): SystemPrompt[] | Promise<SystemPrompt[]>;
+};
+
+// Provides tool definitions and execution
+type ToolPlugin<AuthContext> = {
+  name: string;
+  version?: string;
+  listTools(context: IterationContext<AuthContext>): Promise<ToolDefinition[]>;
+  getTool(toolId: string, context: IterationContext<AuthContext>): Promise<ToolDefinition | undefined>;
+  executeTool(toolCall: ToolCall, context: IterationContext<AuthContext>): Observable<ContextAnyEvent | AnyEvent>;
+};
+```
+
+System prompts are **position-aware** — plugins can insert prompts before or after the base system prompt, with an optional ordering sequence:
+
+```typescript
+type SystemPrompt = {
+  content: string;
+  position: 'before' | 'after';
+  positionSequence?: number;  // Lower = earlier; used to order within a position
+  metadata?: Record<string, unknown>;
+  source?: {
+    providerName: string;
+    promptName: string;
+    promptVersion?: number;
+  };
+};
+```
+
+### LLM Provider Interface
+
+```typescript
+interface LLMProvider {
+  call(request: {
+    messages: LLMMessage[];
+    tools?: ToolDefinition[];
+    stream?: boolean;
+    sessionId?: string;
+  }): Observable<AnyEvent>;  // Streaming — emits events as they arrive
+}
+```
+
+The provider returns an `Observable<AnyEvent>` (not a Promise), enabling real-time streaming of content deltas and tool call events.
+
+---
+
+## Architecture
+
+### File Structure
+
+```
+packages/core/src/
+├── core/
+│   ├── agent.ts           # Agent class (multi-turn, stateful)
+│   ├── loop.ts            # runLoop() — main turn orchestrator
+│   ├── iteration.ts       # runIteration() — single LLM call + tools
+│   ├── tools.ts           # runToolCall() — single tool execution
+│   └── logger.ts
+├── observability/
+│   └── spans/
+│       ├── agent-turn.ts  # Agent-level span helpers
+│       ├── loop.ts        # Loop span helpers
+│       ├── iteration.ts   # Iteration span helpers
+│       ├── llm-call.ts    # LLM call span helpers
+│       └── tool.ts        # Tool execution span helpers
+├── utils/
+│   └── recursive-merge.ts # Generic recursive iteration utility
+└── types/
+    ├── core.ts            # Context, config, and plugin types
+    ├── event.ts           # All event types
+    ├── llm.ts             # LLMProvider interface
+    └── agent.ts           # Agent config and state types
+```
+
+### Execution Pipeline
+
+```
+runLoop(context, config, history) → Observable<ContextAnyEvent>
+  │
+  ├── Emit: task-created
+  ├── Emit: task-status (working)
+  │
+  ├── recursiveMerge(
+  │     initial: { messages: history, iteration: 0 },
+  │     eventsFor: (state) => runIteration(context, config, state.messages),
+  │     next: (state, { events }) => ({
+  │       messages: [...state.messages, ...eventsToMessages(events)],
+  │       iteration: state.iteration + 1
+  │     }),
+  │     isStop: (e) => content-complete (finishReason !== tool_calls)
+  │                  || tool-input-required
+  │   )
+  │
+  └── Emit: task-complete  OR  task-status (waiting-input)
+```
+
+### `recursiveMerge()` Utility
+
+`recursiveMerge()` drives the iteration loop using RxJS `expand`. It:
+
+1. Starts with an initial state
+2. Generates an event stream for the current state via `eventsFor()`
+3. Collects all events from the iteration
+4. Checks each event against `isStop()` predicate
+5. If no stop event: computes next state via `next()` and recurses
+6. If stop event found: halts recursion
+7. Merges all iteration event streams into a single output observable
+
+```typescript
+// Conceptual signature
+function recursiveMerge<S, E>(
+  initial: S,
+  eventsFor: (state: S & { iteration: number }) => Observable<E>,
+  next: (state: S, info: { iteration: number; events: E[] }) => S,
+  isStop: (e: E) => boolean,
+): Observable<E>
+```
+
+See [`packages/core/src/utils/recursive-merge.ts`](../packages/core/src/utils/recursive-merge.ts) for the implementation.
+
+### Single Iteration Execution
+
+Each call to `runIteration()` performs one full LLM call cycle:
+
+```
+runIteration(context, config, history)
+  │
+  ├── getSystemPrompts(plugins, context)   → SystemPrompts { before[], after[] }
+  ├── prepareMessages(systemPrompts, history)
+  ├── prepareTools(plugins, context)
+  │
+  ├── llmProvider.call({ messages, tools, stream: true, sessionId })
+  │     → Observable<AnyEvent>  (shared via shareReplay)
+  │
+  └── For each tool-call event from LLM:
+        ├── If tool is "request_input": convert to tool-input-required event (no tool call)
+        └── Otherwise: runToolCall(context, toolCallEvent) → tool-start, tool-complete
+```
+
+Tool calls from a single iteration execute **in parallel** via `mergeMap`.
+
+### Tool Input Interruption
+
+The special `request_input` tool is intercepted by `runIteration()` before routing to `runToolCall()`. When the LLM calls `request_input`:
+
+1. A `tool-input-required` event is emitted (instead of `tool-start`/`tool-complete`)
+2. `recursiveMerge()`'s `isStop` predicate matches this event and halts the loop
+3. `runLoop()` detects the pending `tool-input-required` and emits `task-status: waiting-input`
+4. The `Agent` class saves the pending input state and returns control to the caller
+5. When the caller provides the input, the `Agent` resumes from that point
+
+---
+
+## Event Model
+
+### Task Lifecycle Events
+
+| Event | Description |
+|-------|-------------|
+| `task-created` | Emitted at the start of every turn |
+| `task-status` | State transitions: `working`, `waiting-input`, `waiting-auth`, `waiting-subtask`, `completed`, `failed`, `canceled` |
+| `task-complete` | Final event with content and metadata; emitted in place of `task-status: completed` |
+
+### Content Streaming Events
+
+| Event | Description |
+|-------|-------------|
+| `content-delta` | Incremental LLM output chunk (`delta: string`, `index: number`) |
+| `content-complete` | Full assembled LLM response with `finishReason` |
+
+### Tool Execution Events
+
+| Event | Description |
+|-------|-------------|
+| `tool-call` | LLM requested a tool invocation |
+| `tool-start` | Tool execution has begun |
+| `tool-progress` | Progress update for long-running tools |
+| `tool-complete` | Tool finished (`success: boolean`, `result?`, `error?`) |
+| `tool-input-required` | Tool (or LLM `request_input`) needs user/caller input to continue |
+
+### Event Flow Diagram
+
+```
+turn start
+  task-created
+  task-status (working)
+
+  ── iteration 0 ──────────────────────────────────────────
+  content-delta × N          (streaming LLM text)
+  content-complete           (finishReason: tool_calls)
+  tool-call                  (LLM requested a tool)
+  tool-start
+  tool-complete
+
+  ── iteration 1 ──────────────────────────────────────────
+  content-delta × N
+  content-complete           (finishReason: stop)
+
+turn end (normal)
+  task-complete
+
+turn end (interrupted)
+  tool-input-required
+  task-status (waiting-input)
+```
+
+---
+
+## Observability
+
+### Span Hierarchy
+
+OpenTelemetry spans are nested for distributed tracing:
+
+```
+agent.turn                (created by Agent)
+  └─ agent.loop           (created by runLoop)
+      └─ agent.iteration  (created by runIteration, one per loop cycle)
+          ├─ agent.llm    (LLM call within the iteration)
+          └─ agent.tool   (one per tool call, parallel)
+```
+
+### Context Propagation
+
+Each level receives an explicit OpenTelemetry `Context` and creates child spans:
+
+1. **Agent level**: Creates `agent.turn` span, extracts `parentContext`
+2. **Loop level**: Receives `parentContext`, creates `agent.loop` span → `loopContext`
+3. **Iteration level**: Receives `loopContext`, creates `agent.iteration` span → `iterationContext`
+4. **LLM/Tool level**: Receive `iterationContext`, create their child spans
+
+Span helpers live in [`packages/core/src/observability/spans/`](../packages/core/src/observability/spans/).
+
+---
+
+## Loop Termination
+
+The loop terminates when any of the following occur:
+
+| Condition | Final Event Emitted |
+|-----------|-------------------|
+| LLM `finishReason === 'stop'` | `task-complete` |
+| Max iterations reached | `task-complete` (with last response) |
+| `tool-input-required` emitted | `task-status: waiting-input` |
+| Unrecoverable error | `task-status: failed` |
+| Observable unsubscribed | (no event — cancelled in-flight) |
+
+---
+
+## Tool Execution
+
+### Parallel Execution
+
+Tools within a single iteration execute in parallel using `mergeMap`. All tool results are converted to messages and appended to the history before the next LLM call.
+
+### `ToolPlugin` Interface
+
+The `ToolPlugin` contract has three methods:
+
+- `listTools(context)` — returns available `ToolDefinition[]`
+- `getTool(toolId, context)` — returns a specific definition (used for validation)
+- `executeTool(toolCall, context)` — returns `Observable<AnyEvent>` (the tool emits its own events)
+
+Tools emit `tool-start`, optionally `tool-progress`, and finally `tool-complete` (or `tool-input-required` for interruptible tools). The `runToolCall()` function wraps this and prepends a `tool-start` event if the plugin does not emit one.
+
+---
+
+## Implementation Reference
+
+| File | Purpose |
+|------|---------|
+| [`core/loop.ts`](../packages/core/src/core/loop.ts) | `runLoop()` — turn orchestrator |
+| [`core/iteration.ts`](../packages/core/src/core/iteration.ts) | `runIteration()` — single LLM + tools cycle |
+| [`core/tools.ts`](../packages/core/src/core/tools.ts) | `runToolCall()` — single tool execution |
+| [`core/agent.ts`](../packages/core/src/core/agent.ts) | `Agent` class — multi-turn stateful manager |
+| [`utils/recursive-merge.ts`](../packages/core/src/utils/recursive-merge.ts) | `recursiveMerge()` — recursive RxJS iteration utility |
+| [`types/core.ts`](../packages/core/src/types/core.ts) | Context, config, and plugin types |
+| [`types/event.ts`](../packages/core/src/types/event.ts) | All event type definitions |
+| [`types/llm.ts`](../packages/core/src/types/llm.ts) | `LLMProvider` interface |
+| [`types/agent.ts`](../packages/core/src/types/agent.ts) | `AgentConfig`, `AgentState` types |
+| [`observability/spans/`](../packages/core/src/observability/spans/) | Span helper functions |
+
+---
+
+## Related Documentation
+
+- **[Agent Lifecycle](./agent-lifecycle.md)** — How `Agent` operates the loop across turns
+- **[A2A Protocol](./a2a-protocol.md)** — Event format and protocol compliance
+- **[Tool Integration](./tool-integration.md)** — Tool plugin patterns
+- **[Observability](./observability.md)** — Tracing and logging details
+
 > **Note**: This document describes the **AgentLoop** class, the core single-turn execution engine. AgentLoop is designed to be operated by the **Agent** class (see [agent-lifecycle.md](./agent-lifecycle.md)), which handles multi-turn conversations, message persistence, and session management.
 
 ## Overview

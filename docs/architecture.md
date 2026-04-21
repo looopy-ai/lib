@@ -17,7 +17,8 @@ The framework is built around a few core concepts:
 The framework is divided into several packages:
 
 - **`@looopy-ai/core`**: Contains the core classes and interfaces, including `Agent`, `runLoop`, and the provider and store interfaces. This package is the heart of the framework and is the only package that is required to be used.
-- **`@looopy-ai/aws`**: Implements providers and stores for AWS services, such as Bedrock and S3. This package is an example of how to implement providers and stores for a specific platform.
+- **`@looopy-ai/aws`**: AWS-specific stores and runtime helpers: a DynamoDB-backed `AgentStore`, a Bedrock AgentCore memory `MessageStore`, Secrets Manager helpers, and an AgentCore-compatible runtime server.
+- **`@looopy-ai/react`**: React UI components and a conversation reducer for building chat interfaces.
 - **`@looopy-ai/examples`**: Contains example usage of the framework, including a kitchen-sink example that demonstrates all of the framework's features.
 
 ## Data Flow

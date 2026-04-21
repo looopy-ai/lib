@@ -10,10 +10,9 @@ src/
 ├── core/                      # Agent orchestration (Agent, loop, logger, iteration)
 ├── events/                    # Event factories and utilities
 ├── observability/             # OpenTelemetry spans and logging helpers
-├── plugins/                   # Plugin system (system prompts, agent academy)
+├── plugins/                   # Plugin system (system prompts, agent academy/skills)
 ├── providers/                 # LLM providers (LiteLLM) and chat-completion helpers
 ├── server/                    # HTTP runtime helpers (SSE, event routing, shutdown)
-├── skills/                    # Agent skills registry and management
 ├── stores/                    # Message, agent-state, artifact stores (in-memory, filesystem, etc.)
 ├── tools/                     # Tool plugins (local, client, MCP, agent) and helpers
 ├── types/                     # Shared types for events, messages, tools, context
@@ -22,11 +21,10 @@ src/
 
 ## Not Yet Implemented
 
-The following directories from the design docs are planned but not yet implemented:
+The following features from the design docs are planned but not yet implemented:
 
 ```
 - a2a protocol support (planned)
-- authentication hooks (planned)
 - dynamic discovery and extension points (planned)
 ```
 
@@ -36,7 +34,7 @@ All code in this directory implements the designs in `/design`:
 
 | Implementation               | Design Document                                                     |
 | ---------------------------- | ------------------------------------------------------------------- |
-| `auth/*`                     | Secure credential handoff protocol (ECDH-ES JWE with A256GCM, PKCE OAuth) |
+| `auth/*`                     | [design/authentication.md](../../../design/authentication.md) (ECDH-ES JWE with A256GCM, PKCE OAuth) |
 | `core/agent.ts`              | [design/agent-lifecycle.md](../../../design/agent-lifecycle.md)          |
 | `core/loop.ts`               | [design/agent-loop.md](../../../design/agent-loop.md)                    |
 | `core/iteration.ts`          | [design/agent-loop.md](../../../design/agent-loop.md)                    |
@@ -49,9 +47,8 @@ All code in this directory implements the designs in `/design`:
 | `providers/chat-completions` | [design/streaming-architecture.md](../../../design/streaming-architecture.md) |
 | `server/*`                   | [design/internal-event-protocol.md](../../../design/internal-event-protocol.md) |
 | `observability/*`            | [design/observability.md](../../../design/observability.md)              |
-| `skills/*`                   | [design/extension-points.md](../../../design/extension-points.md)        |
+| `plugins/*`                  | [design/extension-points.md](../../../design/extension-points.md)        |
 | `a2a/*` (planned)            | [design/a2a-protocol.md](../../../design/a2a-protocol.md)                |
-| `auth/*` (planned)           | [design/authentication.md](../../../design/authentication.md)            |
 | `extensions/*` (planned)     | [design/extension-points.md](../../../design/extension-points.md)        |
 | `discovery/*` (planned)      | [design/dynamic-discovery.md](../../../design/dynamic-discovery.md)      |
 

@@ -66,13 +66,14 @@ This document lists features that are **not yet implemented** and should be eval
 - ✅ InMemoryArtifactStore complete
 - ✅ ArtifactStoreWithEvents complete
 - ✅ Built-in artifact tools complete
+- ✅ FileSystemArtifactStore implemented
 - ❌ RedisArtifactStore not implemented
-- ❌ S3/filesystem backends not implemented
+- ❌ S3 backend not implemented
 
 **Streaming**:
 - ✅ Event structure supports streaming (ArtifactUpdateEvent with `append` and `lastChunk`)
-- ❌ LLM provider streaming not implemented
-- ❌ Streaming LLM responses end-to-end not working
+- ✅ LLM provider streaming implemented (LiteLLMProvider via SSE)
+- ✅ Streaming LLM responses end-to-end working
 
 **Tool Result Aggregation**:
 - ✅ Basic aggregation working
