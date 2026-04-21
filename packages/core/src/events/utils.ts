@@ -10,7 +10,6 @@ import type {
   AnyEvent,
   AuthCompletedEvent,
   AuthRequiredEvent,
-  AuthType,
   ChildTaskEvent,
   ContentCompleteEvent,
   ContentDeltaEvent,
@@ -311,34 +310,16 @@ export function createInputReceivedEvent(
 // Authentication Event Creators
 // ============================================================================
 
-export interface CreateAuthRequiredEventOptions {
-  authId: string;
-  authType: AuthType;
-  provider?: string;
-  scopes?: string[];
-  prompt: string;
-  authUrl?: string;
-  metadata?: {
-    expiresIn?: number;
-    [key: string]: unknown;
-  };
-}
+export type CreateAuthRequiredEventOptions = Omit<AuthRequiredEvent, 'kind' | 'timestamp'>;
 
-export function createAuthRequiredEvent(
+export const createAuthRequiredEvent = (
   options: CreateAuthRequiredEventOptions,
-): AuthRequiredEvent {
-  return {
+): AuthRequiredEvent =>
+  ({
     kind: 'auth-required',
-    authId: options.authId,
-    authType: options.authType,
-    provider: options.provider,
-    scopes: options.scopes,
-    prompt: options.prompt,
-    authUrl: options.authUrl,
     timestamp: new Date().toISOString(),
-    metadata: options.metadata,
-  };
-}
+    ...options,
+  }) as AuthRequiredEvent;
 
 export interface CreateAuthCompletedEventOptions {
   authId: string;

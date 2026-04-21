@@ -4,6 +4,7 @@ export * from './artifact';
 export * from './context';
 export * from './core';
 export * from './event';
+export * from './event-schemas';
 export * from './llm';
 export * from './message';
 export * from './prettify';

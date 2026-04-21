@@ -53,7 +53,7 @@ export type InputType = 'confirmation' | 'clarification' | 'selection' | 'data';
 /**
  * Authentication types
  */
-export type AuthType = 'oauth2' | 'api-key' | 'password' | 'biometric' | 'custom';
+export type AuthType = 'oauth2' | 'api-key' | 'pat' | 'password' | 'custom';
 
 /**
  * Task initiator
@@ -319,31 +319,63 @@ export type InputRequestEvent = InputRequiredEvent | InputReceivedEvent;
 // ============================================================================
 
 /**
- * Authentication is needed (always targets user)
+ * Public key for encrypting credentials
  */
-export interface AuthRequiredEvent {
+export interface AuthEncryptionKey {
+  kty: string; // 'EC'
+  crv: string; // 'P-256'
+  x: string; // Base64url-encoded X coordinate
+  y: string; // Base64url-encoded Y coordinate
+  kid: string; // Key ID for rotation tracking
+  alg?: string; // 'ECDH-ES'
+}
+
+interface AuthRequiredEventBase {
   kind: 'auth-required';
   authId: string; // Unique ID for this auth request
-  authType: AuthType;
   provider?: string; // e.g., 'google', 'github', 'stripe'
   scopes?: string[]; // Requested permissions/scopes
   prompt: string; // User-facing message
-  authUrl?: string; // OAuth redirect URL with PKCE code_challenge (for oauth2 type)
-  encryptionKey?: {
-    // Public key for encrypting credentials (for non-oauth2 types and OAuth code)
-    kty: string; // 'EC'
-    crv: string; // 'P-256'
-    x: string; // Base64url-encoded X coordinate
-    y: string; // Base64url-encoded Y coordinate
-    kid: string; // Key ID for rotation tracking
-    alg?: string; // 'ECDH-ES'
-  };
+  encryptionKey?: AuthEncryptionKey; // Public key for encrypting credentials
   timestamp: string;
   metadata?: {
     expiresIn?: number; // How long until auth expires (seconds)
     [key: string]: unknown;
   };
 }
+
+export interface OAuth2AuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'oauth2';
+  authUrl: string; // OAuth redirect URL with PKCE code_challenge (required)
+}
+
+export interface ApiKeyAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'api-key';
+  infoUrl?: string; // URL to direct user to their API key generation page
+}
+
+export interface PatAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'pat';
+  infoUrl?: string; // URL to direct user to their personal access token generation page
+}
+
+export interface PasswordAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'password';
+}
+
+export interface CustomAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'custom';
+}
+
+/**
+ * Authentication is needed (always targets user)
+ */
+export type AuthRequiredEvent =
+  | OAuth2AuthRequiredEvent
+  | ApiKeyAuthRequiredEvent
+  | PatAuthRequiredEvent
+  | PasswordAuthRequiredEvent
+  | CustomAuthRequiredEvent;
 
 /**
  * Authentication succeeded
