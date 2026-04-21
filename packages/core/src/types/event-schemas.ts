@@ -22,15 +22,35 @@ const authRequiredEventBaseSchema = z.object({
   provider: z.string().optional(),
   scopes: z.array(z.string()).optional(),
   prompt: z.string(),
-  encryptionKey: AuthEncryptionKeySchema.optional(),
+  encryptionKey: AuthEncryptionKeySchema,
   timestamp: z.string(),
   metadata: z.object({ expiresIn: z.number().optional() }).catchall(z.unknown()).optional(),
 });
 
-export const OAuth2AuthRequiredEventSchema = authRequiredEventBaseSchema.extend({
-  authType: z.literal('oauth2'),
-  authUrl: z.url(),
-});
+export const OAuth2AuthRequiredEventSchema = authRequiredEventBaseSchema
+  .extend({
+    authType: z.literal('oauth2'),
+    authorizationEndpoint: z.url().optional(),
+    clientId: z.string().optional(),
+    codeChallenge: z.string().optional(),
+    codeChallengeMethod: z.literal('S256').optional(),
+  })
+  .superRefine((event, ctx) => {
+    const hasDiscreteFields = Boolean(
+      event.authorizationEndpoint &&
+        event.clientId &&
+        event.codeChallenge &&
+        event.codeChallengeMethod,
+    );
+
+    if (!hasDiscreteFields) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'OAuth2 auth-required events must include authorizationEndpoint, clientId, codeChallenge, and codeChallengeMethod.',
+      });
+    }
+  });
 
 export const ApiKeyAuthRequiredEventSchema = authRequiredEventBaseSchema.extend({
   authType: z.literal('api-key'),

@@ -17,7 +17,8 @@
  * const { codeChallenge, codeVerifier } = generatePKCEPair();
  *
  * // Store verifier and privateKeyPem in memory (never emit)
- * // Include publicKey in auth-required event
+ * // The client owns redirect/callback handling and returns the encrypted result
+ * // Include publicKey and any OAuth URL construction fields in auth-required
  * ```
  *
  * ### Client-side (encrypting and submitting):

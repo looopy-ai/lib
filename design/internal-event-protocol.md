@@ -547,24 +547,58 @@ interface InputReceivedEvent {
 
 Authentication is needed (always targets user).
 
+`AuthRequiredEvent` is a discriminated union on `authType`. All variants share a common base:
+
 ```typescript
-interface AuthRequiredEvent {
+interface AuthRequiredEventBase {
   kind: 'auth-required';
-  contextId: string;
-  taskId: string;
   authId: string;                // Unique ID for this auth request
-  authType: 'oauth2' | 'api-key' | 'password' | 'biometric' | 'custom';
   provider?: string;             // e.g., 'google', 'github', 'stripe'
   scopes?: string[];             // Requested permissions/scopes
   prompt: string;                // User-facing message
-  authUrl?: string;              // OAuth redirect URL
+  encryptionKey: AuthEncryptionKey; // Agent public key for encrypting credentials
   timestamp: string;
   metadata?: {
     expiresIn?: number;          // How long until auth expires (seconds)
     [key: string]: unknown;
   };
 }
+
+interface OAuth2AuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'oauth2';
+  authorizationEndpoint?: string; // Authorization endpoint when client constructs the URL
+  clientId?: string;              // OAuth client ID
+  codeChallenge?: string;         // PKCE code challenge
+  codeChallengeMethod?: 'S256';   // PKCE challenge method
+}
+
+interface ApiKeyAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'api-key';
+  infoUrl?: string;               // URL to API key generation page
+}
+
+interface PatAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'pat';
+  infoUrl?: string;               // URL to personal access token generation page
+}
+
+interface PasswordAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'password';
+}
+
+interface CustomAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'custom';
+}
+
+type AuthRequiredEvent =
+  | OAuth2AuthRequiredEvent
+  | ApiKeyAuthRequiredEvent
+  | PatAuthRequiredEvent
+  | PasswordAuthRequiredEvent
+  | CustomAuthRequiredEvent;
 ```
+
+`contextId` and `taskId` are stamped onto events by the runtime (see [Context Stamping](#context-stamping-in-code)).
 
 **Note**: Auth events **always** propagate to user. No coordinator can handle auth on user's behalf.
 
@@ -579,13 +613,18 @@ interface AuthRequiredEvent {
   "provider": "github",
   "scopes": ["repo", "user"],
   "prompt": "Please authorize access to your GitHub repositories",
-  "authUrl": "https://github.com/login/oauth/authorize?client_id=...",
+  "authorizationEndpoint": "https://github.com/login/oauth/authorize",
+  "clientId": "...",
+  "codeChallenge": "...",
+  "codeChallengeMethod": "S256",
   "timestamp": "2025-11-06T10:30:15Z",
   "metadata": {
     "expiresIn": 600
   }
 }
 ```
+
+The redirect URI is expected to be owned by the client integration. The agent should receive only the encrypted authorization result (using `encryptionKey`), not manage the browser callback directly.
 
 #### `auth-completed`
 
@@ -594,8 +633,6 @@ Authentication succeeded.
 ```typescript
 interface AuthCompletedEvent {
   kind: 'auth-completed';
-  contextId: string;
-  taskId: string;
   authId: string;                // Matches auth-required.authId
   userId: string;                // Which user completed authentication
   timestamp: string;
@@ -605,6 +642,8 @@ interface AuthCompletedEvent {
   };
 }
 ```
+
+`contextId` and `taskId` are stamped by the runtime (see [Context Stamping](#context-stamping-in-code)).
 
 **Example**:
 ```json

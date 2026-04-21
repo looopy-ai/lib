@@ -16,11 +16,11 @@ This module provides end-to-end encryption and authentication for credentials fl
 
 | Type | Flow | Transport |
 |------|------|-----------|
-| `oauth2` | User → OAuth Provider callback → Agent | Authorization code via JWE |
+| `oauth2` | User → client-owned OAuth callback/proxy → Agent | Authorization code via JWE |
 | `api-key` | User input → encrypted → Agent | JWE envelope to agent private key |
+| `pat` | User input → encrypted → Agent | JWE envelope to agent private key |
 | `password` | User input → encrypted → Agent | JWE envelope to agent private key |
 | `custom` | Provider-specific | JWE envelope to agent private key |
-| `biometric` | Device-local only | N/A (no network transit) |
 
 ## Protocol Flow
 
@@ -31,9 +31,11 @@ Agent                    Client                   OAuth Authorization Server
   │                         │                                  │
   ├─ auth-required ─────────▶                                  │
   │  (encryptionKey,        │                                  │
-  │   authUrl with PKCE)    │                                  │
+  │   PKCE challenge info)  │                                  │
   │                         │                                  │
-  │                         ├─ open authUrl ──────────────────▶│
+  │                         ├─ build auth URL with            │
+  │                         │  client redirect URI            │
+  │                         ├─────────────────────────────────▶│
   │                         │                                  │
   │                         │◀─ redirect with auth code ───────┤
   │                         │  (to client callback URL)        │
@@ -157,10 +159,13 @@ const keyPair = generateECDHKeyPair();
 const authEvent: AuthRequiredEvent = {
   kind: 'auth-required',
   authId: 'auth-xyz',
-  authType: 'api-key',
-  prompt: 'Enter your API key',
+  authType: 'oauth2',
+  prompt: 'Sign in to continue',
   encryptionKey: keyPair.publicKey,
-  // ... other fields
+  authorizationEndpoint: 'https://provider.com/auth',
+  clientId: 'oauth-client-id',
+  codeChallenge: 'pkce-challenge',
+  codeChallengeMethod: 'S256',
 };
 
 // Client side: encrypt secret
@@ -204,16 +209,16 @@ import {
   buildTokenExchangeRequest,
 } from '@looopy-ai/core/auth';
 
-// Agent: generate OAuth request
+// Client-owned auth integration: generate OAuth request
 const request = generateOAuth2Request({
   clientId: process.env.OAUTH_CLIENT_ID,
-  redirectUri: 'https://app.example.com/callback',
-  provider: 'google',
+  redirectUri: 'https://client.example.com/oauth/callback',
+  authorizationEndpoint: 'https://oauth-provider.com/auth',
   scopes: ['openid', 'profile', 'email'],
 });
 
-// Client: redirect user
-window.location.href = request.authUrl; // PKCE challenge embedded
+// Client: redirect user using the client-owned callback URI
+window.location.href = request.authUrl;
 
 // Client callback handler
 const { code, state } = extractAuthorizationCode(window.location.href);
@@ -227,7 +232,7 @@ const tokenRequest = buildTokenExchangeRequest({
   codeVerifier: request.pkce.codeVerifier, // Kept in agent memory
   clientId: process.env.OAUTH_CLIENT_ID,
   clientSecret: process.env.OAUTH_CLIENT_SECRET,
-  redirectUri: 'https://app.example.com/callback',
+  redirectUri: 'https://client.example.com/oauth/callback',
 });
 
 const response = await fetch('https://oauth-provider.com/token', {
@@ -323,29 +328,53 @@ interface PKCEPair {
 ### AuthRequiredEvent
 
 ```typescript
-export interface AuthRequiredEvent {
+// Shared base for all auth-required variants
+interface AuthRequiredEventBase {
   kind: 'auth-required';
   authId: string; // Unique for this auth request
-  authType: 'oauth2' | 'api-key' | 'password' | 'biometric' | 'custom';
   provider?: string; // 'google', 'github', 'stripe', etc.
   scopes?: string[]; // Requested permissions
   prompt: string; // User-facing message
-  authUrl?: string; // OAuth redirect URL (oauth2 only)
-  encryptionKey?: {
-    // Public key for credential encryption
-    kty: string;
-    crv: string;
-    x: string;
-    y: string;
-    kid: string;
-    alg?: string;
-  };
+  encryptionKey: AuthEncryptionKey; // Public key for credential encryption (required)
   timestamp: string;
   metadata?: {
     expiresIn?: number; // Seconds until auth expires
     [key: string]: unknown;
   };
 }
+
+interface OAuth2AuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'oauth2';
+  authorizationEndpoint?: string; // Authorization endpoint when client constructs the URL
+  clientId?: string; // OAuth client ID for the authorization request
+  codeChallenge?: string; // PKCE code challenge
+  codeChallengeMethod?: 'S256';
+}
+
+interface ApiKeyAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'api-key';
+  infoUrl?: string; // Link to API key generation page
+}
+
+interface PatAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'pat';
+  infoUrl?: string; // Link to personal access token generation page
+}
+
+interface PasswordAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'password';
+}
+
+interface CustomAuthRequiredEvent extends AuthRequiredEventBase {
+  authType: 'custom';
+}
+
+type AuthRequiredEvent =
+  | OAuth2AuthRequiredEvent
+  | ApiKeyAuthRequiredEvent
+  | PatAuthRequiredEvent
+  | PasswordAuthRequiredEvent
+  | CustomAuthRequiredEvent;
 ```
 
 ## Security Considerations

@@ -336,7 +336,7 @@ interface AuthRequiredEventBase {
   provider?: string; // e.g., 'google', 'github', 'stripe'
   scopes?: string[]; // Requested permissions/scopes
   prompt: string; // User-facing message
-  encryptionKey?: AuthEncryptionKey; // Public key for encrypting credentials
+  encryptionKey: AuthEncryptionKey; // Public key for encrypting credentials
   timestamp: string;
   metadata?: {
     expiresIn?: number; // How long until auth expires (seconds)
@@ -346,7 +346,10 @@ interface AuthRequiredEventBase {
 
 export interface OAuth2AuthRequiredEvent extends AuthRequiredEventBase {
   authType: 'oauth2';
-  authUrl: string; // OAuth redirect URL with PKCE code_challenge (required)
+  authorizationEndpoint?: string; // Authorization endpoint when the client constructs the URL
+  clientId?: string; // OAuth client ID for the authorization request
+  codeChallenge?: string; // PKCE code challenge for the authorization request
+  codeChallengeMethod?: 'S256'; // PKCE challenge method
 }
 
 export interface ApiKeyAuthRequiredEvent extends AuthRequiredEventBase {
