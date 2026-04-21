@@ -1,14 +1,18 @@
 {
-  "ignorePaths": ["**/package.json"],
+  "ignorePaths": [
+    "**/package.json"
+  ],
   "words": [
     "agentcore",
     "conv",
+    "ECDH",
     "geee",
     "langfuse",
     "litellm",
     "looopy",
     "MCPJSONRPC",
     "ollama",
+    "pkce",
     "Zipkin"
   ]
 }

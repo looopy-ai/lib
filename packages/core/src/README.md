@@ -6,6 +6,7 @@ This directory contains the actual implementation code for the Looopy framework.
 
 ```
 src/
+├── auth/                      # Secure credential handoff (ECDH, JWE, PKCE OAuth)
 ├── core/                      # Agent orchestration (Agent, loop, logger, iteration)
 ├── events/                    # Event factories and utilities
 ├── observability/             # OpenTelemetry spans and logging helpers
@@ -35,6 +36,7 @@ All code in this directory implements the designs in `/design`:
 
 | Implementation               | Design Document                                                     |
 | ---------------------------- | ------------------------------------------------------------------- |
+| `auth/*`                     | Secure credential handoff protocol (ECDH-ES JWE with A256GCM, PKCE OAuth) |
 | `core/agent.ts`              | [design/agent-lifecycle.md](../../../design/agent-lifecycle.md)          |
 | `core/loop.ts`               | [design/agent-loop.md](../../../design/agent-loop.md)                    |
 | `core/iteration.ts`          | [design/agent-loop.md](../../../design/agent-loop.md)                    |
