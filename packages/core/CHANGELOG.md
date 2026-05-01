@@ -1,5 +1,13 @@
 # @looopy-ai/core
 
+## 2.2.1
+
+### Patch Changes
+
+- bf52dca: Clarify the OAuth auth-flow documentation so the client owns redirect and callback handling, and the agent only receives the encrypted authorization result.
+- 2f01358: Shutdown
+- 8570370: Adding auth helpers
+
 ## 2.2.0
 
 ### Minor Changes
