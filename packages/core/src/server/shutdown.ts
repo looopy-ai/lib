@@ -20,8 +20,10 @@ export class ShutdownManager {
 
   async initiateShutdown(): Promise<void> {
     for (const watcher of this.watchers) {
+      getLogger({ component: 'shutdown-manager' }).info('Shutting down watcher %d', watcher.order);
       await watcher.handleShutdown();
     }
+    process.exit(0);
   }
 
   private signalHandler(signal: NodeJS.Signals): void {
