@@ -68,8 +68,8 @@
     },
 
     // TypeScript settings
-    "typescript.tsdk": "node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": false,
+    "ts.tsdk.path": "node_modules/typescript/lib",
+    "ts.tsdk.promptToUseWorkspaceVersion": false,
 
     // Editor settings
     "editor.formatOnSave": true,
@@ -104,9 +104,6 @@
 
     // Git settings
     "git.ignoreLimitWarning": true,
-
-    // Terminal settings
-    "terminal.integrated.defaultProfile.linux": "nu",
 
     // Optimize performance
     "files.watcherExclude.useGitIgnore": true,
