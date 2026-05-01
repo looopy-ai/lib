@@ -8,6 +8,13 @@ describe('AuthRequiredEventSchema', () => {
       authId: 'auth-123',
       authType: 'oauth2',
       prompt: 'Authorize access',
+      encryptionKey: {
+        kty: 'EC',
+        crv: 'P-256',
+        x: 'base64url-x',
+        y: 'base64url-y',
+        kid: 'key-123',
+      },
       authorizationEndpoint: 'https://provider.example.com/auth',
       clientId: 'client-123',
       codeChallenge: 'challenge-123',
