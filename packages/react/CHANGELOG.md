@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.0.12
+
+### Patch Changes
+
+- 5c474f9: Publish readme files
+
 ## 1.0.11
 
 ### Patch Changes

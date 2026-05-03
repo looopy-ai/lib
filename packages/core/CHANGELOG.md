@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 2.2.2
+
+### Patch Changes
+
+- 5c474f9: Publish readme files
+
 ## 2.2.1
 
 ### Patch Changes
