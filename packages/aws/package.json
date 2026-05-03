@@ -23,7 +23,8 @@
     "./ts/tools": "./src/tools/index.ts"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {

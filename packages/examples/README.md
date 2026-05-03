@@ -204,6 +204,27 @@ curl -N \
 pnpm tsx src/sse-client2.ts "Draft an email inviting the team to lunch"
 ```
 
+### 7. `input-required.ts` ⭐ TOOL INPUT INTERRUPTS
+
+**Status**: ✅ Complete
+
+**Purpose**: Demonstrates the tool-input-required interrupt mechanism that pauses the agent loop to collect credentials or confirmations from the user.
+
+**Features**:
+- **Tool-initiated interrupts**: A local tool calls `inputRequired()` when it needs a credential. The loop pauses with status `waiting-input`, the CLI collects the value, then resumes with `resolvedInputs`.
+- **LLM-initiated interrupts**: `requestInputPlugin()` advertises a `request_input` tool to the model. When the LLM calls it, it's intercepted and surfaced as a `tool-input-required` event.
+- **Synthetic tool-complete injection**: On resume, a synthetic tool-complete is injected into message history so the LLM sees the answer on the next iteration.
+
+**To run**:
+```nu
+pnpm tsx src/input-required.ts
+```
+
+**Try asking**:
+- `"Search the web for TypeScript best practices"` → tool asks for an API key before proceeding
+- `"Send a message to #dev-team saying the build is green"` → tool asks for confirmation
+- `"What is the capital of France?"` → LLM answers directly (no interrupt)
+
 ### Supporting Modules
 
 - `src/configs/basic.ts` centralizes shared stores, prompts, and tool plugins so every example behaves consistently. Tweak it to point at different storage backends or tool sets.
@@ -219,6 +240,7 @@ We recommend reviewing examples in this order:
 4. **`sse-client2.ts`** - See a minimal CLI client that uses a streaming parser.
 5. **`agentcore-server.ts`** - Reuse the same Agent in an AWS AgentCore-compatible runtime.
 6. **`agentcore-client.ts`** - Exercise the AgentCore runtime with a purpose-built SSE client.
+7. **`input-required.ts`** - Explore agent loop interrupts for collecting user input mid-execution.
 
 ## Agent vs AgentLoop
 

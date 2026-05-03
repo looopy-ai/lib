@@ -83,4 +83,4 @@ We welcome contributions! Please read our [contributing guidelines](./docs/contr
 
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License.
