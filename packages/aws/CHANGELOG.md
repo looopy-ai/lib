@@ -1,5 +1,13 @@
 # @looopy-ai/aws
 
+## 2.1.32
+
+### Patch Changes
+
+- 5c474f9: Publish readme files
+- Updated dependencies [5c474f9]
+  - @looopy-ai/core@2.2.2
+
 ## 2.1.31
 
 ### Patch Changes
