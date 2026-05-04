@@ -10,7 +10,7 @@
     "test": "pnpm -r test",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "build": "tsc --noEmit",
+    "build": "pnpm -r --if-present build",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "changes": "changeset",
