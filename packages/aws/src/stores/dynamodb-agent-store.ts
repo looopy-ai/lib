@@ -6,6 +6,7 @@ import {
   PutCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { AgentState, AgentStore } from '@looopy-ai/core';
+import type { FinalizeHandlerArguments } from '@smithy/types/dist-types/middleware';
 
 type SerializableAgentState = Omit<AgentState, 'createdAt' | 'lastActivity'> & {
   createdAt: string;
@@ -71,9 +72,53 @@ export class DynamoDBAgentStore implements AgentStore {
     this.contextKeyPrefix = config.contextKeyPrefix || 'context#';
     this.consistentRead = config.consistentRead ?? true;
     this.entityType = config.entityType || 'agent-state';
+    this.ttlSeconds = config.ttlSeconds;
     this.documentClient =
       config.documentClient ||
       DynamoDBDocumentClient.from(new DynamoDBClient(config.dynamoDbClientConfig ?? {}));
+
+    this.documentClient.middlewareStack.add(
+      // biome-ignore lint/suspicious/noExplicitAny: it's just a passthrough wrapper
+      (next) => async (args: FinalizeHandlerArguments<any>) => {
+        try {
+          return await next(args);
+        } catch (err: unknown) {
+          if (!(err instanceof Error)) {
+            throw err;
+          }
+
+          // Extract table name (if present)
+          const tableName =
+            args?.input?.TableName ??
+            (args?.input?.RequestItems && Object.keys(args.input.RequestItems)[0]);
+
+          // Resolve endpoint (may be async provider)
+          const endpoint =
+            typeof this.documentClient.config.endpoint === 'function'
+              ? await this.documentClient.config.endpoint()
+              : this.documentClient.config.endpoint;
+
+          // Augment error
+          err.message = `[DynamoDB:${tableName ?? 'unknown'} @ ${endpoint?.hostname ?? 'unknown'}] ${err.message}`;
+
+          // Optionally attach structured metadata
+          if ('$metadata' in err) {
+            err.$metadata = {
+              ...(err.$metadata || {}),
+              tableName,
+              endpoint,
+            };
+          }
+
+          throw err;
+        }
+      },
+      {
+        step: 'finalizeRequest',
+        name: 'augmentDynamoErrorMiddleware',
+        priority: 'low', // run late
+      },
+    );
   }
 
   async load(contextId: string): Promise<AgentState | null> {
