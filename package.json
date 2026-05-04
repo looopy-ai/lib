@@ -27,7 +27,7 @@
   ],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.6.5",
+  "packageManager": "pnpm@10.33.2",
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "pino": "^10.3.1",
