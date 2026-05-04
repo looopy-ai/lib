@@ -54,19 +54,19 @@
   "dependencies": {
     "@geee-be/sse-stream-parser": "^1.0.2",
     "lucide-react": "^1.14.0",
-    "streamdown": "^1.6.11"
+    "streamdown": "^2.5.0"
   },
   "devDependencies": {
     "@storybook/addon-docs": "^10.3.6",
     "@storybook/addon-onboarding": "^10.3.6",
     "@storybook/react-vite": "^10.3.6",
     "@tailwindcss/vite": "^4.2.4",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "react-hook-form": "^7.75.0",
     "storybook": "^10.3.6",
     "tailwindcss": "^4.2.4",
     "tsup": "^8.5.1",
-    "vite": "^7.3.2",
+    "vite": "^8.0.10",
     "zod": "^4.4.2"
   },
   "peerDependencies": {

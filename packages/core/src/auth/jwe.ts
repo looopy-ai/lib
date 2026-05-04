@@ -58,7 +58,7 @@ export const decryptCredential = async (
   const { importPKCS8, compactDecrypt } = await import('jose');
 
   // Import private key from PEM
-  const keyLike = await importPKCS8(privateKeyPem, 'EC');
+  const keyLike = await importPKCS8(privateKeyPem, 'ECDH-ES');
 
   // Decrypt JWE
   const { plaintext, protectedHeader } = await compactDecrypt(jwe, keyLike);

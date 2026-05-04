@@ -57,7 +57,7 @@
     "@aws-sdk/client-dynamodb": "^3.1041.0",
     "@aws-sdk/client-secrets-manager": "^3.1041.0",
     "@aws-sdk/lib-dynamodb": "^3.1041.0",
-    "@hono/node-server": "^1.19.14",
+    "@hono/node-server": "^2.0.1",
     "@looopy-ai/core": "workspace:*",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.216.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.216.0",
