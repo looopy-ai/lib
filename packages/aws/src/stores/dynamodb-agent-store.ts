@@ -77,7 +77,7 @@ export class DynamoDBAgentStore implements AgentStore {
       config.documentClient ||
       DynamoDBDocumentClient.from(new DynamoDBClient(config.dynamoDbClientConfig ?? {}));
 
-    this.documentClient.middlewareStack.add(
+    this.documentClient.middlewareStack?.add(
       // biome-ignore lint/suspicious/noExplicitAny: it's just a passthrough wrapper
       (next) => async (args: FinalizeHandlerArguments<any>) => {
         try {
