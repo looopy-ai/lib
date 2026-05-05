@@ -21,7 +21,7 @@ The `DynamoDBAgentStore` uses a single DynamoDB table to persist agent state wit
 
 ```bash
 aws dynamodb create-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --attribute-definitions \
     AttributeName=pk,AttributeType=S \
     AttributeName=sk,AttributeType=S \
@@ -38,7 +38,7 @@ If you plan to use automatic expiration with `ttlSeconds` configuration:
 
 ```bash
 aws dynamodb create-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --attribute-definitions \
     AttributeName=pk,AttributeType=S \
     AttributeName=sk,AttributeType=S \
@@ -50,7 +50,7 @@ aws dynamodb create-table \
 
 # Enable TTL on the expires attribute
 aws dynamodb update-time-to-live \
-  --table-name agent-store \
+  --table-name agent-state \
   --time-to-live-specification AttributeName=expires,Enabled=true \
   --region us-west-2
 ```
@@ -61,7 +61,7 @@ If you prefer provisioned throughput instead of on-demand billing:
 
 ```bash
 aws dynamodb create-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --attribute-definitions \
     AttributeName=pk,AttributeType=S \
     AttributeName=sk,AttributeType=S \
@@ -78,7 +78,7 @@ When instantiating `DynamoDBAgentStore`, you can customize key names:
 
 ```typescript
 const store = new DynamoDBAgentStore({
-  tableName: 'agent-store',           // Required
+  tableName: 'agent-state',           // Required
   agentId: 'my-agent',                // Required
   partitionKeyName: 'pk',             // Optional, defaults to 'pk'
   sortKeyName: 'sk',                  // Optional, defaults to 'sk'
@@ -94,7 +94,7 @@ If you customize key names, adjust the AWS CLI command accordingly:
 
 ```bash
 aws dynamodb create-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --attribute-definitions \
     AttributeName=custom_pk,AttributeType=S \
     AttributeName=custom_sk,AttributeType=S \
@@ -143,7 +143,7 @@ Each persisted item has this structure:
 
 ```bash
 aws dynamodb describe-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --region us-west-2
 ```
 
@@ -151,6 +151,6 @@ aws dynamodb describe-table \
 
 ```bash
 aws dynamodb delete-table \
-  --table-name agent-store \
+  --table-name agent-state \
   --region us-west-2
 ```
