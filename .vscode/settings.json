@@ -1,92 +1,114 @@
 {
-		// Files to exclude from explorer
-		"files.exclude": {
-			"**/.git": true,
-			"**/.DS_Store": true,
-			"**/node_modules": true,
-			"**/Thumbs.db": true,
-			"**/*.tsbuildinfo": true,
-      "**/dist": true
-		},
+  // Files to exclude from explorer
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/Thumbs.db": true,
+    "**/*.tsbuildinfo": true,
+    "**/dist": true
+  },
 
-		// Files to exclude from search
-	 "search.exclude": {
-			"**/node_modules": true,
-			"**/dist": true,
-			"**/build": true,
-			"**/.git": true,
-			"**/.pnpm-store": true,
-			"**/pnpm-lock.yaml": true,
-			"**/*.tsbuildinfo": true,
-			"**/coverage": true,
-			"**/.turbo": true,
-			"**/.next": true,
-			"**/.nuxt": true,
-			"**/.cache": true,
-			"**/.vscode": false,
-			"**/.github": false
-		},
+  // Files to exclude from search
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.git": true,
+    "**/.pnpm-store": true,
+    "**/pnpm-lock.yaml": true,
+    "**/*.tsbuildinfo": true,
+    "**/coverage": true,
+    "**/.turbo": true,
+    "**/.next": true,
+    "**/.nuxt": true,
+    "**/.cache": true,
+    "**/_*": true,
+    "**/.vscode": false,
+    "**/.github": false
+  },
 
-		// Files to exclude from file watcher
-		"files.watcherExclude": {
-			"**/.git/objects/**": true,
-			"**/.git/subtree-cache/**": true,
-			"**/node_modules/**": true,
-			"**/dist/**": true,
-			"**/build/**": true,
-			"**/.pnpm-store/**": true,
-			"**/coverage/**": true,
-			"**/.turbo/**": true,
-			"**/.next/**": true,
-			"**/.nuxt/**": true,
-			"**/.cache/**": true,
-			"**/*.tsbuildinfo": true
-		},
+  // Files to exclude from file watcher
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.pnpm-store/**": true,
+    "**/coverage/**": true,
+    "**/.turbo/**": true,
+    "**/.next/**": true,
+    "**/.nuxt/**": true,
+    "**/.cache/**": true,
+    "**/*.tsbuildinfo": true
+  },
 
-		// TypeScript settings
-		"typescript.tsdk": "node_modules/typescript/lib",
-		"typescript.enablePromptUseWorkspaceTsdk": true,
+  // TypeScript settings
+  "ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "ts.tsdk.promptToUseWorkspaceVersion": false,
+  "js/ts.tsdk.promptToUseWorkspaceVersion": false,
 
-		// Editor settings
-		"editor.formatOnSave": true,
-		"editor.defaultFormatter": "biomejs.biome",
-		"editor.codeActionsOnSave": {
-			"quickfix.biome": "explicit",
-			"source.organizeImports.biome": "explicit"
-		},
+  // Editor settings
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never",
+    "source.organizeImports.biome": "explicit",
+    "source.fixAll.biome": "explicit"
+  },
 
-		// Biome (formatter/linter) settings
-		"[typescript]": {
-			"editor.defaultFormatter": "biomejs.biome",
-			"editor.formatOnSave": true
-		},
-		"[javascript]": {
-			"editor.defaultFormatter": "biomejs.biome",
-			"editor.formatOnSave": true
-		},
-		"[json]": {
-			"editor.defaultFormatter": "biomejs.biome",
-			"editor.formatOnSave": true
-		},
-		"[jsonc]": {
-			"editor.defaultFormatter": "biomejs.biome",
-			"editor.formatOnSave": true
-		},
+  // Biome (formatter/linter) settings
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
 
-    "json.format.enable": false,
-    "biome.requireConfig": true,
+  "json.format.enable": false,
+  "biome.requireConfig": true,
 
-		// Git settings
-		"git.ignoreLimitWarning": true,
+  // Git settings
+  "git.ignoreLimitWarning": true,
 
-		// Terminal settings
-		"terminal.integrated.defaultProfile.linux": "Nushell",
+  // Optimize performance
+  "files.watcherExclude.useGitIgnore": true,
+  "search.followSymlinks": false,
 
-		// Optimize performance
-		"files.watcherExclude.useGitIgnore": true,
-		"search.followSymlinks": false,
-
-		// Exclude from quick open
-		"search.quickOpen.includeSymbols": false,
-		"search.quickOpen.includeHistory": true
-	}
+  // Exclude from quick open
+  "search.quickOpen.includeSymbols": false,
+  "search.quickOpen.includeHistory": true,
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#75912b",
+    "activityBar.background": "#75912b",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#9dcfe2",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#75912b",
+    "statusBar.background": "#556a1f",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#75912b",
+    "statusBarItem.remoteBackground": "#556a1f",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "tab.activeBorder": "#75912b",
+    "titleBar.activeBackground": "#556a1f",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#556a1f99",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#556a1f"
+}
