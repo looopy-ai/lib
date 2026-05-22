@@ -1,9 +1,17 @@
-import { type Agent, getLogger, type ShutdownManager } from '@looopy-ai/core';
+import {
+  type Agent,
+  detectInvocationBodyType,
+  getLogger,
+  parsePromptInvocationBody,
+  parseResumeInvocationBody,
+  type ShutdownManager,
+} from '@looopy-ai/core';
 import { Hono as BaseHono, type Context } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { BlankInput } from 'hono/types';
 import type pino from 'pino';
 import { handlePrompt } from './invocations/prompt';
+import { handleResume } from './invocations/resume';
 
 export type ServeConfig<AuthContext> = {
   agent: (contextId: string) => Promise<Agent<AuthContext>>;
@@ -125,23 +133,36 @@ export const hono = <AuthContext>(config: ServeConfig<AuthContext>): Hono => {
         return c.json({ error: 'Invalid request body' }, 400);
       }
 
-      switch (body.type) {
-        case 'prompt':
-          return handlePrompt(
-            agent,
-            body,
-            authContext,
-            c.res,
-            logger,
-            () => {
-              state.busy = false;
-            },
-            () => {
-              state.busy = false;
-            },
-          );
-        default:
-          return c.json({ error: 'Unsupported invocation type' }, 400);
+      const invocationType = detectInvocationBodyType(body);
+
+      const onComplete = () => {
+        state.busy = false;
+      };
+      const onError = () => {
+        state.busy = false;
+      };
+
+      switch (invocationType) {
+        case 'prompt': {
+          const parsed = parsePromptInvocationBody(body);
+          if (!parsed.success) {
+            state.busy = false;
+            return c.json({ error: 'Invalid prompt payload', details: parsed.error.issues }, 400);
+          }
+          return handlePrompt(agent, parsed.data, authContext, c.res, logger, onComplete, onError);
+        }
+        case 'resume': {
+          const parsed = parseResumeInvocationBody(body);
+          if (!parsed.success) {
+            state.busy = false;
+            return c.json({ error: 'Invalid resume payload', details: parsed.error.issues }, 400);
+          }
+          return handleResume(agent, parsed.data, authContext, c.res, logger, onComplete, onError);
+        }
+        default: {
+          state.busy = false;
+          return c.json({ error: 'Unsupported invocation type', type: body.type }, 400);
+        }
       }
     });
   });

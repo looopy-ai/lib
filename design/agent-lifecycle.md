@@ -163,6 +163,11 @@ interface Agent {
        * If omitted while waiting-input, a userMessage cancels pending tools.
        */
       inputs?: Array<{ inputId: string; value: unknown }>;
+      /**
+       * Encrypted credentials for a waiting-auth resume.
+       * Each entry maps an authId (from auth-required) to a JWE credential.
+       */
+      credentials?: Array<{ authId: string; credential: string }>;
     }
   ): Promise<Observable<AgentEvent>>;
 
@@ -194,7 +199,7 @@ interface Agent {
 
 interface AgentState {
   /** Agent lifecycle status */
-  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'shutdown' | 'error';
+  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'waiting-auth' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;
@@ -211,7 +216,23 @@ interface AgentState {
   /** Pending tool inputs when status is waiting-input */
   pendingToolInputs?: PendingToolInput[];
 
+  /** Pending auth requests when status is waiting-auth */
+  pendingAuthRequests?: PendingAuthRequest[];
+
   /** Metadata */
+  metadata?: Record<string, unknown>;
+}
+
+interface PendingAuthRequest {
+  authId: string;
+  authType: AuthType;
+  toolCallId: string;
+  toolName: string;
+  toolArguments: Record<string, unknown>;
+  taskId: string;
+  prompt: string;
+  provider?: string;
+  scopes?: string[];
   metadata?: Record<string, unknown>;
 }
 ```

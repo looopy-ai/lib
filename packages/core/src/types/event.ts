@@ -659,6 +659,10 @@ export function isToolInputRequiredEvent(event: AnyEvent): event is ToolInputReq
   return event.kind === 'tool-input-required';
 }
 
+export const isAuthRequiredEvent = (event: AnyEvent): event is AuthRequiredEvent => {
+  return event.kind === 'auth-required';
+};
+
 /**
  * Adds context/task identifiers to an event shape.
  */

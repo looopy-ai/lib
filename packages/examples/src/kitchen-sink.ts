@@ -45,6 +45,8 @@ import {
   agentAcademy,
   asyncPrompt,
   createArtifactTools,
+  createJWEClaims,
+  encryptCredential,
   FileSystemArtifactStore,
   FileSystemContextStore,
   FileSystemMessageStore,
@@ -538,6 +540,9 @@ async function main() {
       case 'tool-input-required':
         console.log(chalk.yellow(`\n⏸️  ${event.toolName}: ${event.prompt}`));
         break;
+      case 'auth-required':
+        console.log(chalk.yellow(`\n🔐 Auth required [${event.authType}]\n${event.prompt}`));
+        break;
     }
   }
 
@@ -595,11 +600,50 @@ async function main() {
   async function executeTurn(
     userMessage: string | null,
     inputs?: Array<{ inputId: string; value: unknown }>,
+    credentials?: Array<{ authId: string; credential: string }>,
   ): Promise<void> {
-    const events$ = await agent.startTurn(userMessage, inputs?.length ? { inputs } : undefined);
+    const pendingAuthEvents: Array<
+      ContextAnyEvent & {
+        kind: 'auth-required';
+        authId: string;
+        authType: string;
+        prompt: string;
+        encryptionKey: {
+          kty: string;
+          crv: string;
+          x: string;
+          y: string;
+          kid: string;
+          alg?: string;
+        };
+      }
+    > = [];
+
+    const turnOptions: {
+      inputs?: Array<{ inputId: string; value: unknown }>;
+      credentials?: Array<{ authId: string; credential: string }>;
+    } = {};
+    if (inputs?.length) {
+      turnOptions.inputs = inputs;
+    }
+    if (credentials?.length) {
+      turnOptions.credentials = credentials;
+    }
+
+    const events$ = await agent.startTurn(
+      userMessage,
+      Object.keys(turnOptions).length > 0
+        ? (turnOptions as unknown as {
+            inputs?: Array<{ inputId: string; value: unknown }>;
+          })
+        : undefined,
+    );
     await new Promise<void>((resolve, reject) => {
       events$.subscribe({
         next: (event) => {
+          if (event.kind === 'auth-required') {
+            pendingAuthEvents.push(event);
+          }
           void handleAgentEvent(event);
         },
         error: reject,
@@ -608,6 +652,11 @@ async function main() {
     });
     if (agent.state.status === 'waiting-input') {
       await handleWaitingInput();
+      return;
+    }
+
+    if (agent.state.status === 'waiting-auth') {
+      await handleWaitingAuth(pendingAuthEvents);
     }
   }
 
@@ -633,6 +682,59 @@ async function main() {
 
     console.log('');
     await executeTurn(null, inputs);
+  }
+
+  /**
+   * Prompt for credentials, encrypt with auth-required encryptionKey, and resume.
+   */
+  async function handleWaitingAuth(
+    authEvents: Array<
+      ContextAnyEvent & {
+        kind: 'auth-required';
+        authId: string;
+        authType: string;
+        prompt: string;
+        encryptionKey: {
+          kty: string;
+          crv: string;
+          x: string;
+          y: string;
+          kid: string;
+          alg?: string;
+        };
+      }
+    >,
+  ): Promise<void> {
+    if (authEvents.length === 0) {
+      console.log('\n⚠️  Agent is waiting-auth but no auth-required event payload was captured.');
+      return;
+    }
+
+    const credentials: Array<{ authId: string; credential: string }> = [];
+
+    for (const auth of authEvents) {
+      const raw = await question(
+        `\n  [${auth.authType}] ${auth.prompt}\n  Enter credential to encrypt and submit:\n  > `,
+      );
+      const secret = raw.trim();
+      if (!secret) {
+        console.log('  Skipped empty credential; auth remains pending.');
+        continue;
+      }
+
+      const claims = createJWEClaims({
+        authId: auth.authId,
+        contextId,
+        expiresInSeconds: 300,
+      });
+
+      const jwe = await encryptCredential(secret, auth.encryptionKey, claims);
+      credentials.push({ authId: auth.authId, credential: jwe });
+    }
+
+    if (credentials.length > 0) {
+      await executeTurn(null, undefined, credentials);
+    }
   }
 
   rl.on('line', async (line) => {

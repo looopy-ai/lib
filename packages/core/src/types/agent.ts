@@ -29,6 +29,22 @@ export interface PendingToolInput {
 }
 
 /**
+ * A pending auth-required entry — saved to AgentState so it survives across turns.
+ */
+export interface PendingAuthRequest {
+  authId: string;
+  authType: import('./event').AuthType;
+  toolCallId: string;
+  toolName: string;
+  toolArguments: Record<string, unknown>;
+  taskId: string;
+  prompt: string;
+  provider?: string;
+  scopes?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Agent configuration
  */
 export interface AgentConfig<AuthContext> {
@@ -68,7 +84,7 @@ export interface AgentConfig<AuthContext> {
  */
 export interface AgentState {
   /** Agent lifecycle status */
-  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'shutdown' | 'error';
+  status: 'created' | 'idle' | 'busy' | 'waiting-input' | 'waiting-auth' | 'shutdown' | 'error';
 
   /** Total turns executed */
   turnCount: number;
@@ -87,6 +103,12 @@ export interface AgentState {
    * Present only when status === 'waiting-input'.
    */
   pendingToolInputs?: PendingToolInput[];
+
+  /**
+   * Authentication requests that are paused waiting for upstream credential handoff.
+   * Present only when status === 'waiting-auth'.
+   */
+  pendingAuthRequests?: PendingAuthRequest[];
 
   /** Metadata */
   metadata?: Record<string, unknown>;

@@ -35,15 +35,16 @@ import {
   startAgentTurnSpan,
 } from '../observability/spans';
 import { REQUEST_INPUT_TOOL_NAME } from '../tools/request-input-tool';
-import type { AgentConfig, AgentState, PendingToolInput } from '../types/agent';
+import type { AgentConfig, AgentState, PendingAuthRequest, PendingToolInput } from '../types/agent';
 import type { IterationContext } from '../types/core';
 import type {
+  AuthRequiredEvent,
   ContextAnyEvent,
   ContextEvent,
   ToolCallEvent,
   ToolInputRequiredEvent,
 } from '../types/event';
-import { isToolInputRequiredEvent } from '../types/event';
+import { isAuthRequiredEvent, isToolInputRequiredEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import { serializeError } from '../utils/error';
 import { getLogger } from './logger';
@@ -207,6 +208,11 @@ export class Agent<AuthContext> {
        * When provided without a `userMessage`, only the input-resume path runs.
        */
       inputs?: Array<{ inputId: string; value: unknown }>;
+      /**
+       * Encrypted credential submissions for a `waiting-auth` resume.
+       * Each entry maps an `authId` (from the prior `auth-required` event) to a JWE credential.
+       */
+      credentials?: Array<{ authId: string; credential: string }>;
     },
   ): Promise<Observable<ContextAnyEvent>> {
     const turnNumber = this._state.turnCount + 1;
@@ -311,8 +317,7 @@ export class Agent<AuthContext> {
             }),
           );
         }
-        // Re-check status after initialization — it may be 'waiting-input' if restored from persistence
-        // Reclaim the busy slot regardless; executeInternal will use the effective status below
+        // Re-check status after initialization — it may be a waiting state if restored from persistence
         this._state.status = 'busy';
       }
 
@@ -322,11 +327,15 @@ export class Agent<AuthContext> {
       await this.persistState();
 
       // Determine the effective pre-busy status to pass into executeInternal.
-      // If we just initialized and the persisted state had 'waiting-input', the status was
-      // restored before we reclaimed 'busy', so we can check pendingToolInputs as a signal.
+      // If we just initialized and the persisted state had a waiting status, the status was
+      // restored before we reclaimed 'busy', so we can check pending queues as a signal.
       const effectiveStatus: AgentState['status'] =
-        priorStatus === 'created' && (this._state.pendingToolInputs?.length ?? 0) > 0
-          ? 'waiting-input'
+        priorStatus === 'created'
+          ? (this._state.pendingToolInputs?.length ?? 0) > 0
+            ? 'waiting-input'
+            : (this._state.pendingAuthRequests?.length ?? 0) > 0
+              ? 'waiting-auth'
+              : priorStatus
           : priorStatus;
 
       // Load conversation history and execute turn
@@ -336,6 +345,7 @@ export class Agent<AuthContext> {
         options?.authContext,
         options?.metadata,
         options?.inputs,
+        options?.credentials,
         effectiveStatus,
         rootSpan,
         rootContext,
@@ -367,6 +377,7 @@ export class Agent<AuthContext> {
    * @param authContext - Authentication context (refreshed token, user credentials)
    * @param metadata - Additional metadata for the turn
    * @param inputs - Resolved inputs for a `waiting-input` resume (keyed by inputId)
+   * @param credentials - Encrypted credentials for a `waiting-auth` resume (keyed by authId)
    * @param priorStatus - Agent status captured before claiming the busy slot
    * @param turnSpan - Parent span created in startTurn()
    * @param turnContext - Parent context for tracing
@@ -377,6 +388,7 @@ export class Agent<AuthContext> {
     authContext: AuthContext | undefined,
     metadata: Record<string, unknown> | undefined,
     inputs: Array<{ inputId: string; value: unknown }> | undefined,
+    credentials: Array<{ authId: string; credential: string }> | undefined,
     priorStatus: AgentState['status'],
     turnSpan: import('@opentelemetry/api').Span,
     turnContext: import('@opentelemetry/api').Context,
@@ -632,6 +644,229 @@ export class Agent<AuthContext> {
             }
 
             // ----------------------------------------------------------------
+            // 2b. Handle waiting-auth state
+            // ----------------------------------------------------------------
+            if (priorStatus === 'waiting-auth') {
+              const pendingAuthRequests = this._state.pendingAuthRequests ?? [];
+
+              if (!credentials?.length && !userMessage) {
+                const error = new Error(
+                  'Cannot execute turn: Agent is waiting for authentication. ' +
+                    'Provide `credentials` to resume or a `userMessage` to cancel pending auth requests.',
+                );
+                logger.error(error.message);
+                failAgentTurnSpan(turnSpan, error);
+                observer.error(error);
+                return;
+              }
+
+              if (credentials && credentials.length > 0) {
+                const resolvedInputs = new Map<string, unknown>();
+                const resolvedPending: PendingAuthRequest[] = [];
+
+                for (const { authId, credential } of credentials) {
+                  const pending = pendingAuthRequests.find((p) => p.authId === authId);
+                  if (pending) {
+                    resolvedInputs.set(pending.toolCallId, credential);
+                    resolvedPending.push(pending);
+                  }
+                }
+
+                this._state.pendingAuthRequests = pendingAuthRequests.filter(
+                  (p) => !resolvedPending.some((r) => r.authId === p.authId),
+                );
+
+                const iterCtx: IterationContext<AuthContext> = {
+                  agentId: this.config.agentId,
+                  contextId: this.config.contextId,
+                  taskId,
+                  authContext,
+                  parentContext: turnContext,
+                  logger: this.config.logger.child({ taskId, turnNumber }),
+                  plugins: this.config.plugins || [],
+                  turnNumber,
+                  metadata,
+                  resolvedInputs,
+                };
+
+                const resumeEvents: ContextAnyEvent[] = [];
+                const newPendingInputs: PendingToolInput[] = [];
+                const newPendingAuth: PendingAuthRequest[] = [];
+
+                for (const pending of resolvedPending) {
+                  const tcEvent: ContextEvent<ToolCallEvent> = {
+                    contextId: this.config.contextId,
+                    taskId,
+                    path: undefined,
+                    kind: 'tool-call',
+                    toolCallId: pending.toolCallId,
+                    toolName: pending.toolName,
+                    arguments: pending.toolArguments,
+                    timestamp: new Date().toISOString(),
+                  };
+
+                  const events = await lastValueFrom(runToolCall(iterCtx, tcEvent).pipe(toArray()));
+                  resumeEvents.push(...events);
+
+                  for (const event of events) {
+                    if (isChildTaskEvent(event)) continue;
+                    if (event.kind === 'tool-complete') {
+                      logger.debug({ event }, 'Saving resumed auth tool-complete to message store');
+                      await this.config.messageStore.append(this.config.contextId, [
+                        {
+                          role: 'tool',
+                          content: JSON.stringify({
+                            success: event.success,
+                            result: event.result,
+                            error: event.error,
+                          }),
+                          toolCallId: event.toolCallId,
+                        },
+                      ]);
+                    } else if (isToolInputRequiredEvent(event)) {
+                      newPendingInputs.push({
+                        inputId: event.inputId,
+                        toolCallId: event.toolCallId,
+                        toolName: event.toolName,
+                        toolArguments: event.toolArguments,
+                        taskId,
+                        inputType: event.inputType,
+                        prompt: event.prompt,
+                        schema: event.schema,
+                        options: event.options,
+                        isLlmRequest: event.toolName === REQUEST_INPUT_TOOL_NAME,
+                      });
+                    } else if (isAuthRequiredEvent(event)) {
+                      newPendingAuth.push({
+                        authId: event.authId,
+                        authType: event.authType,
+                        toolCallId: String(event.metadata?.toolCallId ?? pending.toolCallId),
+                        toolName: String(event.metadata?.toolName ?? pending.toolName),
+                        toolArguments: pending.toolArguments,
+                        taskId,
+                        prompt: event.prompt,
+                        provider: event.provider,
+                        scopes: event.scopes,
+                        metadata: event.metadata,
+                      });
+                    } else if (event.kind === 'internal:tool-message') {
+                      await this.config.messageStore.append(this.config.contextId, [event.message]);
+                    }
+                  }
+                }
+
+                for (const event of resumeEvents) {
+                  if (!isChildTaskEvent(event) && event.kind !== 'internal:tool-message') {
+                    observer.next(event);
+                  }
+                }
+
+                const stillPendingAuth = this._state.pendingAuthRequests ?? [];
+                const allPendingAuth = [...stillPendingAuth, ...newPendingAuth];
+
+                if (allPendingAuth.length > 0) {
+                  this._state.pendingAuthRequests = allPendingAuth;
+                  this._state.turnCount++;
+                  this._state.lastActivity = new Date();
+                  this._state.status = 'waiting-auth';
+                  await this.persistState();
+
+                  observer.next(
+                    createTaskStatusEvent({
+                      contextId: this.config.contextId,
+                      taskId,
+                      status: 'waiting-auth',
+                      metadata: {
+                        pendingAuths: allPendingAuth.map((p) => ({
+                          authId: p.authId,
+                          authType: p.authType,
+                          provider: p.provider,
+                        })),
+                      },
+                    }),
+                  );
+                  observer.complete();
+                  return;
+                }
+
+                if (newPendingInputs.length > 0) {
+                  this._state.pendingToolInputs = [
+                    ...(this._state.pendingToolInputs ?? []),
+                    ...newPendingInputs,
+                  ];
+                  this._state.turnCount++;
+                  this._state.lastActivity = new Date();
+                  this._state.status = 'waiting-input';
+                  await this.persistState();
+
+                  observer.next(
+                    createTaskStatusEvent({
+                      contextId: this.config.contextId,
+                      taskId,
+                      status: 'waiting-input',
+                      metadata: {
+                        pendingInputIds: this._state.pendingToolInputs.map((p) => p.inputId),
+                        pendingToolNames: this._state.pendingToolInputs.map((p) => p.toolName),
+                      },
+                    }),
+                  );
+                  observer.complete();
+                  return;
+                }
+
+                const updatedMessages = await this.loadMessages();
+                this.continueWithLoop(
+                  updatedMessages,
+                  userMessage,
+                  taskId,
+                  authContext,
+                  metadata,
+                  turnNumber,
+                  turnSpan,
+                  turnContext,
+                  logger,
+                  subRef,
+                  observer,
+                );
+                return;
+              }
+
+              if (userMessage) {
+                logger.info(
+                  { pendingCount: pendingAuthRequests.length },
+                  'Cancelling pending auth requests, resuming with new user message',
+                );
+
+                for (const pending of pendingAuthRequests) {
+                  const cancelMsg: LLMMessage = {
+                    role: 'tool',
+                    content: JSON.stringify({
+                      success: false,
+                      error: 'Cancelled: user provided new input',
+                    }),
+                    toolCallId: pending.toolCallId,
+                  };
+                  await this.config.messageStore.append(this.config.contextId, [cancelMsg]);
+                  messages.push(cancelMsg);
+
+                  observer.next({
+                    contextId: this.config.contextId,
+                    taskId,
+                    path: undefined,
+                    kind: 'tool-complete',
+                    toolCallId: pending.toolCallId,
+                    toolName: pending.toolName,
+                    success: false,
+                    error: 'Cancelled: user provided new input',
+                    timestamp: new Date().toISOString(),
+                  });
+                }
+
+                this._state.pendingAuthRequests = [];
+              }
+            }
+
+            // ----------------------------------------------------------------
             // 3. Normal path — append user message and run loop
             // ----------------------------------------------------------------
             this.continueWithLoop(
@@ -712,8 +947,9 @@ export class Agent<AuthContext> {
 
         logger.debug({ messageCount: messages.length }, 'Loaded messages for turn');
 
-        // Accumulate tool-input-required events to save as pending state
+        // Accumulate pause events to save as pending state
         const pendingInputEvents: ToolInputRequiredEvent[] = [];
+        const pendingAuthEvents: AuthRequiredEvent[] = [];
 
         const turnEvents$ = runLoop(
           {
@@ -775,6 +1011,9 @@ export class Agent<AuthContext> {
                   // Capture for pending state — do NOT save a tool message yet (no result)
                   pendingInputEvents.push(event);
                   break;
+                case 'auth-required':
+                  pendingAuthEvents.push(event);
+                  break;
                 case 'internal:tool-message':
                   logger.debug({ event }, 'Saving internal:tool-message to message store');
                   await this.config.messageStore.append(this.config.contextId, [event.message]);
@@ -822,10 +1061,33 @@ export class Agent<AuthContext> {
                     }),
                   ),
                 ];
+                this._state.pendingAuthRequests = undefined;
+              } else if (pendingAuthEvents.length > 0) {
+                this._state.status = 'waiting-auth';
+                this._state.pendingAuthRequests = [
+                  ...(this._state.pendingAuthRequests ?? []),
+                  ...pendingAuthEvents.map(
+                    (e): PendingAuthRequest => ({
+                      authId: e.authId,
+                      authType: e.authType,
+                      toolCallId: String(e.metadata?.toolCallId ?? ''),
+                      toolName: String(e.metadata?.toolName ?? ''),
+                      toolArguments:
+                        (e.metadata?.toolArguments as Record<string, unknown> | undefined) ?? {},
+                      taskId,
+                      prompt: e.prompt,
+                      provider: e.provider,
+                      scopes: e.scopes,
+                      metadata: e.metadata,
+                    }),
+                  ),
+                ];
+                this._state.pendingToolInputs = undefined;
               } else {
                 this._state.status = 'idle';
                 // Clear any previously resolved pending inputs (should already be empty)
                 this._state.pendingToolInputs = undefined;
+                this._state.pendingAuthRequests = undefined;
               }
 
               await this.persistState();

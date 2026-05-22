@@ -4,12 +4,13 @@ import { isChildTaskEvent } from '../events/utils';
 import { startAgentLoopSpan } from '../observability/spans';
 import type { LoopConfig, LoopContext } from '../types/core';
 import type {
+  AuthRequiredEvent,
   ContentCompleteEvent,
   ContextAnyEvent,
   ContextEvent,
   ToolInputRequiredEvent,
 } from '../types/event';
-import { isToolInputRequiredEvent } from '../types/event';
+import { isAuthRequiredEvent, isToolInputRequiredEvent } from '../types/event';
 import type { LLMMessage } from '../types/message';
 import { recursiveMerge } from '../utils/recursive-merge';
 import { runIteration } from './iteration';
@@ -81,6 +82,8 @@ const MAX_REPLAY_BUFFER_SIZE = 1000; // Limit the replay buffer size to prevent 
  * - The loop stops when `content-complete` event has `finishReason !== 'tool_calls'`
  * - The loop also stops when any tool emits a `tool-input-required` event; the final
  *   event instead of `task-complete` is `task-status: waiting-input`
+ * - The loop also stops when any tool emits an `auth-required` event; the final
+ *   event instead of `task-complete` is `task-status: waiting-auth`
  */
 export const runLoop = <AuthContext>(
   context: LoopContext<AuthContext>,
@@ -135,7 +138,8 @@ export const runLoop = <AuthContext>(
     }),
     (e) =>
       (!isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls') ||
-      (!isChildTaskEvent(e) && e.kind === 'tool-input-required'),
+      (!isChildTaskEvent(e) && e.kind === 'tool-input-required') ||
+      (!isChildTaskEvent(e) && e.kind === 'auth-required'),
   ).pipe(shareReplay({ bufferSize: MAX_REPLAY_BUFFER_SIZE, refCount: false }));
 
   // Build a final task-complete or task-waiting-input event
@@ -145,6 +149,7 @@ export const runLoop = <AuthContext>(
       {
         lastComplete: ContextEvent<ContentCompleteEvent> | null;
         pendingInputs: ContextEvent<ToolInputRequiredEvent>[];
+        pendingAuth: ContextEvent<AuthRequiredEvent>[];
       }
     >(
       (acc, e) => {
@@ -152,11 +157,12 @@ export const runLoop = <AuthContext>(
         if (e.kind === 'content-complete') return { ...acc, lastComplete: e };
         if (isToolInputRequiredEvent(e))
           return { ...acc, pendingInputs: [...acc.pendingInputs, e] };
+        if (isAuthRequiredEvent(e)) return { ...acc, pendingAuth: [...acc.pendingAuth, e] };
         return acc;
       },
-      { lastComplete: null, pendingInputs: [] },
+      { lastComplete: null, pendingInputs: [], pendingAuth: [] },
     ),
-    mergeMap(({ lastComplete, pendingInputs }) => {
+    mergeMap(({ lastComplete, pendingInputs, pendingAuth }) => {
       if (pendingInputs.length > 0) {
         // At least one tool is waiting for input — surface a waiting-input status
         return of(
@@ -167,6 +173,22 @@ export const runLoop = <AuthContext>(
             metadata: {
               pendingInputIds: pendingInputs.map((e) => e.inputId),
               pendingToolNames: pendingInputs.map((e) => e.toolName),
+            },
+          }),
+        );
+      }
+      if (pendingAuth.length > 0) {
+        return of(
+          createTaskStatusEvent({
+            contextId: context.contextId,
+            taskId: context.taskId,
+            status: 'waiting-auth',
+            metadata: {
+              pendingAuths: pendingAuth.map((e) => ({
+                authId: e.authId,
+                authType: e.authType,
+                provider: e.provider,
+              })),
             },
           }),
         );

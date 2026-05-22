@@ -13,7 +13,9 @@ import type { ToolPlugin } from '../types/core';
 import type { InputType } from '../types/event';
 import type { ToolCall, ToolDefinition, ToolResult } from '../types/tools';
 import {
+  type ToolAuthRequiredSpec,
   type ToolInputRequiredSpec,
+  toolAuthRequiredEvent,
   toolErrorEvent,
   toolInputRequiredEvent,
   toolResultToEvents,
@@ -28,6 +30,13 @@ type InternalToolResult = Omit<ToolResult, 'toolCallId' | 'toolName'>;
  */
 export interface InputRequiredResult {
   inputRequired: ToolInputRequiredSpec;
+}
+
+/**
+ * Returned from a tool handler when it needs secure credential handoff.
+ */
+export interface AuthRequiredResult {
+  authRequired: ToolAuthRequiredSpec;
 }
 
 /**
@@ -55,6 +64,14 @@ export function inputRequired(
 }
 
 /**
+ * Helper to construct an `AuthRequiredResult` — the return value a tool handler
+ * yields when it needs secure authentication handoff.
+ */
+export const authRequired = (spec: ToolAuthRequiredSpec): AuthRequiredResult => ({
+  authRequired: spec,
+});
+
+/**
  * Type guard for InputRequiredResult
  */
 function isInputRequiredResult(value: unknown): value is InputRequiredResult {
@@ -66,6 +83,15 @@ function isInputRequiredResult(value: unknown): value is InputRequiredResult {
   );
 }
 
+function isAuthRequiredResult(value: unknown): value is AuthRequiredResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'authRequired' in value &&
+    typeof (value as AuthRequiredResult).authRequired === 'object'
+  );
+}
+
 /**
  * Tool handler function with typed parameters.
  * May return an `InputRequiredResult` to pause execution and request upstream input.
@@ -73,7 +99,11 @@ function isInputRequiredResult(value: unknown): value is InputRequiredResult {
 export type ToolHandler<TParams, AuthContext> = (
   params: TParams,
   context: ExecutionContext<AuthContext>,
-) => Promise<InternalToolResult | InputRequiredResult> | InternalToolResult | InputRequiredResult;
+) =>
+  | Promise<InternalToolResult | InputRequiredResult | AuthRequiredResult>
+  | InternalToolResult
+  | InputRequiredResult
+  | AuthRequiredResult;
 
 /**
  * Tool definition with Zod schema and handler
@@ -245,6 +275,10 @@ export function localTools<AuthContext>(
             return toolInputRequiredEvent(toolCall, result.inputRequired);
           }
 
+          if (isAuthRequiredResult(result)) {
+            return toolAuthRequiredEvent(toolCall, result.authRequired);
+          }
+
           return {
             toolCallId: toolCall.id,
             toolName: toolCall.function.name,
@@ -278,7 +312,10 @@ export function localTools<AuthContext>(
       }).pipe(
         mergeMap((result) => {
           // tool-input-required events are forwarded directly (not wrapped in toolResultToEvents)
-          if ('kind' in result && result.kind === 'tool-input-required') {
+          if (
+            'kind' in result &&
+            (result.kind === 'tool-input-required' || result.kind === 'auth-required')
+          ) {
             return of(result);
           }
           return toolResultToEvents(result as ToolResult);

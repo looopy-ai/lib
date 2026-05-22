@@ -39,7 +39,7 @@ type ToolPlugin<AuthContext> = {
 
 Key design points:
 - `listTools` and `getTool` are **async** (Promise-based), not Observable
-- `executeTool` returns an **Observable of events** — the tool emits `tool-complete`, `tool-input-required`, or nested agent events rather than returning a plain result
+- `executeTool` returns an **Observable of events** — the tool emits `tool-complete`, `tool-input-required`, `auth-required`, or nested agent events rather than returning a plain result
 - `isEnabled` filtering is the responsibility of the plugin (checked inside `getTool` / `listTools`)
 
 ### Tool Definition
@@ -97,7 +97,11 @@ interface LocalToolDefinition<TSchema extends z.ZodObject, AuthContext> {
   handler: (
     params: z.infer<TSchema>,
     context: ExecutionContext<AuthContext>,
-  ) => Promise<ToolResult | InputRequiredResult> | ToolResult | InputRequiredResult;
+  ) =>
+    | Promise<ToolResult | InputRequiredResult | AuthRequiredResult>
+    | ToolResult
+    | InputRequiredResult
+    | AuthRequiredResult;
 }
 ```
 
@@ -123,6 +127,34 @@ handler: async (params, context) => {
 ```
 
 See `src/tools/local-tools.ts` for the complete implementation.
+
+### Auth-Required Pattern (Secure Handoff)
+
+A handler can request secure credential handoff by returning an `AuthRequiredResult`.
+The loop is interrupted with an `auth-required` event and transitions to `waiting-auth`.
+On resume, encrypted credentials (JWE) are passed back and made available to the tool by `toolCallId`.
+
+```typescript
+// Conceptual handler using auth-required
+handler: async (params, context) => {
+  const encrypted = context.resolvedInputs?.get(context.toolCallId);
+  if (!encrypted) {
+    return authRequired({
+      authId: 'auth-123',
+      authType: 'api-key',
+      prompt: 'Authenticate to continue',
+      encryptionKey: publicJwk,
+    });
+  }
+
+  const secret = await decryptCredential(encrypted, privateKeyPem, {
+    authId: 'auth-123',
+    contextId: context.contextId,
+  });
+
+  return { success: true, result: await callProtectedApi(params, secret) };
+};
+```
 
 ## MCP Tool Provider
 
