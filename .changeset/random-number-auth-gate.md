@@ -1,6 +1,5 @@
 ---
 "@looopy-ai/core": minor
-"@looopy-ai/examples": patch
 ---
 
 Add secure auth-required handoff support to local tools, including waiting-auth loop behavior and credential-based resume handling in Agent.startTurn().
