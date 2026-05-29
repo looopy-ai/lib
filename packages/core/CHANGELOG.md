@@ -1,5 +1,17 @@
 # @looopy-ai/core
 
+## 3.1.0
+
+### Minor Changes
+
+- 626b0b7: Add secure auth-required handoff support to local tools, including waiting-auth loop behavior and credential-based resume handling in Agent.startTurn().
+
+  Update the random number example tool to require secure authentication for ranges exceeding 100 and decrypt returned JWE credentials before continuing.
+
+### Patch Changes
+
+- 626b0b7: Move prompt and resume invocation payload parsing into core server utilities so endpoint adapters can share auth credential and resolved input validation.
+
 ## 3.0.0
 
 ### Major Changes
