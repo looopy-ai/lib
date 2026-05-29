@@ -1,6 +1,10 @@
 import type { SSEEvent } from '@geee-be/sse-stream-parser';
+import { reduceAuthCompleted } from './events/auth-completed';
+import { reduceAuthRequired } from './events/auth-required';
 import { reduceContentComplete } from './events/content-complete';
 import { reduceContentDelta } from './events/content-delta';
+import { reduceInputReceived } from './events/input-received';
+import { reduceInputRequired } from './events/input-required';
 import { reducePrompt } from './events/prompt';
 import { reducePromptError } from './events/prompt-error';
 import { reduceTaskComplete } from './events/task-complete';
@@ -48,6 +52,14 @@ export const conversationReducer = (
       return reduceToolStart(state, data);
     case 'tool-complete':
       return reduceToolComplete(state, data);
+    case 'input-required':
+      return reduceInputRequired(state, data);
+    case 'input-received':
+      return reduceInputReceived(state, data);
+    case 'auth-required':
+      return reduceAuthRequired(state, data);
+    case 'auth-completed':
+      return reduceAuthCompleted(state, data);
     case 'prompt':
       return reducePrompt(state, data);
     case 'prompt-error':

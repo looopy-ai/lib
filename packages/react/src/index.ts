@@ -1,4 +1,13 @@
 export {
+  type AuthCredential,
+  AuthRequiredPrompt,
+  type AuthRequiredPromptProps,
+} from './components/auth-required-prompt';
+export {
+  InputRequiredPrompt,
+  type InputRequiredPromptProps,
+} from './components/input-required-prompt';
+export {
   LucideIcon,
   type LucideIconName,
   type LucideIconProps,

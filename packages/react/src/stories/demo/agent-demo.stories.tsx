@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { AgentDemo } from './AgentDemo';
+import { AgentDemo } from './agent-demo';
 
 const meta = {
   title: 'Demo',

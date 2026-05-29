@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Storybook",
+      "type": "shell",
+      "command": "pnpm --filter @looopy-ai/react storybook",
+      "inAgents": true
+    }
+  ]
+}

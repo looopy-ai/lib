@@ -2,6 +2,8 @@ import { consumeSSEStream } from '@geee-be/sse-stream-parser';
 import { type FC, type ReactNode, useId, useReducer } from 'react';
 import { type SubmitHandler, useForm } from 'react-hook-form';
 import { Streamdown } from 'streamdown';
+import { AuthRequiredPrompt } from '../../components/auth-required-prompt';
+import { InputRequiredPrompt } from '../../components/input-required-prompt';
 import { LucideIcon, type LucideIconName } from '../../components/lucide-icon';
 import { ScrollContainer } from '../../components/scroll-container';
 import { conversationReducer } from '../../conversation/reducer';
@@ -266,6 +268,31 @@ export const AgentDemo: FC = () => {
                       </li>
                     );
                   }
+                  if (turn?.source === 'input-required') {
+                    return (
+                      <li key={id}>
+                        <InputRequiredPrompt
+                          turn={turn}
+                          onSubmit={(inputId, value) => {
+                            console.log('Input submitted', { inputId, value });
+                          }}
+                        />
+                      </li>
+                    );
+                  }
+                  if (turn?.source === 'auth-required') {
+                    return (
+                      <li key={id}>
+                        <AuthRequiredPrompt
+                          turn={turn}
+                          onSubmit={(authId, credential) => {
+                            console.log('Auth submitted', { authId, credential });
+                          }}
+                        />
+                      </li>
+                    );
+                  }
+                  if (turn?.source !== 'agent') return null;
                   return (
                     <li key={id} className="rounded-md border border-slate-100 p-3 shadow-sm">
                       {turn?.events && turn.events.length > 0 && (

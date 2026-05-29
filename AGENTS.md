@@ -13,3 +13,7 @@ Description of change
 ```
 
 In the header, only list packages affected by this change and indicate the semantic version level of the change "patch|minor|major".
+
+## File naming convention
+
+All source files must use **kebab-case** filenames (e.g. `my-component.tsx`, `my-component.test.tsx`, `my-component.stories.tsx`). PascalCase or camelCase filenames are not allowed.
