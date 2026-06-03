@@ -306,7 +306,7 @@ export class FileSystemContextStore implements ContextStore {
   async isLocked(contextId: string): Promise<boolean> {
     const state = await this.load(contextId);
 
-    if (!state || !state.lockedBy || !state.lockExpiresAt) {
+    if (!state?.lockedBy || !state.lockExpiresAt) {
       return false;
     }
 
