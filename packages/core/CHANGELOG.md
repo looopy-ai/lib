@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 3.1.2
+
+### Patch Changes
+
+- 5b9f7a6: Infer resume invocation type when `type` is omitted and the invocation payload contains `credentials` or `inputs`, while preserving explicit type precedence and existing parser validation rules.
+
 ## 3.1.1
 
 ### Patch Changes
