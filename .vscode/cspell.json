@@ -1,7 +1,5 @@
 {
-  "ignorePaths": [
-    "**/package.json"
-  ],
+  "ignorePaths": ["**/*.json"],
   "words": [
     "agentcore",
     "conv",
