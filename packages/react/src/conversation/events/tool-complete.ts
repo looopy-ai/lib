@@ -23,24 +23,22 @@ export const reduceToolComplete = (
   const updatedTurns = new Map(state.turns);
   const turn = updatedTurns.get(data.taskId);
 
-  if (!turn || turn.source !== 'agent') {
-    return state;
-  }
-
-  const existingEventIndex = turn.events.findIndex(
-    (e) => e.type === 'tool-call' && e.id === data.toolCallId,
-  );
-  if (existingEventIndex !== -1) {
-    const toolCall = turn.events[existingEventIndex] as ToolCall;
-    if (toolCall) {
-      const updatedEvents = [...turn.events];
-      updatedEvents[existingEventIndex] = {
-        ...toolCall,
-        status: 'completed',
-        success: data.success,
-        result: data.result,
-      };
-      updatedTurns.set(data.taskId, { ...turn, events: updatedEvents });
+  if (turn && turn.source === 'agent') {
+    const existingEventIndex = turn.events.findIndex(
+      (e) => e.type === 'tool-call' && e.id === data.toolCallId,
+    );
+    if (existingEventIndex !== -1) {
+      const toolCall = turn.events[existingEventIndex] as ToolCall;
+      if (toolCall) {
+        const updatedEvents = [...turn.events];
+        updatedEvents[existingEventIndex] = {
+          ...toolCall,
+          status: 'completed',
+          success: data.success,
+          result: data.result,
+        };
+        updatedTurns.set(data.taskId, { ...turn, events: updatedEvents });
+      }
     }
   }
 

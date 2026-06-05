@@ -137,4 +137,45 @@ describe('reduceToolComplete', () => {
     if (!inputTurn || inputTurn.source !== 'input-required') return;
     expect(inputTurn.status).toBe('pending');
   });
+
+  it('cancels linked auth-required turn when tool-complete arrives before task turn exists', () => {
+    const stateWithoutAgentTurn: Conversation = {
+      turns: new Map([
+        [
+          'auth-1',
+          {
+            source: 'auth-required',
+            id: 'auth-1',
+            authId: 'auth-1',
+            linkedToolCallId: 'tool-call-2',
+            authType: 'api-key',
+            prompt: 'Provide API key',
+            encryptionKey: {
+              kty: 'EC',
+              crv: 'P-256',
+              x: 'x',
+              y: 'y',
+              kid: 'kid',
+            },
+            status: 'completed',
+            timestamp: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+      ]),
+      turnOrder: ['auth-1'],
+    };
+
+    const result = reduceToolComplete(stateWithoutAgentTurn, {
+      taskId: 'missing-task',
+      toolCallId: 'tool-call-2',
+      toolName: 'lookup-auth',
+      success: false,
+      error: 'Cancelled: user provided new input',
+      timestamp: '2025-01-01T00:01:00.000Z',
+    });
+
+    const authTurn = result.turns.get('auth-1');
+    if (!authTurn || authTurn.source !== 'auth-required') return;
+    expect(authTurn.status).toBe('cancelled');
+  });
 });
