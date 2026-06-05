@@ -15,7 +15,7 @@ export const reduceToolComplete = (
     toolCallId: string;
     toolName: string;
     success: boolean;
-    result?: unknown;
+    result?: Record<string, unknown>;
     error?: string;
     timestamp: string;
   },
@@ -48,23 +48,22 @@ export const reduceToolComplete = (
     ? ('cancelled' as const)
     : ('completed' as const);
 
-  const inputAndAuthTurns = Array.from(updatedTurns.entries()).filter(([, currentTurn]) => {
+  for (const [turnId, currentTurn] of Array.from(updatedTurns.entries())) {
     if (currentTurn.source === 'input-required') {
-      return currentTurn.linkedToolCallId === data.toolCallId && currentTurn.status === 'pending';
+      if (currentTurn.linkedToolCallId === data.toolCallId && currentTurn.status === 'pending') {
+        updatedTurns.set(turnId, { ...currentTurn, status: resolvedStatus });
+      }
+      continue;
     }
 
     if (currentTurn.source === 'auth-required') {
-      return (
+      if (
         currentTurn.linkedToolCallId === data.toolCallId &&
         (currentTurn.status === 'pending' || currentTurn.status === 'completed')
-      );
+      ) {
+        updatedTurns.set(turnId, { ...currentTurn, status: resolvedStatus });
+      }
     }
-
-    return false;
-  });
-
-  for (const [turnId, currentTurn] of inputAndAuthTurns) {
-    updatedTurns.set(turnId, { ...currentTurn, status: resolvedStatus });
   }
 
   return {
