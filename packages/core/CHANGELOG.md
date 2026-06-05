@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 3.1.1
+
+### Patch Changes
+
+- 30d0405: Bump to publish
+
 ## 3.1.0
 
 ### Minor Changes
