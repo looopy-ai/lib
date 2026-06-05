@@ -176,5 +176,11 @@ describe('AuthRequiredPrompt', () => {
       expect(screen.getByText(/authentication completed/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
     });
+
+    it('shows cancelled message instead of input controls', () => {
+      render(<AuthRequiredPrompt turn={{ ...baseTurn, status: 'cancelled' }} onSubmit={vi.fn()} />);
+      expect(screen.getByText(/authentication cancelled/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+    });
   });
 });

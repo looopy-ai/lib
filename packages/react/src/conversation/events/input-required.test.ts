@@ -61,6 +61,45 @@ describe('reduceInputRequired', () => {
     expect(turn.options).toEqual(['a', 'b', 'c']);
     expect(turn.requireUser).toBe(true);
   });
+
+  it('captures linked tool call id from top-level toolCallId', () => {
+    const result = reduceInputRequired(emptyState, {
+      ...baseInputRequiredData,
+      toolCallId: 'tool-call-1',
+    });
+
+    const turn = result.turns.get('input-1');
+    if (turn?.source !== 'input-required') return;
+    expect(turn.linkedToolCallId).toBe('tool-call-1');
+  });
+
+  it('captures linked tool call id from metadata.toolCallId', () => {
+    const result = reduceInputRequired(emptyState, {
+      ...baseInputRequiredData,
+      metadata: {
+        toolCallId: 'tool-call-2',
+      },
+    });
+
+    const turn = result.turns.get('input-1');
+    if (turn?.source !== 'input-required') return;
+    expect(turn.linkedToolCallId).toBe('tool-call-2');
+  });
+
+  it('captures linked tool call id from metadata.toolCall.id', () => {
+    const result = reduceInputRequired(emptyState, {
+      ...baseInputRequiredData,
+      metadata: {
+        toolCall: {
+          id: 'tool-call-3',
+        },
+      },
+    });
+
+    const turn = result.turns.get('input-1');
+    if (turn?.source !== 'input-required') return;
+    expect(turn.linkedToolCallId).toBe('tool-call-3');
+  });
 });
 
 describe('reduceInputReceived', () => {

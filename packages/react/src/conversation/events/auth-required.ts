@@ -1,9 +1,26 @@
 import type { AuthEncryptionKey, AuthRequiredTurn, AuthType, Conversation } from '../types';
 
+const getLinkedToolCallId = (
+  toolCallId: string | undefined,
+  metadata: Record<string, unknown> | undefined,
+): string | undefined => {
+  if (toolCallId) {
+    return toolCallId;
+  }
+
+  const metadataToolCallId = metadata?.toolCallId;
+  if (typeof metadataToolCallId === 'string') {
+    return metadataToolCallId;
+  }
+
+  return undefined;
+};
+
 export const reduceAuthRequired = (
   state: Conversation,
   data: {
     authId: string;
+    toolCallId?: string;
     authType: AuthType;
     provider?: string;
     scopes?: string[];
@@ -14,13 +31,17 @@ export const reduceAuthRequired = (
     codeChallenge?: string;
     codeChallengeMethod?: 'S256';
     infoUrl?: string;
+    metadata?: Record<string, unknown>;
     timestamp: string;
   },
 ): Conversation => {
+  const linkedToolCallId = getLinkedToolCallId(data.toolCallId, data.metadata);
+
   const turn: AuthRequiredTurn = {
     source: 'auth-required',
     id: data.authId,
     authId: data.authId,
+    linkedToolCallId,
     authType: data.authType,
     provider: data.provider,
     scopes: data.scopes,

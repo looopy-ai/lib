@@ -322,6 +322,13 @@ export type AuthRequiredPromptProps = {
  * Transitions to a readonly "completed" state once authentication is done.
  */
 export const AuthRequiredPrompt: FC<AuthRequiredPromptProps> = ({ turn, onSubmit, className }) => {
+  const statusMessage =
+    turn.status === 'completed'
+      ? '✓ Authentication completed'
+      : turn.status === 'cancelled'
+        ? '✕ Authentication cancelled'
+        : null;
+
   const handleSubmit = (credential: AuthCredential) => {
     onSubmit(turn.authId, credential);
   };
@@ -356,8 +363,8 @@ export const AuthRequiredPrompt: FC<AuthRequiredPromptProps> = ({ turn, onSubmit
             </div>
           )}
 
-          {turn.status === 'completed' ? (
-            <p className="mt-2 text-xs text-slate-500 italic">✓ Authentication completed</p>
+          {statusMessage ? (
+            <p className="mt-2 text-xs text-slate-500 italic">{statusMessage}</p>
           ) : (
             <AuthBody
               authType={turn.authType}

@@ -70,12 +70,13 @@ export type InputRequiredTurn = {
   source: 'input-required';
   id: string;
   inputId: string;
+  linkedToolCallId?: string;
   requireUser?: boolean;
   inputType: InputType;
   prompt: string;
   options?: unknown[];
   schema?: Record<string, unknown>;
-  status: 'pending' | 'answered';
+  status: 'pending' | 'answered' | 'completed' | 'cancelled';
   timestamp: string;
 };
 
@@ -84,6 +85,7 @@ export type AuthRequiredTurn = {
   source: 'auth-required';
   id: string;
   authId: string;
+  linkedToolCallId?: string;
   authType: AuthType;
   provider?: string;
   scopes?: string[];
@@ -98,7 +100,7 @@ export type AuthRequiredTurn = {
   codeChallengeMethod?: 'S256';
   /** URL to API key / PAT generation page */
   infoUrl?: string;
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'cancelled';
   timestamp: string;
 };
 

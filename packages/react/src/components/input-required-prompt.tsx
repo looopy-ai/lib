@@ -156,6 +156,15 @@ export const InputRequiredPrompt: FC<InputRequiredPromptProps> = ({
   onSubmit,
   className,
 }) => {
+  const statusMessage =
+    turn.status === 'answered'
+      ? '✓ Response submitted'
+      : turn.status === 'completed'
+        ? '✓ Request completed'
+        : turn.status === 'cancelled'
+          ? '✕ Request cancelled'
+          : null;
+
   const handleSubmit = (value: unknown) => {
     onSubmit(turn.inputId, value);
   };
@@ -172,8 +181,8 @@ export const InputRequiredPrompt: FC<InputRequiredPromptProps> = ({
         <div className="flex-1">
           <p className="text-sm font-medium text-amber-900">{turn.prompt}</p>
 
-          {turn.status === 'answered' ? (
-            <p className="mt-2 text-xs text-slate-500 italic">✓ Response submitted</p>
+          {statusMessage ? (
+            <p className="mt-2 text-xs text-slate-500 italic">{statusMessage}</p>
           ) : (
             <InputBody inputType={turn.inputType} options={turn.options} onSubmit={handleSubmit} />
           )}

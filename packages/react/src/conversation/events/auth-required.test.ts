@@ -75,6 +75,28 @@ describe('reduceAuthRequired', () => {
     expect(turn.codeChallengeMethod).toBe('S256');
   });
 
+  it('captures linked tool call id from top-level toolCallId', () => {
+    const result = reduceAuthRequired(emptyState, {
+      ...baseAuthRequiredData,
+      toolCallId: 'tool-call-auth-1',
+    });
+    const turn = result.turns.get('auth-1');
+    if (turn?.source !== 'auth-required') return;
+    expect(turn.linkedToolCallId).toBe('tool-call-auth-1');
+  });
+
+  it('captures linked tool call id from metadata.toolCallId', () => {
+    const result = reduceAuthRequired(emptyState, {
+      ...baseAuthRequiredData,
+      metadata: {
+        toolCallId: 'tool-call-auth-2',
+      },
+    });
+    const turn = result.turns.get('auth-1');
+    if (turn?.source !== 'auth-required') return;
+    expect(turn.linkedToolCallId).toBe('tool-call-auth-2');
+  });
+
   it('preserves existing turns', () => {
     const stateWithTurn = reduceAuthRequired(emptyState, baseAuthRequiredData);
     const result = reduceAuthRequired(stateWithTurn, {

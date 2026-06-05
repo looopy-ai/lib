@@ -1,5 +1,13 @@
 import type { Conversation, ToolCall } from '../types';
 
+const isCancellationError = (error: unknown): boolean => {
+  if (typeof error !== 'string') {
+    return false;
+  }
+
+  return /\bcancel(?:led|ed)?\b/i.test(error);
+};
+
 export const reduceToolComplete = (
   state: Conversation,
   data: {
@@ -7,7 +15,8 @@ export const reduceToolComplete = (
     toolCallId: string;
     toolName: string;
     success: boolean;
-    result: Record<string, unknown>;
+    result?: unknown;
+    error?: string;
     timestamp: string;
   },
 ): Conversation => {
@@ -28,10 +37,34 @@ export const reduceToolComplete = (
       updatedEvents[existingEventIndex] = {
         ...toolCall,
         status: 'completed',
+        success: data.success,
         result: data.result,
       };
       updatedTurns.set(data.taskId, { ...turn, events: updatedEvents });
     }
+  }
+
+  const resolvedStatus = isCancellationError(data.error)
+    ? ('cancelled' as const)
+    : ('completed' as const);
+
+  const inputAndAuthTurns = Array.from(updatedTurns.entries()).filter(([, currentTurn]) => {
+    if (currentTurn.source === 'input-required') {
+      return currentTurn.linkedToolCallId === data.toolCallId && currentTurn.status === 'pending';
+    }
+
+    if (currentTurn.source === 'auth-required') {
+      return (
+        currentTurn.linkedToolCallId === data.toolCallId &&
+        (currentTurn.status === 'pending' || currentTurn.status === 'completed')
+      );
+    }
+
+    return false;
+  });
+
+  for (const [turnId, currentTurn] of inputAndAuthTurns) {
+    updatedTurns.set(turnId, { ...currentTurn, status: resolvedStatus });
   }
 
   return {

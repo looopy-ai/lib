@@ -120,5 +120,21 @@ describe('InputRequiredPrompt', () => {
       expect(screen.getByText(/response submitted/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
     });
+
+    it('shows completed message', () => {
+      render(
+        <InputRequiredPrompt turn={{ ...baseTurn, status: 'completed' }} onSubmit={vi.fn()} />,
+      );
+      expect(screen.getByText(/request completed/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+    });
+
+    it('shows cancelled message', () => {
+      render(
+        <InputRequiredPrompt turn={{ ...baseTurn, status: 'cancelled' }} onSubmit={vi.fn()} />,
+      );
+      expect(screen.getByText(/request cancelled/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+    });
   });
 });
