@@ -1,5 +1,11 @@
 # @looopy-ai/react
 
+## 1.1.1
+
+### Patch Changes
+
+- b4c8f9d: Update input-required and auth-required prompt state handling so linked prompts resolve when tool calls complete or are cancelled, and show terminal status messaging in the UI.
+
 ## 1.1.0
 
 ### Minor Changes
