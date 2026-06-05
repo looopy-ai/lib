@@ -10,6 +10,43 @@ describe('invocation body parsing', () => {
     expect(detectInvocationBodyType({ prompt: 'hello' })).toBe('prompt');
   });
 
+  it('infers resume for credentials-only payloads without an explicit type', () => {
+    expect(
+      detectInvocationBodyType({
+        credentials: [{ authId: 'auth-1', credential: 'jwe-token' }],
+      }),
+    ).toBe('resume');
+  });
+
+  it('infers resume for inputs-only payloads without an explicit type', () => {
+    expect(
+      detectInvocationBodyType({
+        inputs: [{ inputId: 'input-1', value: { answer: 42 } }],
+      }),
+    ).toBe('resume');
+  });
+
+  it('prefers explicit type over shape inference', () => {
+    expect(
+      detectInvocationBodyType({
+        type: 'resume',
+        prompt: 'hello',
+      }),
+    ).toBe('resume');
+
+    expect(
+      detectInvocationBodyType({
+        type: 'prompt',
+        credentials: [{ authId: 'auth-1', credential: 'jwe-token' }],
+      }),
+    ).toBe('prompt');
+  });
+
+  it('returns unknown for empty or unrelated payloads', () => {
+    expect(detectInvocationBodyType({})).toBe('unknown');
+    expect(detectInvocationBodyType({ metadata: { source: 'test' } })).toBe('unknown');
+  });
+
   it('parses prompt payloads and strips transport-only fields', () => {
     const parsed = parsePromptInvocationBody({
       type: 'prompt',

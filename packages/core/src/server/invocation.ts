@@ -53,5 +53,13 @@ export const detectInvocationBodyType = (body: unknown): InvocationBodyType => {
     return body.type === 'prompt' || body.type === 'resume' ? body.type : 'unknown';
   }
 
-  return 'prompt' in body ? 'prompt' : 'unknown';
+  if ('prompt' in body) {
+    return 'prompt';
+  }
+
+  if ('credentials' in body || 'inputs' in body) {
+    return 'resume';
+  }
+
+  return 'unknown';
 };
