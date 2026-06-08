@@ -1,5 +1,12 @@
 # @looopy-ai/react
 
+## 1.1.3
+
+### Patch Changes
+
+- fe413a4: feat: enhance conversation reducer to handle out-of-order prompts and tool completions
+- fe413a4: Fix out-of-order conversation reducer handling so auth-required and input-required prompts initialize as non-pending when related completion events (input-received, auth-completed, or tool-complete) arrive first.
+
 ## 1.1.2
 
 ### Patch Changes
