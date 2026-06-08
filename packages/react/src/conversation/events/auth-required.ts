@@ -16,6 +16,25 @@ const getLinkedToolCallId = (
   return undefined;
 };
 
+const getInitialAuthStatus = (
+  completedAt: string | undefined,
+  toolResolution: { status: 'completed' | 'cancelled'; timestamp: string } | undefined,
+): AuthRequiredTurn['status'] => {
+  if (!completedAt && !toolResolution) {
+    return 'pending';
+  }
+
+  if (!toolResolution) {
+    return 'completed';
+  }
+
+  if (!completedAt) {
+    return toolResolution.status;
+  }
+
+  return completedAt >= toolResolution.timestamp ? 'completed' : toolResolution.status;
+};
+
 export const reduceAuthRequired = (
   state: Conversation,
   data: {
@@ -36,6 +55,10 @@ export const reduceAuthRequired = (
   },
 ): Conversation => {
   const linkedToolCallId = getLinkedToolCallId(data.toolCallId, data.metadata);
+  const initialStatus = getInitialAuthStatus(
+    state.authCompletedAtById?.get(data.authId),
+    linkedToolCallId ? state.toolCallResolutionById?.get(linkedToolCallId) : undefined,
+  );
 
   const turn: AuthRequiredTurn = {
     source: 'auth-required',
@@ -52,7 +75,7 @@ export const reduceAuthRequired = (
     codeChallenge: data.codeChallenge,
     codeChallengeMethod: data.codeChallengeMethod,
     infoUrl: data.infoUrl,
-    status: 'pending',
+    status: initialStatus,
     timestamp: data.timestamp,
   };
 

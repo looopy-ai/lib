@@ -30,6 +30,25 @@ const getLinkedToolCallId = (
   return undefined;
 };
 
+const getInitialInputStatus = (
+  receivedAt: string | undefined,
+  toolResolution: { status: 'completed' | 'cancelled'; timestamp: string } | undefined,
+): InputRequiredTurn['status'] => {
+  if (!receivedAt && !toolResolution) {
+    return 'pending';
+  }
+
+  if (!toolResolution) {
+    return 'answered';
+  }
+
+  if (!receivedAt) {
+    return toolResolution.status;
+  }
+
+  return receivedAt >= toolResolution.timestamp ? 'answered' : toolResolution.status;
+};
+
 export const reduceInputRequired = (
   state: Conversation,
   data: {
@@ -45,6 +64,10 @@ export const reduceInputRequired = (
   },
 ): Conversation => {
   const linkedToolCallId = getLinkedToolCallId(data.toolCallId, data.metadata);
+  const initialStatus = getInitialInputStatus(
+    state.inputReceivedAtById?.get(data.inputId),
+    linkedToolCallId ? state.toolCallResolutionById?.get(linkedToolCallId) : undefined,
+  );
 
   const turn: InputRequiredTurn = {
     source: 'input-required',
@@ -56,7 +79,7 @@ export const reduceInputRequired = (
     prompt: data.prompt,
     options: data.options,
     schema: data.schema,
-    status: 'pending',
+    status: initialStatus,
     timestamp: data.timestamp,
   };
 

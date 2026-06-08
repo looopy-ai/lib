@@ -100,6 +100,25 @@ describe('reduceInputRequired', () => {
     if (turn?.source !== 'input-required') return;
     expect(turn.linkedToolCallId).toBe('tool-call-3');
   });
+
+  it('applies previously received input when input-required arrives later', () => {
+    const stateWithEarlyInputReceived = reduceInputReceived(emptyState, {
+      inputId: 'input-late-created',
+      providedBy: 'user',
+      timestamp: '2025-01-01T00:00:30.000Z',
+    });
+
+    const result = reduceInputRequired(stateWithEarlyInputReceived, {
+      inputId: 'input-late-created',
+      inputType: 'clarification',
+      prompt: 'Please clarify.',
+      timestamp: '2025-01-01T00:01:00.000Z',
+    });
+
+    const turn = result.turns.get('input-late-created');
+    if (turn?.source !== 'input-required') return;
+    expect(turn.status).toBe('answered');
+  });
 });
 
 describe('reduceInputReceived', () => {
@@ -124,7 +143,9 @@ describe('reduceInputReceived', () => {
       timestamp: '2025-01-01T00:01:00.000Z',
     });
 
-    expect(result).toBe(stateWithPendingTurn);
+    expect(result.turns).toEqual(stateWithPendingTurn.turns);
+    expect(result.turnOrder).toEqual(stateWithPendingTurn.turnOrder);
+    expect(result.inputReceivedAtById?.get('unknown-id')).toBe('2025-01-01T00:01:00.000Z');
   });
 
   it('returns unchanged state when turn is not input-required source', () => {
@@ -144,6 +165,8 @@ describe('reduceInputReceived', () => {
       timestamp: '2025-01-01T00:01:00.000Z',
     });
 
-    expect(result).toBe(stateWithAgentTurn);
+    expect(result.turns).toEqual(stateWithAgentTurn.turns);
+    expect(result.turnOrder).toEqual(stateWithAgentTurn.turnOrder);
+    expect(result.inputReceivedAtById?.get('task-1')).toBe('2025-01-01T00:01:00.000Z');
   });
 });

@@ -10,12 +10,21 @@ export const reduceInputReceived = (
 ): Conversation => {
   const updatedTurns = new Map(state.turns);
   const turn = updatedTurns.get(data.inputId);
+  const inputReceivedAtById = new Map(state.inputReceivedAtById);
+  inputReceivedAtById.set(data.inputId, data.timestamp);
 
   if (!turn || turn.source !== 'input-required') {
-    return state;
+    return {
+      ...state,
+      inputReceivedAtById,
+    };
   }
 
   updatedTurns.set(data.inputId, { ...turn, status: 'answered' });
 
-  return { ...state, turns: updatedTurns };
+  return {
+    ...state,
+    turns: updatedTurns,
+    inputReceivedAtById,
+  };
 };

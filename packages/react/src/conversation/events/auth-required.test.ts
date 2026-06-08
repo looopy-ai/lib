@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { reduceAuthCompleted } from '../../conversation/events/auth-completed';
 import { reduceAuthRequired } from '../../conversation/events/auth-required';
+import { reduceToolComplete } from '../../conversation/events/tool-complete';
 import type { AuthEncryptionKey, Conversation } from '../../conversation/types';
 
 const emptyState: Conversation = { turns: new Map(), turnOrder: [] };
@@ -106,6 +107,46 @@ describe('reduceAuthRequired', () => {
     expect(result.turnOrder).toEqual(['auth-1', 'auth-2']);
     expect(result.turns.size).toBe(2);
   });
+
+  it('applies previously completed auth when auth-required arrives later', () => {
+    const stateWithEarlyAuthCompleted = reduceAuthCompleted(emptyState, {
+      authId: 'auth-late-created',
+      userId: 'user-1',
+      timestamp: '2025-01-01T00:00:30.000Z',
+    });
+
+    const result = reduceAuthRequired(stateWithEarlyAuthCompleted, {
+      ...baseAuthRequiredData,
+      authId: 'auth-late-created',
+      timestamp: '2025-01-01T00:01:00.000Z',
+    });
+
+    const turn = result.turns.get('auth-late-created');
+    if (turn?.source !== 'auth-required') return;
+    expect(turn.status).toBe('completed');
+  });
+
+  it('applies earlier cancelled tool resolution when auth-required arrives later', () => {
+    const stateAfterCancelledTool = reduceToolComplete(emptyState, {
+      taskId: 'missing-task',
+      toolCallId: 'tool-call-auth-late',
+      toolName: 'lookup-auth',
+      success: false,
+      error: 'Cancelled: superseded by new context',
+      timestamp: '2025-01-01T00:00:30.000Z',
+    });
+
+    const result = reduceAuthRequired(stateAfterCancelledTool, {
+      ...baseAuthRequiredData,
+      authId: 'auth-late-from-tool',
+      toolCallId: 'tool-call-auth-late',
+      timestamp: '2025-01-01T00:01:00.000Z',
+    });
+
+    const turn = result.turns.get('auth-late-from-tool');
+    if (turn?.source !== 'auth-required') return;
+    expect(turn.status).toBe('cancelled');
+  });
 });
 
 describe('reduceAuthCompleted', () => {
@@ -130,7 +171,9 @@ describe('reduceAuthCompleted', () => {
       timestamp: '2025-01-01T00:01:00.000Z',
     });
 
-    expect(result).toBe(stateWithPendingTurn);
+    expect(result.turns).toEqual(stateWithPendingTurn.turns);
+    expect(result.turnOrder).toEqual(stateWithPendingTurn.turnOrder);
+    expect(result.authCompletedAtById?.get('unknown-id')).toBe('2025-01-01T00:01:00.000Z');
   });
 
   it('returns unchanged state when turn is not auth-required source', () => {
@@ -150,6 +193,8 @@ describe('reduceAuthCompleted', () => {
       timestamp: '2025-01-01T00:01:00.000Z',
     });
 
-    expect(result).toBe(stateWithAgentTurn);
+    expect(result.turns).toEqual(stateWithAgentTurn.turns);
+    expect(result.turnOrder).toEqual(stateWithAgentTurn.turnOrder);
+    expect(result.authCompletedAtById?.get('task-1')).toBe('2025-01-01T00:01:00.000Z');
   });
 });

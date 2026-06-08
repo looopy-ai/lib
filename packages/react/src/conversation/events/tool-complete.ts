@@ -21,6 +21,7 @@ export const reduceToolComplete = (
   },
 ): Conversation => {
   const updatedTurns = new Map(state.turns);
+  const toolCallResolutionById = new Map(state.toolCallResolutionById);
   const turn = updatedTurns.get(data.taskId);
 
   if (turn && turn.source === 'agent') {
@@ -46,6 +47,11 @@ export const reduceToolComplete = (
     ? ('cancelled' as const)
     : ('completed' as const);
 
+  toolCallResolutionById.set(data.toolCallId, {
+    status: resolvedStatus,
+    timestamp: data.timestamp,
+  });
+
   for (const [turnId, currentTurn] of Array.from(updatedTurns.entries())) {
     if (currentTurn.source === 'input-required') {
       if (currentTurn.linkedToolCallId === data.toolCallId && currentTurn.status === 'pending') {
@@ -67,5 +73,6 @@ export const reduceToolComplete = (
   return {
     ...state,
     turns: updatedTurns,
+    toolCallResolutionById,
   };
 };

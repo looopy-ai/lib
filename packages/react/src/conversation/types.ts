@@ -109,4 +109,7 @@ export type Turn = AgentTurn | PromptTurn | InputRequiredTurn | AuthRequiredTurn
 export type Conversation = {
   turns: Map<string, Turn>;
   turnOrder: string[];
+  inputReceivedAtById?: Map<string, string>;
+  authCompletedAtById?: Map<string, string>;
+  toolCallResolutionById?: Map<string, { status: 'completed' | 'cancelled'; timestamp: string }>;
 };
