@@ -122,6 +122,9 @@ function llmParallelToolCallResponse(
 function makeAgent(
   llmProvider: LLMProvider,
   plugins: import('../src/types/core').Plugin<unknown>[],
+  options?: {
+    maxConsecutiveToolFailures?: number;
+  },
 ) {
   return new Agent<unknown>({
     agentId: 'test-agent',
@@ -129,9 +132,84 @@ function makeAgent(
     llmProvider,
     messageStore: new InMemoryMessageStore(),
     plugins,
+    maxConsecutiveToolFailures: options?.maxConsecutiveToolFailures,
     logger: pino({ level: 'silent' }),
   });
 }
+
+describe('agent config: maxConsecutiveToolFailures', () => {
+  it('uses caller-provided maxConsecutiveToolFailures override', async () => {
+    let callNumber = 0;
+    const provider: LLMProvider = {
+      call: () => {
+        callNumber++;
+        return llmToolCallResponse(`call-${callNumber}`, 'always_fail_tool', {})();
+      },
+    };
+
+    const alwaysFailTool = tool({
+      id: 'always_fail_tool',
+      description: 'Always fails',
+      schema: z.object({}),
+      handler: async () => ({ success: false, result: null, error: 'always fails' }),
+    });
+
+    const agent = makeAgent(provider, [localTools([alwaysFailTool])], {
+      maxConsecutiveToolFailures: 1,
+    });
+
+    const events = await lastValueFrom((await agent.startTurn('trigger tool')).pipe(toArray()));
+
+    const failedToolEvents = events.filter(
+      (event) => event.kind === 'tool-complete' && event.success === false,
+    );
+    expect(failedToolEvents).toHaveLength(1);
+
+    const failedStatus = events.find(
+      (event) => event.kind === 'task-status' && event.status === 'failed',
+    );
+    expect(failedStatus).toBeDefined();
+    if (failedStatus && failedStatus.kind === 'task-status') {
+      expect(failedStatus.metadata?.reason).toBe('consecutive-tool-failures');
+      expect(failedStatus.metadata?.consecutiveToolFailures).toBe(1);
+    }
+  });
+
+  it('defaults to three consecutive tool failures when config is not set', async () => {
+    let callNumber = 0;
+    const provider: LLMProvider = {
+      call: () => {
+        callNumber++;
+        return llmToolCallResponse(`call-${callNumber}`, 'always_fail_tool', {})();
+      },
+    };
+
+    const alwaysFailTool = tool({
+      id: 'always_fail_tool',
+      description: 'Always fails',
+      schema: z.object({}),
+      handler: async () => ({ success: false, result: null, error: 'always fails' }),
+    });
+
+    const agent = makeAgent(provider, [localTools([alwaysFailTool])]);
+
+    const events = await lastValueFrom((await agent.startTurn('trigger tool')).pipe(toArray()));
+
+    const failedToolEvents = events.filter(
+      (event) => event.kind === 'tool-complete' && event.success === false,
+    );
+    expect(failedToolEvents).toHaveLength(3);
+
+    const failedStatus = events.find(
+      (event) => event.kind === 'task-status' && event.status === 'failed',
+    );
+    expect(failedStatus).toBeDefined();
+    if (failedStatus && failedStatus.kind === 'task-status') {
+      expect(failedStatus.metadata?.reason).toBe('consecutive-tool-failures');
+      expect(failedStatus.metadata?.consecutiveToolFailures).toBe(3);
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // 1. tool emitting tool-input-required stops the loop

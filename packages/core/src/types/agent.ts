@@ -72,6 +72,9 @@ export interface AgentConfig<AuthContext> {
   /** Maximum messages to keep before compaction warning */
   maxMessages?: number;
 
+  /** Maximum consecutive failed tool executions before failing the turn (default: 3) */
+  maxConsecutiveToolFailures?: number;
+
   /** Plugins */
   plugins?: Plugin<AuthContext>[];
 

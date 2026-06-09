@@ -590,6 +590,7 @@ interface AgentLoopConfig {
   taskStateStore?: TaskStateStore;             // Optional state persistence
   artifactStore?: ArtifactStore;       // Optional artifact storage
   maxIterations?: number;              // Default: 10
+  maxConsecutiveToolFailures?: number; // Default: 3
   systemPrompt?: string;               // Injected at LLM call time
   enableTracing?: boolean;             // Default: true
 }
@@ -994,8 +995,9 @@ All errors are recorded in OpenTelemetry spans with proper attributes.
 The loop terminates when:
 1. LLM finish reason is `stop` (natural completion)
 2. Max iterations reached (default: 10)
-3. Unrecoverable error occurs
-4. User cancels (unsubscribe from Observable)
+3. Consecutive tool failures reach threshold (default: 3)
+4. Unrecoverable error occurs
+5. User cancels (unsubscribe from Observable)
 
 ### Iteration Limits
 

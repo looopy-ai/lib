@@ -565,6 +565,68 @@ describe('loop', () => {
       );
     });
 
+    it('should stop when consecutive tool failures reach configured limit', async () => {
+      let callCount = 0;
+      vi.mocked(iteration.runIteration).mockImplementation(() => {
+        callCount++;
+
+        if (callCount <= 3) {
+          return of(
+            {
+              kind: 'tool-call',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              toolCallId: `call-${callCount}`,
+              toolName: 'broken_tool',
+              arguments: {},
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+            {
+              kind: 'tool-complete',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              toolCallId: `call-${callCount}`,
+              toolName: 'broken_tool',
+              success: false,
+              error: 'Tool execution failed',
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+            {
+              kind: 'content-complete',
+              contextId: 'ctx-456',
+              taskId: 'task-789',
+              content: '',
+              finishReason: 'tool_calls',
+              timestamp: new Date().toISOString(),
+            } as ContextAnyEvent,
+          );
+        }
+
+        return of({
+          kind: 'content-complete',
+          contextId: 'ctx-456',
+          taskId: 'task-789',
+          content: 'Should not reach here',
+          finishReason: 'stop',
+          timestamp: new Date().toISOString(),
+        } as ContextAnyEvent);
+      });
+
+      const limitedConfig: LoopConfig<unknown> = {
+        ...mockConfig,
+        maxConsecutiveToolFailures: 2,
+      };
+
+      const events$ = runLoop(mockContext, limitedConfig, mockMessages);
+      const events = await lastValueFrom(events$.pipe(toArray()));
+
+      expect(iteration.runIteration).toHaveBeenCalledTimes(2);
+      expect(events.at(-1)).toMatchObject({
+        kind: 'task-status',
+        status: 'failed',
+      });
+    });
+
     it('should ignore content-delta events when converting to messages', async () => {
       let callCount = 0;
       vi.mocked(iteration.runIteration).mockImplementation(() => {

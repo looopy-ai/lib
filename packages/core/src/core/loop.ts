@@ -100,6 +100,13 @@ export const runLoop = <AuthContext>(
   });
   logger.debug('Starting agent loop');
 
+  const maxConsecutiveToolFailures = Math.max(
+    1,
+    config.stopOnToolError ? 1 : (config.maxConsecutiveToolFailures ?? 3),
+  );
+  let consecutiveToolFailures = 0;
+  let stoppedByConsecutiveToolFailures = false;
+
   // Emit initial events
   const taskEvent = createTaskCreatedEvent({
     contextId: context.contextId,
@@ -136,10 +143,24 @@ export const runLoop = <AuthContext>(
       iteration: state.iteration + 1,
       messages: [...state.messages, ...eventsToMessages(events)],
     }),
-    (e) =>
-      (!isChildTaskEvent(e) && e.kind === 'content-complete' && e.finishReason !== 'tool_calls') ||
-      (!isChildTaskEvent(e) && e.kind === 'tool-input-required') ||
-      (!isChildTaskEvent(e) && e.kind === 'auth-required'),
+    (e) => {
+      if (!isChildTaskEvent(e) && e.kind === 'tool-complete') {
+        consecutiveToolFailures = e.success ? 0 : consecutiveToolFailures + 1;
+
+        if (consecutiveToolFailures >= maxConsecutiveToolFailures) {
+          stoppedByConsecutiveToolFailures = true;
+          return true;
+        }
+      }
+
+      return (
+        (!isChildTaskEvent(e) &&
+          e.kind === 'content-complete' &&
+          e.finishReason !== 'tool_calls') ||
+        (!isChildTaskEvent(e) && e.kind === 'tool-input-required') ||
+        (!isChildTaskEvent(e) && e.kind === 'auth-required')
+      );
+    },
   ).pipe(shareReplay({ bufferSize: MAX_REPLAY_BUFFER_SIZE, refCount: false }));
 
   // Build a final task-complete or task-waiting-input event
@@ -163,6 +184,20 @@ export const runLoop = <AuthContext>(
       { lastComplete: null, pendingInputs: [], pendingAuth: [] },
     ),
     mergeMap(({ lastComplete, pendingInputs, pendingAuth }) => {
+      if (stoppedByConsecutiveToolFailures) {
+        return of(
+          createTaskStatusEvent({
+            contextId: context.contextId,
+            taskId: context.taskId,
+            status: 'failed',
+            message: `Stopped after ${maxConsecutiveToolFailures} consecutive tool failures`,
+            metadata: {
+              reason: 'consecutive-tool-failures',
+              consecutiveToolFailures: maxConsecutiveToolFailures,
+            },
+          }),
+        );
+      }
       if (pendingInputs.length > 0) {
         // At least one tool is waiting for input — surface a waiting-input status
         return of(

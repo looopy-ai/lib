@@ -125,6 +125,9 @@ interface AgentConfig {
   /** Maximum messages to keep before compaction warning */
   maxMessages?: number;
 
+  /** Maximum consecutive failed tool executions before failing a turn (default: 3) */
+  maxConsecutiveToolFailures?: number;
+
   /** System prompt */
   systemPrompt?: string;
 

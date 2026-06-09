@@ -41,6 +41,7 @@ export type LoopConfig<AuthContext> = {
   filterPlugins: FilterPlugins<AuthContext> | undefined;
   llmProvider: LLMProvider;
   maxIterations: number;
+  maxConsecutiveToolFailures?: number;
   stopOnToolError: boolean;
 };
 

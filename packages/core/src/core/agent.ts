@@ -51,6 +51,8 @@ import { getLogger } from './logger';
 import { runLoop } from './loop';
 import { runToolCall } from './tools';
 
+const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 3;
+
 /**
  * Options for getting messages
  */
@@ -967,6 +969,8 @@ export class Agent<AuthContext> {
             filterPlugins: this.config.filterPlugins,
             llmProvider: this.config.llmProvider,
             maxIterations: 5,
+            maxConsecutiveToolFailures:
+              this.config.maxConsecutiveToolFailures ?? DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES,
             stopOnToolError: false,
           },
           messages,
