@@ -1,5 +1,11 @@
 # @looopy-ai/core
 
+## 3.1.3
+
+### Patch Changes
+
+- 2c33ab7: Stop loop execution after a configurable number of consecutive tool failures to prevent infinite retry cycles when tools keep failing, and expose this as `AgentConfig.maxConsecutiveToolFailures` with a default of `3`.
+
 ## 3.1.2
 
 ### Patch Changes
